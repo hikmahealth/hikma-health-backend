@@ -15,6 +15,7 @@ if ENV in ('dev_local', 'dev_docker', 'stg'):
     FLASK_DEBUG = True
     PHOTOS_STORAGE_BUCKET = 'dev-api-photos'
     LOCAL_PHOTO_STORAGE_DIR = '/tmp/hikma_photos'
+    STORAGE_BACKEND = 'local'
 
 if ENV == 'prod':
     FLASK_DEBUG = False
@@ -24,3 +25,4 @@ if ENV == 'prod':
     PG_DB = os.environ['DB_NAME']
     PHOTOS_STORAGE_BUCKET = os.environ['PHOTOS_STORAGE_BUCKET']
     LOCAL_PHOTO_STORAGE_DIR = '/tmp/hikma_photos'
+    STORAGE_BACKEND = 'gcs'
