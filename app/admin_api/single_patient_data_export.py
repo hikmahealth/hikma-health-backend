@@ -3,6 +3,7 @@ from visits.data_access import patient_visits
 from openpyxl import load_workbook
 from events.data_access import events_by_visit
 from patients.data_access import patient_from_id
+from events.event_export import write_vitals_event, write_medical_hx_event, write_evaluation_event
 from datetime import datetime, timedelta
 from tempfile import NamedTemporaryFile
 import json
@@ -58,16 +59,16 @@ class SinglePatientDataExporter:
                     self.write_text_event(
                         row, 'dispensed_medicine_1', event.event_metadata)
                 elif event.event_type == 'Medical History':
-                    self.write_text_event(
-                        row, 'medical_hx', event.event_metadata)
+                    write_medical_hx_event(
+                        row, event.event_metadata)
                 elif event.event_type == 'Complaint':
                     self.write_text_event(
                         row, 'presenting_complaint', event.event_metadata)
                 elif event.event_type == 'Vitals':
-                    self.write_vitals_event(row, event)
-                elif event.event_type == 'Examination':
-                    self.write_text_event(
-                        row, 'examination', event.event_metadata)
+                    write_vitals_event(row, event)
+                elif event.event_type == 'Evaluation':
+                    write_evaluation_event(
+                        row, event.event_metadata)
                 elif event.event_type == 'Diagnosis':
                     self.write_text_event(
                         row, 'diagnosis', event.event_metadata)
@@ -85,16 +86,6 @@ class SinglePatientDataExporter:
 
     def write_text_event(self, row, key, text):
         setattr(row, key, text)
-
-    def write_vitals_event(self, row: PatientDataRow, event):
-        data = json.loads(event.event_metadata)
-        row.heart_rate = data.get('heartRate')
-        if data.get('systolic') and data.get('diastolic'):
-            row.blood_pressure = f"{data.get('systolic')}/{data.get('diastolic')}"
-        row.o2_sats = data.get('sats')
-        row.temperature = data.get('temp')
-        row.respiratory_rate = data.get('respiratoryRate')
-        row.blood_glucose = data.get('bloodGlucose')
 
     def age_string_from_dob(self, dob):
         if dob is None:

@@ -22,13 +22,16 @@ import pandas as pd
 import dateutil
 
 COLUMNS = ['camp', 'visit_date', 'ema_number', 'first_name', 'surname', 'age', 'gender', 'home_country', 'allergies',
-           'medical_hx', 'chronic_condition', 'current_medication_1', 'current_medication_2', 'current_medication_3',
-           'current_medication_4', 'current_medication_5', 'current_medication_6', 'presenting_complaint', 'heart_rate',
-           'blood_pressure', 'o2_sats', 'respiratory_rate', 'temperature', 'blood_glucose', 'examination', 'diagnosis',
-           'treatment', 'dispensed_medicine_1', 'dispensed_medicine_quantity_1', 'dispensed_medicine_2',
-           'dispensed_medicine_quantity_2', 'dispensed_medicine_3', 'dispensed_medicine_quantity_3',
-           'dispensed_medicine_4', 'dispensed_medicine_quantity_4', 'prescription', 'follow_up', 'referral', 'seen_by',
-           'fee', 'notes']
+            'medical_hx', 'chronic_condition', 'current_medication_1', 'presenting_complaint', 'glycemia', 'weight',
+            'ideal_weight', 'blood_pressure', 'pulse', 'respiration' 'o2_sats', 'height', 'temperature', 'blood_type', 
+            'dispensed_medicine_1', 'dispensed_medicine_quantity_1', 'prescription',
+            'follow_up', 'referral', 'seen_by', 'fee', 'notes',
+            #medical_hx
+            'malnutrition', 'prenatal', 'sexual_hx', 'nutrition', 'parasite_treatment', 'family_hx', 'surgery_hx', 'vaccinations',
+            #evaluation 
+            'doctor', 'reason', 'observations', 'medications', 'breast_exam', 'diagnosis', 'treatment', 'community_visit',
+            'community_visit_date', 'promoter_visit', 'promoter_visit_date', 'refusal', 'refusal_date', 'next_visit_date', 'next_visit_reason',
+            ]
 
 @dataclass
 class PatientDataRow:
@@ -44,35 +47,50 @@ class PatientDataRow:
     medical_hx: str = None
     chronic_condition: str = None
     current_medication_1: str = None
-    current_medication_2: str = None
-    current_medication_3: str = None
-    current_medication_4: str = None
-    current_medication_5: str = None
-    current_medication_6: str = None
     presenting_complaint: str = None
-    heart_rate: float = None
+    glycemia: float = None
+    weight: float = None
+    ideal_weight: float = None
     blood_pressure: str = None
+    pulse: float = None
+    respiration: float = None
     o2_sats: float = None
-    respiratory_rate: float = None
+    height: float = None
     temperature: float = None
-    blood_glucose: float = None
-    examination: str = None
-    diagnosis: str = None
-    treatment: str = None
+    blood_type: str = None
     dispensed_medicine_1: str = None
     dispensed_medicine_quantity_1: str = None
-    dispensed_medicine_2: str = None
-    dispensed_medicine_quantity_2: str = None
-    dispensed_medicine_3: str = None
-    dispensed_medicine_quantity_3: str = None
-    dispensed_medicine_4: str = None
-    dispensed_medicine_quantity_4: str = None
     prescription: str = None
     follow_up: str = None
     referral: str = None
     seen_by: str = None
     fee: str = None
     notes: str = None
+    #medical_hx
+    malnutrition: str = None
+    prenatal: str = None
+    sexual_hx: str = None
+    nutrition: str = None
+    parasite_treatment: str = None
+    family_hx: str = None
+    surgery_hx: str = None
+    vaccinations: str = None
+    #evaluation
+    doctor: str = None
+    reason: str = None
+    observations: str = None
+    medications: str = None
+    breast_exam: str = None
+    diagnosis: str = None
+    treatment: str = None
+    community_visit: str = None
+    community_visit_date: str = None
+    promoter_visit: str = None
+    promoter_visit_date: str = None
+    refusal: str = None
+    refusal_date: str = None
+    next_visit_date: str = None
+    next_visit_reason: str = None
 
 
 
