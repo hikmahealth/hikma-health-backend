@@ -48,7 +48,7 @@ def camp_by_patient(patient_id: str):
     SELECT id, visit_id, event_type, event_timestamp, event_metadata, edited_at FROM events
     WHERE patient_id = %s AND event_type = 'Camp'
     ORDER BY event_timestamp
-    LIMIT 1
+    DESC LIMIT 1
     """
     with get_connection() as conn:
         with conn.cursor() as cur:
