@@ -4,15 +4,15 @@ steps:
   args:
   - kms
   - decrypt
-  - --ciphertext-file=hikma-health-098c787f1bcd.json.enc
-  - --plaintext-file=hikma-health-098c787f1bcd.json
+  - --ciphertext-file=hikmahealthappkubernetes-dce6920c6f10.json.enc
+  - --plaintext-file=hikmahealthappkubernetes-dce6920c6f10.json
   - --location=global
   - --keyring=hikma-demo-keyring
   - --key=hikma-demo-key
 - name: 'gcr.io/cloud-builders/docker'
   args: [ 'build', '-t', 'gcr.io/$PROJECT_ID/hikma-health-backend:$COMMIT_SHA',
           '--build-arg', 'app_env_arg=prod',
-          '--build-arg', 'credential_file_arg=hikma-health-098c787f1bcd.json',
+          '--build-arg', 'credential_file_arg=hikmahealthappkubernetes-dce6920c6f10.json',
           '--build-arg', 'db_instance_arg=${_DB_INSTANCE}',
           '--build-arg', 'commit_sha_arg=$COMMIT_SHA',
           '--build-arg', 'db_password_arg=${_DB_PASSWORD}',
@@ -22,10 +22,6 @@ steps:
           '--build-arg', 'exports_storage_bucket_arg=${_EXPORTS_STORAGE_BUCKET}',
           '.' ]
   dir: app
-- name: 'gcr.io/cloud-builders/kubectl'
-  env: ['CLOUDSDK_COMPUTE_ZONE=us-east1-b', 'CLOUDSDK_CONTAINER_CLUSTER=demo-cluster']
-  args: ['set', 'image', 'deployment/hikma-health-backend',
-          'hikma-health-backend=gcr.io/$PROJECT_ID/hikma-health-backend:$COMMIT_SHA']
 images:
 - 'gcr.io/$PROJECT_ID/hikma-health-backend:$COMMIT_SHA'
 substitutions:
