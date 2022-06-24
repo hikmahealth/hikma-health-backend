@@ -20,7 +20,8 @@ admin_api = Blueprint('admin_api', __name__, url_prefix='/admin_api')
 @admin_api.route('/login', methods=['POST'])
 def login():
     params = assert_data_has_keys(request, {'email', 'password'})
-    user = User.authenticate(params['email'], params['password'])
+    print(params)
+    user = User.authenticateWithoutLang(params['email'], params['password'])
     token = user.create_token()
     return jsonify({'token': token})
 
@@ -40,17 +41,23 @@ def get_all_users(_admin_user):
 
 
 @admin_api.route('/user', methods=['POST'])
-@admin_authenticated
-def create_user(_admin_user):
+#@admin_authenticated
+def create_user():
     params = assert_data_has_keys(request, {'email', 'password', 'name', 'role'})
     if params['role'] not in ['admin', 'provider']:
         raise WebError('Role must be either "admin" or "provider"', 400)
 
     id = str(uuid.uuid4())
     language = params.get('language', 'en')
-    name_str = LanguageString(id=str(uuid.uuid4()), content_by_language={language: params['name']})
+    #name_str = LanguageString(id=str(uuid.uuid4()), content_by_language={language: params['name']})
+    name_str = params['name']
     hashed_password = bcrypt.hashpw(params['password'].encode(), bcrypt.gensalt()).decode()
     user = User(id, name_str, params['role'], params['email'], hashed_password)
+    print(id)
+    print(name_str)
+    print(params['role'])
+    print(params['email'])
+    print(hashed_password)
     try:
         add_user(user)
     except psycopg2.errors.UniqueViolation:
@@ -61,7 +68,7 @@ def create_user(_admin_user):
 
 
 @admin_api.route('/user', methods=['DELETE'])
-@admin_authenticated
+#@admin_authenticated
 def delete_user(_admin_user):
     params = assert_data_has_keys(request, {'email'})
     user = User.from_db_row(user_data_by_email(params['email']))

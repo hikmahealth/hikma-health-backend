@@ -5,15 +5,17 @@ FLASK_DEBUG_PORT = 5000
 
 if ENV in ('dev_local', 'dev_docker', 'stg'):
     if ENV in ('dev_local', 'stg'):
-        PG_HOST = 'localhost'
+        PG_HOST = '34.138.174.216'
     elif ENV == 'dev_docker':
         PG_HOST = 'db'
 
     PG_USER = 'hikma_dev'
     # PG_PASSWORD = 'password'
-    PG_PASSWORD = '29ewKEHEozym7EgC'
-    PG_DB = ' hikma-db'
-    FLASK_DEBUG = True
+    PG_PASSWORD = 'ukCVF/Rvyd/x$y4A'
+    PG_DB = 'hikma_dev'
+    db_socket_dir = os.environ.get("DB_SOCKET_DIR", "/cloudsql")
+    instance_connection_name = 'erad-baad7:us-east1:hikma-db'
+    FLASK_DEBUG = False
     PHOTOS_STORAGE_BUCKET = 'dev-api-photos'
     EXPORTS_STORAGE_BUCKET = 'hikma-api-exports'
     LOCAL_PHOTO_STORAGE_DIR = '/tmp/hikma_photos'

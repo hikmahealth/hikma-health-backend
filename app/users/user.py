@@ -20,7 +20,26 @@ class User:
             raise WebError("password incorrect", status_code=401)
         else:
             return user
+        
+    @classmethod
+    def authenticateWithoutLang(cls, email, password):
+        print(email)
+        user = db.user_password_by_email(email)
+        print("******************")
+        print(user[0])
+        print("******************")
+        encodePassword= password.encode('utf8');
+        print(encodePassword)
+        if not bcrypt.checkpw(encodePassword, user[0]):
+            raise WebError("password incorrect", status_code=401)
+        else:
+            return user
+     
+    def getTheUser():
+        user = db.all_users()
+        return user
 
+ 
     @classmethod
     def from_id(cls, user_id):
         return cls.from_db_row(db.user_data_by_id(user_id))

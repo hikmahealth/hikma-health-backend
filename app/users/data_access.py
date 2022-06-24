@@ -27,7 +27,16 @@ def user_data_by_id(user_id):
             if not row:
                 raise WebError("id not found", status_code=404)
             return row
-
+        
+def user_password_by_email(email):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute('SELECT hashed_password FROM users WHERE email = %s',
+                        [email])
+            row = cur.fetchone()
+            if not row:
+                raise WebError("email not found", status_code=404)
+            return row
 def user_name_by_id(user_id):
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -38,6 +47,14 @@ def user_name_by_id(user_id):
                 return None
             return LanguageString.from_id(row)
 
+def all_users():
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute('SELECT * FROM users')
+            row = cur.fetchone()
+            if not row:
+                return None
+            return LanguageString.from_id(row)
 
 def update_password(user_id, new_password):
     with get_connection() as conn:
@@ -48,13 +65,13 @@ def update_password(user_id, new_password):
 
 
 def add_user(user):
-    update_language_string(user.name)
+    #update_language_string(user.name)
     with get_connection() as conn:
         with conn.cursor() as cur:
             query = '''
             INSERT INTO users (id, name, role, email, hashed_password, edited_at) VALUES (%s, %s, %s, %s, %s, %s);
             '''
-            cur.execute(query, [user.id, user.name.id, user.role, user.email, user.hashed_password, datetime.now()])
+            cur.execute(query, [user.id, user.name, user.role, user.email, user.hashed_password, datetime.now()])
 
 
 def create_token(user_id):
