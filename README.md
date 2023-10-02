@@ -18,7 +18,7 @@ For more comprehensive documentation visit: https://docs.hikmahealth.org/
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
 
 
-[![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/hikmahealth/hikma-health-backend/tree/main)
+[![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/hikmahealth/hikma-health-backend/tree/master)
 
 
 ## Get started locally
@@ -109,6 +109,7 @@ Features on the roadmap represent the vision for the admin portal over the comin
 - [ ]  Remove all transition code from previous deployment (next version)
 - [ ]  Add documentation for fully hosted solutions like supabase
 - [ ]  Improve test coverage
+- [ ]  Add docs to deploy button customization
 
 ## License
 
