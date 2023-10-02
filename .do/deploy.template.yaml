@@ -1,0 +1,33 @@
+spec:
+  name: hikma-health-admin
+  services:
+    - name: hh-admin
+      git:
+        branch: main
+        repo_clone_url: https://github.com/hikmahealth/hikma-health-backend
+      envs:
+        - key: DB_HOST
+          value: "HOST_NAME"
+          type: SECRET
+        - key: DB_NAME
+          value: "VALUE_HERE"
+          type: SECRET
+        - key: DB_PASSWORD
+          value: "VALUE_HERE"
+          type: SECRET
+        - key: DB_USER
+          value: "VALUE_HERE"
+          type: SECRET
+        - key: DEFAULT_PROVIDER_ID
+          value: "VALUE_HERE"
+          type: SECRET
+        - key: EXPORTS_STORAGE_BUCKET
+          value: "VALUE_HERE"
+          type: SECRET
+        - key: PHOTOS_STORAGE_BUCKET
+          value: "VALUE_HERE"
+          type: SECRET
+        - key: PYTHON_VERSION
+          value: "3.10.6"
+
+# Add databases here if you wish
