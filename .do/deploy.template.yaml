@@ -3,7 +3,7 @@ spec:
   services:
     - name: hh-admin
       git:
-        branch: main
+        branch: master
         repo_clone_url: https://github.com/hikmahealth/hikma-health-backend
       envs:
         - key: DB_HOST
