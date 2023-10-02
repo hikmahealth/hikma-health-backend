@@ -1,0 +1,13 @@
+name: hikma-health-backend
+
+services:
+- name: hikma-health-backend
+  github:
+    repo:
+    branch: master
+    deploy_on_push: false
+  source_dir: app
+
+
+
+# Could add database information here as well
