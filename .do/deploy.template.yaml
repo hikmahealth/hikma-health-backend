@@ -5,6 +5,7 @@ spec:
     git:
       branch: master
       repo_clone_url: https://github.com/hikmahealth/hikma-health-backend.git
+    source_dir: app
     envs:
     - key: DB_HOST
       value: "HOST_NAME"
