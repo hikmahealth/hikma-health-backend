@@ -1,7 +1,7 @@
 spec:
   name: hikma-health-backend
   services:
-  - name: hh-api
+  - name: hikma-health-backend
     git:
       branch: master
       repo_clone_url: https://github.com/hikmahealth/hikma-health-backend.git
