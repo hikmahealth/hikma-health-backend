@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: 'hikma-health-backend'
+    runtime: python
+    rootDir: app
+    buildCommand: pip install -r requirements.txt
+
+    startCommand: ./run.sh
+
+    envVars:
+     - key: DB_HOST
+       value: "HOST_NAME"
+     - key: DB_NAME
+       value: "VALUE_HERE"
+     - key: DB_PASSWORD
+       value: "VALUE_HERE"
+     - key: DB_USER
+       value: "VALUE_HERE"
+     - key: DEFAULT_PROVIDER_ID
+       value: "VALUE_HERE"
+     - key: EXPORTS_STORAGE_BUCKET
+       value: "VALUE_HERE"
+     - key: PHOTOS_STORAGE_BUCKET
+       value: "VALUE_HERE"
+     - key: PYTHON_VERSION
+       value: "3.10.6"
+
+
+# Define any additional services or database configurations if needed
