@@ -2,11 +2,13 @@ name: hikma-health-backend
 
 services:
 - name: hikma-health-backend
+  build_command: pip install -r /app/requirements.txt
+  run_command: ./app/run.sh
   github:
-    repo:
+    repo: hikmahealth/hikma-health-backend
     branch: master
     deploy_on_push: false
-  source_dir: app
+  source_dir: /app
 
 
 
