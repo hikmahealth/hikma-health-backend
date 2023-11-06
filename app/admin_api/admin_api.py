@@ -11,6 +11,7 @@ from language_strings.language_string import LanguageString
 from admin_api.patient_data_export import most_recent_export
 from admin_api.single_patient_data_export import single_patient_export
 
+import urllib.parse
 import uuid
 import bcrypt
 import psycopg2.errors
@@ -210,6 +211,37 @@ def get_event_forms(_admin_user):
     return jsonify({'event_forms': event_forms})
 
 
+
+@admin_api.route('/get_event_form', methods=['GET'])
+@admin_authenticated
+def get_event_form(_admin_user):
+    # params = assert_data_has_keys(request, {'id'})
+    event_form_id = request.args.get('id')
+    event_forms = [];
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            try:
+                cur.execute(f"SELECT id, name, description, metadata, language, is_editable, is_snapshot_form, created_at, updated_at FROM event_forms WHERE is_deleted=FALSE AND id='{event_form_id}'")
+                for frm in cur.fetchall():
+                    event_forms.append({
+                        "id": frm[0],
+                        "name": frm[1],
+                        "description": frm[2],
+                        "metadata": frm[3],
+                        "language": frm[4],
+                        "is_editable": frm[5],
+                        "is_snapshot_form": frm[6],
+                        "createdAt": frm[7],
+                        "updatedAt": frm[8]
+                    })
+            except Exception as e:
+                conn.rollback()
+                print("Error while getting event form: ", e)
+                raise e
+
+    return jsonify({'event_form': event_forms[0]})
+
+
 @admin_api.route("/update_event_form", methods=["POST"])
 @admin_authenticated
 def update_event_form(admin_user):
@@ -249,3 +281,73 @@ def delete_event_form(_admin_user):
                 raise e
 
     return jsonify({'message': 'OK'})
+
+
+
+@admin_api.route('/update_patient_registration_form', methods=['POST'])
+@admin_authenticated
+def update_patient_registration_form(_admin_user):
+    params = assert_data_has_keys(request, {"form"})
+    form = params["form"]
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            try:
+                dt = datetime.now()
+
+                # upsert the form using the id field
+                # "form" has the the following fields:
+                # id: string
+                # fields: json
+                # metadata: json
+                query = f"""
+                    INSERT INTO patient_registration_forms(id, name, fields, metadata, is_deleted, created_at, updated_at) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s) 
+                    ON CONFLICT (id) 
+                    DO UPDATE SET
+                        name = EXCLUDED.name,
+                        fields = EXCLUDED.fields,
+                        metadata = EXCLUDED.metadata,
+                        is_deleted = EXCLUDED.is_deleted,
+                        updated_at = EXCLUDED.updated_at,
+                        last_modified = NOW();
+                """
+                cur.execute(query, (
+                     form["id"],
+                     form["name"],
+                     form["fields"],
+                     form["metadata"],
+                     False,
+                     form['createdAt'], 
+                     form['updatedAt']
+                 ))
+            except Exception as e:
+                conn.rollback()
+                print("Error while updating the patient registration form: ", e)
+                raise e
+
+    return jsonify({ 'message': 'OK' })
+
+
+@admin_api.route('/get_patient_registration_forms', methods=['GET'])
+@admin_authenticated
+def get_patient_registration_forms(_admin_user):
+    forms = []
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            try:
+                res = cur.execute("SELECT id, name, fields, metadata, is_deleted, created_at, updated_at FROM patient_registration_forms WHERE is_deleted = false")
+                for frm in cur.fetchall():
+                    forms.append({
+                         "id": frm[0],
+                         "name": urllib.parse.unquote(frm[1]),
+                         "fields": frm[2],
+                         "metadata": frm[3],
+                         "isDeleted": frm[4],
+                         "createdAt": frm[5],
+                         "updatedAt": frm[6]
+                     })
+            except Exception as e:
+                print("Error while updating the patient registration form: ", e)
+                raise e
+
+    return jsonify({ 'forms': forms})

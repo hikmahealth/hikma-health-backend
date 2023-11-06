@@ -36,6 +36,12 @@ def getNthTimeSyncData(timestamp):
     event_forms_updated = []
     event_forms_deleted = []
 
+
+    patient_registration_forms_new = []
+    patient_registration_forms_updated = []
+    patient_registration_forms_deleted = []
+    
+
     is_not_deleted_str = " AND is_deleted = false"
     is_deleted_str = " AND is_deleted = true"
 
@@ -266,6 +272,44 @@ def getNthTimeSyncData(timestamp):
                 row[0] for row in event_forms_deleted
             ]
 
+        ##################################
+        ### PATIENT REGISTRATION FORMS ###
+        ##################################
+        # updated registration forms
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT * FROM patient_registration_forms  WHERE last_modified > %s AND server_created_at < %s"
+                + is_not_deleted_str,
+                (timestamp, timestamp),
+            )
+
+            patient_registration_forms_updated = cur.fetchall()
+            patient_registration_forms_updated = [
+                dict(zip([column[0] for column in cur.description], row))
+                for row in patient_registration_forms_updated
+            ]
+
+        # New registration forms
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT * FROM patient_registration_forms WHERE server_created_at > %s AND last_modified > %s"
+                + is_not_deleted_str,
+                (timestamp, timestamp),
+            )
+            # cur.execute(
+            #     "SELECT * FROM event_forms WHERE server_created_at > %s", (timestamp,),
+            # )
+            patient_registration_forms_new = cur.fetchall()
+            patient_registration_forms_new = [
+                dict(zip([column[0] for column in cur.description], row))
+                for row in patient_registration_forms_new
+            ]
+
+
+        # Could support deleted registration forms ... but this needs more thought around how they are managed on the mobile devixe
+        # Additionally, each app MUST have a registration form
+        
+
     return (
         (events_new, events_updated, events_deleted),
         (patients_new, patients_updated, patients_deleted),
@@ -274,6 +318,7 @@ def getNthTimeSyncData(timestamp):
         (string_ids_new, string_ids_updated, string_ids_deleted),
         (string_content_new, string_content_updated, string_content_deleted),
         (event_forms_new, event_forms_updated, event_forms_deleted),
+        (patient_registration_forms_new, patient_registration_forms_updated, patient_registration_forms_deleted)
     )
 
 
@@ -283,6 +328,7 @@ def apply_edge_changes(data, lastPulledAt):
     patients = data["patients"]
     events = data["events"]
     visits = data["visits"]
+    # Function ignores the patient_registration_forms because they are server made only
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -321,6 +367,7 @@ def formatGETSyncResponse(syncData):
         string_ids,
         string_content,
         event_forms,
+        patient_registration_forms
     ) = syncData
     return jsonify(
         {
@@ -359,6 +406,11 @@ def formatGETSyncResponse(syncData):
                     "created": event_forms[0],
                     "updated": event_forms[1],
                     "deleted": event_forms[2],
+                },
+                "registration_forms": {
+                    "created": patient_registration_forms[0],
+                    "updated": patient_registration_forms[1],
+                    "deleted": patient_registration_forms[2],
                 },
             },
             "timestamp": get_timestamp_now(),
