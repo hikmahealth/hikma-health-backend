@@ -3,7 +3,7 @@ spec:
   services:
   - name: hikma-health-backend
     build_command: pip install -r /app/requirements.txt
-    run_command: ./app/run.sh
+    run_command: /app/run.sh
     environment_slug: python
     git:
       branch: master

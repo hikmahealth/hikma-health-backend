@@ -104,6 +104,14 @@ This variable holds a link to the backend (server) which connects to the databas
 - **Gunicorn (v20.1.0):** https://gunicorn.org/
 - **PyScopePG2 (v2.9.5):** https://pypi.org/project/psycopg2/
 
+
+## Extras
+To create a migration (after activating your virtual environment):
+
+```bash
+alembic revision -m "[Insert your change sentence summary here]"
+```
+
 ## Roadmap
 Features on the roadmap represent the vision for the admin portal over the coming versions, but none are guaranteed. If there is a feature you would love to see supported, open a feature-request / issue with more details and we can prioritize features with the most requests.
 
