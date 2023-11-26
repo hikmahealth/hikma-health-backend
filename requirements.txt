@@ -1,4 +1,4 @@
-alembic==1.8.1
+alembic==1.9.0
 bcrypt==3.1.7
 blinker==1.7.0
 cachetools==4.0.0
