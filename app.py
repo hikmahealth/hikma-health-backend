@@ -8,14 +8,37 @@ from admin_api.admin_api import admin_api
 from web_errors import WebError
 from config import FLASK_DEBUG, FLASK_DEBUG_PORT
 import startup_tasks
+from flask_migrate import Migrate
+from flask_sqlalchemy import SQLAlchemy
 
 
 app = Flask(__name__)
 CORS(app)
+
+# WEBSITE_HOSTNAME exists only in production environment
+if 'WEBSITE_HOSTNAME' not in os.environ:
+    # local development, where we'll use environment variables
+    print("Loading config.development and environment variables from .env file.")
+    app.config.from_object('azureproject.development')
+else:
+    # production
+    print("Loading config.production.")
+    app.config.from_object('azureproject.production')
+
+app.config.update(
+    SQLALCHEMY_DATABASE_URI=app.config.get('DATABASE_URI'),
+    SQLALCHEMY_TRACK_MODIFICATIONS=False,
+)
+
+# Initialize the database connection
+db = SQLAlchemy(app)
+
+# Enable Flask-Migrate commands "flask db init/migrate/upgrade" to work
+migrate = Migrate(app, db)
+
 app.url_map.strict_slashes = False
 app.register_blueprint(mobile_api)
 app.register_blueprint(user_api)
-# app.register_blueprint(photos_api)
 app.register_blueprint(admin_api)
 
 
@@ -53,4 +76,4 @@ def internal_server_error(_err):
 
 
 if __name__ == "__main__":
-    app.run(debug=FLASK_DEBUG, host="0.0.0.0", port=str(FLASK_DEBUG_PORT))
+    app.run()
