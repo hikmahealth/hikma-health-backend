@@ -14,7 +14,6 @@ from flask_sqlalchemy import SQLAlchemy
 
 
 app = Flask(__name__)
-CORS(app)
 
 # WEBSITE_HOSTNAME exists only in production environment
 if 'WEBSITE_HOSTNAME' not in os.environ:
