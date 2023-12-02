@@ -17,7 +17,7 @@ import bcrypt
 import psycopg2.errors
 
 
-admin_api = Blueprint('admin_api', __name__, url_prefix='/admin_api')
+admin_api = Blueprint('admin_api', __name__, url_prefix='/api/admin')
 
 
 @admin_api.route('/login', methods=['POST'])
