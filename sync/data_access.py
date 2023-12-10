@@ -4,6 +4,8 @@ from db_util import get_connection
 def get_ids_and_edit_timestamps(table_name):
     with get_connection() as conn:
         with conn.cursor() as cur:
+            data = cur.execute(f'SELECT * FROM string_content')
+            print("DB columns: " + data.description)
             cur.execute(f'SELECT id, edited_at FROM {table_name}')
             return {k.replace('-', ''): ts for k, ts in cur}
 
