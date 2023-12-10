@@ -25,7 +25,7 @@ def get_table_rows(object_type, ids):
 def get_string_ids_and_edit_timestamps():
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, language, edited_at FROM string_content)")
+            cur.execute("SELECT id, language, updated_at FROM string_content)")
             return {(id, lang): ts for id, lang, ts in cur}
 
 
