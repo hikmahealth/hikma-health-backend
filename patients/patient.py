@@ -15,7 +15,7 @@ class Patient(ClientObject):
     country: LanguageString
     hometown: LanguageString
     phone: str
-    # edited_at: datetime
+    updated_at: datetime
     created_at: datetime
     updated_at: datetime
 
@@ -28,7 +28,7 @@ class Patient(ClientObject):
                 self.format_string(self.country),
                 self.format_string(self.hometown),
                 self.phone,
-                self.format_ts(self.edited_at)]
+                self.format_ts(self.updated_at)]
 
     @classmethod
     def client_insert_sql(cls):
@@ -42,7 +42,7 @@ class Patient(ClientObject):
                 self.format_string(self.country),
                 self.format_string(self.hometown),
                 self.phone,
-                self.format_ts(self.edited_at),
+                self.format_ts(self.updated_at),
                 self.id]
 
     @classmethod
@@ -59,11 +59,11 @@ class Patient(ClientObject):
                 self.format_string(self.country),
                 self.format_string(self.hometown),
                 self.phone,
-                self.edited_at]
+                self.updated_at]
 
     @classmethod
     def server_insert_sql(cls):
-        return """INSERT INTO patients (id, given_name, surname, date_of_birth, sex, country, hometown, phone, edited_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+        return """INSERT INTO patients (id, given_name, surname, date_of_birth, sex, country, hometown, phone, updated_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
 
     def server_update_values(self):
         return [self.format_string(self.given_name),
@@ -73,12 +73,12 @@ class Patient(ClientObject):
                 self.format_string(self.country),
                 self.format_string(self.hometown),
                 self.phone,
-                self.edited_at,
+                self.updated_at,
                 self.id]
 
     @classmethod
     def server_update_sql(cls):
-        return """UPDATE patients SET given_name = %s, surname = %s, date_of_birth = %s, sex = %s, country = %s, hometown = %s, phone = %s, edited_at = %s WHERE id = %s"""
+        return """UPDATE patients SET given_name = %s, surname = %s, date_of_birth = %s, sex = %s, country = %s, hometown = %s, phone = %s, updated_at = %s WHERE id = %s"""
 
 
     @classmethod

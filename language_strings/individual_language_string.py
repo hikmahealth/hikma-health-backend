@@ -9,11 +9,11 @@ class IndividualLanguageString(ClientObject):
     id: str
     language: str
     content: str
-    edited_at: datetime
+    updated_at: datetime
 
     def client_insert_values(self):
         return [[self.id],
-                [self.id, self.language, self.content, self.format_ts(self.edited_at)]]
+                [self.id, self.language, self.content, self.format_ts(self.updated_at)]]
 
     @classmethod
     def client_insert_sql(cls):
@@ -22,7 +22,7 @@ class IndividualLanguageString(ClientObject):
 
     def client_update_values(self):
         return [[self.id],
-                [self.id, self.language, self.content, self.format_ts(self.edited_at)]]
+                [self.id, self.language, self.content, self.format_ts(self.updated_at)]]
 
     @classmethod
     def client_update_sql(cls):
@@ -31,22 +31,22 @@ class IndividualLanguageString(ClientObject):
 
     def server_insert_values(self):
         return [[self.id],
-                [self.id, self.language, self.content, self.edited_at]]
+                [self.id, self.language, self.content, self.updated_at]]
 
     @classmethod
     def server_insert_sql(cls):
         return ["INSERT INTO string_ids (id) VALUES (%s) ON CONFLICT (id) DO NOTHING;",
-                "INSERT INTO string_content (id, language, content, edited_at) VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING"]
+                "INSERT INTO string_content (id, language, content, updated_at) VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING"]
 
     def server_update_values(self):
         return [
             [self.id],
-            [self.id, self.language, self.content, self.edited_at, self.content, self.edited_at]]
+            [self.id, self.language, self.content, self.updated_at, self.content, self.updated_at]]
 
     @classmethod
     def server_update_sql(cls):
         return ["INSERT INTO string_ids (id) VALUES (%s) ON CONFLICT (id) DO NOTHING;",
-                "INSERT INTO string_content (id, language, content, edited_at) VALUES (%s, %s, %s, %s) ON CONFLICT(id, language) DO UPDATE SET content = %s, edited_at = %s"]
+                "INSERT INTO string_content (id, language, content, updated_at) VALUES (%s, %s, %s, %s) ON CONFLICT(id, language) DO UPDATE SET content = %s, updated_at = %s"]
 
     @classmethod
     def db_columns_from_server(cls):

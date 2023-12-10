@@ -12,7 +12,7 @@ class Event(ClientObject):
     event_type: str
     event_timestamp: datetime
     event_metadata: str
-    edited_at: datetime
+    updated_at: datetime
 
     def client_insert_values(self):
         return [self.id,
@@ -21,7 +21,7 @@ class Event(ClientObject):
                 self.event_type,
                 self.format_ts(self.event_timestamp),
                 self.event_metadata,
-                self.format_ts(self.edited_at)]
+                self.format_ts(self.updated_at)]
 
     @classmethod
     def client_insert_sql(cls):
@@ -33,7 +33,7 @@ class Event(ClientObject):
                 self.event_type,
                 self.format_ts(self.event_timestamp),
                 self.event_metadata,
-                self.format_ts(self.edited_at),
+                self.format_ts(self.updated_at),
                 self.id]
 
     @classmethod
@@ -47,11 +47,11 @@ class Event(ClientObject):
                 self.event_type,
                 self.event_timestamp,
                 self.event_metadata,
-                self.edited_at]
+                self.updated_at]
 
     @classmethod
     def server_insert_sql(cls):
-        return """INSERT INTO events (id, patient_id, visit_id, event_type, event_timestamp, event_metadata, edited_at) VALUES (%s, %s, %s, %s, %s, %s, %s)"""
+        return """INSERT INTO events (id, patient_id, visit_id, event_type, event_timestamp, event_metadata, updated_at) VALUES (%s, %s, %s, %s, %s, %s, %s)"""
 
     def server_update_values(self):
         return [self.patient_id,
@@ -59,12 +59,12 @@ class Event(ClientObject):
                 self.event_type,
                 self.event_timestamp,
                 self.event_metadata,
-                self.edited_at,
+                self.updated_at,
                 self.id]
 
     @classmethod
     def server_update_sql(cls):
-        return """UPDATE events SET patient_id = %s, visit_id = %s, event_type = %s, event_timestamp = %s, event_metadata = %s, edited_at = %s WHERE id = %s"""               
+        return """UPDATE events SET patient_id = %s, visit_id = %s, event_type = %s, event_timestamp = %s, event_metadata = %s, updated_at = %s WHERE id = %s"""
 
     @classmethod
     def db_columns_from_server(cls):
