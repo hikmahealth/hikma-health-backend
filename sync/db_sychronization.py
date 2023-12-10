@@ -125,13 +125,13 @@ class DbSynchronizer:
 
     def _get_client_ids_and_edit_timestamps(self, table_name):
         cur = self.client_conn.cursor()
+        data = cur.execute(f'SELECT * FROM string_content')
+        print("DB columns: " + data.description)
         cur.execute(f'SELECT id, edited_at FROM {table_name}')
         return {k: parse_client_timestamp(ts) for k, ts in cur}
 
     def _get_string_client_ids_and_edit_timestamps(self):
         cur = self.client_conn.cursor()
-        data = cur.execute(f'SELECT * FROM string_content')
-        print("DB columns: " + data.description)
         cur.execute(f'SELECT id, language, edited_at FROM string_content')
         return {(id, lang): parse_client_timestamp(ts) for id, lang, ts in cur}
 
