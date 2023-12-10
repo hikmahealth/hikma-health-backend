@@ -32,7 +32,7 @@ class Patient(ClientObject):
 
     @classmethod
     def client_insert_sql(cls):
-        return """INSERT INTO patients (id, given_name, surname, date_of_birth, sex, country, hometown, phone, edited_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+        return """INSERT INTO patients (id, given_name, surname, date_of_birth, sex, country, hometown, phone, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"""
 
     def client_update_values(self):
         return [self.format_string(self.given_name),
@@ -47,7 +47,7 @@ class Patient(ClientObject):
 
     @classmethod
     def client_update_sql(cls):
-        return """UPDATE patients SET given_name = ?, surname = ?, date_of_birth = ?, sex = ?, country = ?, hometown = ?, phone = ?, edited_at = ? WHERE id = ?"""
+        return """UPDATE patients SET given_name = ?, surname = ?, date_of_birth = ?, sex = ?, country = ?, hometown = ?, phone = ?, updated_at = ? WHERE id = ?"""
             
 
     def server_insert_values(self):
@@ -103,7 +103,7 @@ class Patient(ClientObject):
                 ('country', cls.make_language_string),
                 ('hometown', cls.make_language_string),
                 ('phone', identity),
-                ('edited_at', parse_client_timestamp)]
+                ('updated_at', parse_client_timestamp)]
 
     @classmethod
     def table_name(cls):
@@ -111,8 +111,8 @@ class Patient(ClientObject):
 
     @classmethod
     def from_db_row(cls, db_row):
-        # id, given_name, surname, date_of_birth, sex, country, hometown, phone, edited_at = db_row
-        # return cls(id, LanguageString.from_id(given_name), LanguageString.from_id(surname), date_of_birth, sex, LanguageString.from_id(country), LanguageString.from_id(hometown), phone, edited_at)
+        # id, given_name, surname, date_of_birth, sex, country, hometown, phone, updated_at = db_row
+        # return cls(id, LanguageString.from_id(given_name), LanguageString.from_id(surname), date_of_birth, sex, LanguageString.from_id(country), LanguageString.from_id(hometown), phone, updated_at)
         id, given_name, surname, date_of_birth, sex, country, hometown, phone, created_at, updated_at = db_row
         return cls(id, given_name, surname, date_of_birth, sex, country, hometown, phone, created_at, updated_at)
 
@@ -126,7 +126,7 @@ class Patient(ClientObject):
     #         'country': self.country.to_dict() if self.country is not None else None,
     #         'hometown': self.hometown.to_dict() if self.hometown is not None else None,
     #         'phone': self.phone,
-    #         'edited_at': self.edited_at
+    #         'updated_at': self.updated_at
     #     }
 
     def to_dict(self):

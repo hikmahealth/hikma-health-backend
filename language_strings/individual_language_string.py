@@ -18,7 +18,7 @@ class IndividualLanguageString(ClientObject):
     @classmethod
     def client_insert_sql(cls):
         return ["INSERT OR IGNORE INTO string_ids (id) VALUES (?)",
-                "INSERT OR IGNORE INTO string_content (id, language, content, edited_at) VALUES (?, ?, ?, ?)"]
+                "INSERT OR IGNORE INTO string_content (id, language, content, updated_at) VALUES (?, ?, ?, ?)"]
 
     def client_update_values(self):
         return [[self.id],
@@ -27,7 +27,7 @@ class IndividualLanguageString(ClientObject):
     @classmethod
     def client_update_sql(cls):
         return ["INSERT OR IGNORE INTO string_ids (id) VALUES (?)",
-                "INSERT OR IGNORE INTO string_content (id, language, content, edited_at) VALUES (?, ?, ?, ?)"]
+                "INSERT OR IGNORE INTO string_content (id, language, content, updated_at) VALUES (?, ?, ?, ?)"]
 
     def server_insert_values(self):
         return [[self.id],
@@ -60,7 +60,7 @@ class IndividualLanguageString(ClientObject):
         return [('id', identity),
                 ('language', identity),
                 ('content', identity),
-                ('edited_at', parse_client_timestamp)]
+                ('updated_at', parse_client_timestamp)]
 
     @classmethod
     def table_name(cls):

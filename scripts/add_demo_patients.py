@@ -16,7 +16,7 @@ for given_name, surname, sex in [
     surname_ls = LanguageString(id=str(uuid.uuid4()), content_by_language={'en': surname})
     patient = Patient(
         id=str(uuid.uuid4()),
-        edited_at=datetime.now(),
+        updated_at=datetime.now(),
         given_name=given_name_ls,
         surname=surname_ls,
         date_of_birth=date(2000, 10, 31),

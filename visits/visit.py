@@ -24,7 +24,7 @@ class Visit(ClientObject):
 
     @classmethod
     def client_insert_sql(cls):
-        return """INSERT INTO visits (id, patient_id, clinic_id, provider_id, check_in_timestamp, edited_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?)"""
+        return """INSERT INTO visits (id, patient_id, clinic_id, provider_id, check_in_timestamp, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?)"""
 
     def client_update_values(self):
         return [self.patient_id,
@@ -37,7 +37,7 @@ class Visit(ClientObject):
 
     @classmethod
     def client_update_sql(cls):
-        return """UPDATE visits SET patient_id = ?, clinic_id = ?, provider_id = ?, check_in_timestamp = ?, edited_at = ?, deleted = ? WHERE id = ?"""
+        return """UPDATE visits SET patient_id = ?, clinic_id = ?, provider_id = ?, check_in_timestamp = ?, updated_at = ?, deleted = ? WHERE id = ?"""
 
     def server_insert_values(self):
         return [self.id,
@@ -83,7 +83,7 @@ class Visit(ClientObject):
                 ('clinic_id', identity),
                 ('provider_id', identity),
                 ('check_in_timestamp', parse_client_timestamp),
-                ('edited_at', parse_client_timestamp),
+                ('updated_at', parse_client_timestamp),
                 ('deleted', parse_client_bool)
         ]
 

@@ -16,14 +16,14 @@ class Clinic(ClientObject):
 
     @classmethod
     def client_insert_sql(cls):
-        return """INSERT INTO clinics (id, name, edited_at) VALUES (?, ?, ?)"""
+        return """INSERT INTO clinics (id, name, updated_at) VALUES (?, ?, ?)"""
 
     def client_update_values(self):
         return [self.name.id.replace('-', ''), self.format_ts(self.updated_at), self.id]
 
     @classmethod
     def client_update_sql(cls):
-        return """UPDATE clinics SET name = ?, edited_at = ? WHERE id = ?"""
+        return """UPDATE clinics SET name = ?, updated_at = ? WHERE id = ?"""
 
     def server_insert_values(self):
         return [self.id, self.name.id, self.updated_at]
@@ -49,7 +49,7 @@ class Clinic(ClientObject):
     def db_columns_from_client(cls):
         return [('id', identity),
                 ('name', cls.make_language_string),
-                ('edited_at', parse_client_timestamp)]
+                ('updated_at', parse_client_timestamp)]
 
     @classmethod
     def table_name(cls):

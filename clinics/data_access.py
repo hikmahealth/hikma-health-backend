@@ -8,8 +8,8 @@ def add_clinic(clinic):
     update_language_string(clinic.name)
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute('INSERT INTO clinics (id, name, edited_at) VALUES (%s, %s, %s)',
-                        [clinic.id, to_id(clinic.name), clinic.edited_at])
+            cur.execute('INSERT INTO clinics (id, name, updated_at) VALUES (%s, %s, %s)',
+                        [clinic.id, to_id(clinic.name), clinic.updated_at])
 
 
 def get_most_common_clinic():

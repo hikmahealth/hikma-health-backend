@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 
 
-clinic = Clinic(id=str(uuid.uuid4()), edited_at=datetime.now(), name=LanguageString(
+clinic = Clinic(id=str(uuid.uuid4()), updated_at=datetime.now(), name=LanguageString(
     id=str(uuid.uuid4()), content_by_language={
         'en': 'EMA'
     }))

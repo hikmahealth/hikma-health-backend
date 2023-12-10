@@ -232,7 +232,7 @@ class PatientDataRow:
 #         inferred_dob = self._infer_dob(age)
 #         patient = Patient(
 #             id=str(uuid.uuid4()),
-#             edited_at=datetime.now(),
+#             updated_at=datetime.now(),
 #             given_name=given_name_ls,
 #             surname=surname_ls,
 #             date_of_birth=inferred_dob,
@@ -305,7 +305,7 @@ class PatientDataRow:
 #                 visit = Visit(
 #                     id=visit_id,
 #                     patient_id=patient_id,
-#                     edited_at=datetime.now(),
+#                     updated_at=datetime.now(),
 #                     clinic_id=clinic_id,
 #                     provider_id=provider_id,
 #                     check_in_timestamp=visit_timestamp
@@ -350,7 +350,7 @@ class PatientDataRow:
 #             event_type=event_type,
 #             event_timestamp=visit_timestamp,
 #             event_metadata=event_metadata,
-#             edited_at=datetime.now(),
+#             updated_at=datetime.now(),
 #         )
 #         add_event(event)
 
@@ -369,7 +369,7 @@ class PatientDataRow:
 #             event_type='Medicine Dispensed',
 #             event_timestamp=visit_timestamp,
 #             event_metadata=content,
-#             edited_at=datetime.now(),
+#             updated_at=datetime.now(),
 #         )
 #         add_event(event)
 
@@ -397,6 +397,6 @@ class PatientDataRow:
 #             event_type='Vitals',
 #             event_timestamp=visit_timestamp,
 #             event_metadata=json.dumps(data),
-#             edited_at=datetime.now(),
+#             updated_at=datetime.now(),
 #         )
 #         add_event(event)

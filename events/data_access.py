@@ -12,19 +12,19 @@ def clear_all_events(visit_id: str):
 
 def add_event(event: Event):
     query = """
-    INSERT INTO events (id, patient_id, visit_id, event_type, event_timestamp, event_metadata, edited_at)
+    INSERT INTO events (id, patient_id, visit_id, event_type, event_timestamp, event_metadata, updated_at)
     VALUES (%s, %s, %s, %s, %s, %s, %s)
     """
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(query, [event.id, event.patient_id, event.visit_id, event.event_type, event.event_timestamp,
-                                event.event_metadata, event.edited_at]
+                                event.event_metadata, event.updated_at]
                         )
 
 
 def events_by_visit(visit_id: str):
     query = """
-    SELECT id, patient_id, event_type, event_timestamp, event_metadata, edited_at FROM events
+    SELECT id, patient_id, event_type, event_timestamp, event_metadata, updated_at FROM events
     WHERE visit_id = %s
     ORDER BY event_timestamp
     """
@@ -32,7 +32,7 @@ def events_by_visit(visit_id: str):
         with conn.cursor() as cur:
             cur.execute(query, [visit_id])
             for row in cur:
-                id, patient_id, event_type, event_timestamp, event_metadata, edited_at = row
+                id, patient_id, event_type, event_timestamp, event_metadata, updated_at = row
                 yield Event(
                     id=id,
                     patient_id=patient_id,
@@ -40,12 +40,12 @@ def events_by_visit(visit_id: str):
                     event_type=event_type,
                     event_timestamp=event_timestamp,
                     event_metadata=event_metadata,
-                    edited_at=edited_at
+                    updated_at=updated_at
                 )
 
 def camp_by_patient(patient_id: str):
     query = """
-    SELECT id, visit_id, event_type, event_timestamp, event_metadata, edited_at FROM events
+    SELECT id, visit_id, event_type, event_timestamp, event_metadata, updated_at FROM events
     WHERE patient_id = %s AND event_type = 'Camp'
     ORDER BY event_timestamp
     DESC LIMIT 1
@@ -56,7 +56,7 @@ def camp_by_patient(patient_id: str):
             row = cur.fetchone()
             if row is None:
                 return None
-            id, visit_id, event_type, event_timestamp, event_metadata, edited_at = row
+            id, visit_id, event_type, event_timestamp, event_metadata, updated_at = row
             return Event(
                 id=id,
                 patient_id=patient_id,
@@ -64,5 +64,5 @@ def camp_by_patient(patient_id: str):
                 event_type=event_type,
                 event_timestamp=event_timestamp,
                 event_metadata=event_metadata,
-                edited_at=edited_at
+                updated_at=updated_at
             )
