@@ -10,6 +10,9 @@ import uuid
 def user_data_by_email(email):
     with get_connection() as conn:
         with conn.cursor() as cur:
+            email = email.split("@")
+            email[0] = email[0].lower()
+            email = "@".join(email)
             cur.execute('SELECT id, name, role, email, hashed_password FROM users WHERE email = %s',
                         [email])
             row = cur.fetchone()
