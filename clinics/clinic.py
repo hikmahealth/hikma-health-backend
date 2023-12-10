@@ -43,7 +43,7 @@ class Clinic(ClientObject):
     def db_columns_from_server(cls):
         return [('id', lambda s: s.replace('-', '')),
                 ('name', cls.make_language_string),
-                ('edited_at', identity)]
+                ('updated_at', identity)]
 
     @classmethod
     def db_columns_from_client(cls):

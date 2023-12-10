@@ -72,7 +72,7 @@ class Visit(ClientObject):
                 ('clinic_id', parse_server_uuid),
                 ('provider_id', parse_server_uuid),
                 ('check_in_timestamp', identity),
-                ('edited_at', identity),
+                ('updated_at', identity),
                 ('deleted', identity)
         ]
 

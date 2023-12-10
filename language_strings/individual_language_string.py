@@ -53,7 +53,7 @@ class IndividualLanguageString(ClientObject):
         return [('id', lambda s: s.replace('-', '')),
                 ('language', identity),
                 ('content', identity),
-                ('edited_at', identity)]
+                ('updated_at', identity)]
 
     @classmethod
     def db_columns_from_client(cls):

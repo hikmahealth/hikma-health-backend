@@ -91,7 +91,7 @@ class Patient(ClientObject):
                 ('country', cls.make_language_string),
                 ('hometown', cls.make_language_string),
                 ('phone', identity),
-                ('edited_at', identity)]
+                ('updated_at', identity)]
 
     @classmethod
     def db_columns_from_client(cls):

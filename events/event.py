@@ -74,7 +74,7 @@ class Event(ClientObject):
                 ('event_type', identity),
                 ('event_timestamp', identity),
                 ('event_metadata', identity),
-                ('edited_at', identity),]
+                ('updated_at', identity),]
 
     @classmethod
     def db_columns_from_client(cls):
