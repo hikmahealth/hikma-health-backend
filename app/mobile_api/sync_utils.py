@@ -6,44 +6,87 @@ from db_util import get_connection
 
 
 def getNthTimeSyncData(timestamp):
+    # TOMBSTONE: Feb 5 2024 - This function no longer queries each record individually, but instead uses the fetch_records function to query all records at once
     # print("timestamp: ", timestamp)
     # query for all events that have been updated since the last sync
-    events_new = []
-    events_updated = []
-    events_deleted = []
+    # events_new = []
+    # events_updated = []
+    # events_deleted = []
 
-    patients_new = []
-    patients_updated = []
-    patients_deleted = []
+    # patients_new = []
+    # patients_updated = []
+    # patients_deleted = []
 
-    clinics_new = []
-    clinics_updated = []
-    clinics_deleted = []
+    # clinics_new = []
+    # clinics_updated = []
+    # clinics_deleted = []
 
-    visits_new = []
-    visits_updated = []
-    visits_deleted = []
+    # visits_new = []
+    # visits_updated = []
+    # visits_deleted = []
 
-    string_ids_new = []
-    string_ids_updated = []
-    string_ids_deleted = []
+    # string_ids_new = []
+    # string_ids_updated = []
+    # string_ids_deleted = []
 
-    string_content_new = []
-    string_content_updated = []
-    string_content_deleted = []
+    # string_content_new = []
+    # string_content_updated = []
+    # string_content_deleted = []
 
-    event_forms_new = []
-    event_forms_updated = []
-    event_forms_deleted = []
+    # event_forms_new = []
+    # event_forms_updated = []
+    # event_forms_deleted = []
 
-
-    patient_registration_forms_new = []
-    patient_registration_forms_updated = []
-    patient_registration_forms_deleted = []
-    
+    # patient_registration_forms_new = []
+    # patient_registration_forms_updated = []
+    # patient_registration_forms_deleted = []
 
     is_not_deleted_str = " AND is_deleted = false"
     is_deleted_str = " AND is_deleted = true"
+
+    events_new, events_updated, events_deleted = fetch_records(
+        get_connection(), "events", timestamp
+    )
+
+    patients_new, patients_updated, patients_deleted = fetch_records(
+        get_connection(), "patients", timestamp
+    )
+
+    clinics_new, clinics_updated, clinics_deleted = fetch_records(
+        get_connection(), "clinics", timestamp
+    )
+
+    visits_new, visits_updated, visits_deleted = fetch_records(
+        get_connection(), "visits", timestamp
+    )
+
+    string_ids_new, string_ids_updated, string_ids_deleted = fetch_records(
+        get_connection(), "string_ids", timestamp
+    )
+
+    string_content_new, string_content_updated, string_content_deleted = fetch_records(
+        get_connection(), "string_content", timestamp
+    )
+
+    event_forms_new, event_forms_updated, event_forms_deleted = fetch_records(
+        get_connection(), "event_forms", timestamp
+    )
+
+    patient_registration_forms_new, patient_registration_forms_updated, patient_registration_forms_deleted = fetch_records(
+        get_connection(), "patient_registration_forms", timestamp
+    )
+
+    return (
+        (events_new, events_updated, events_deleted),
+        (patients_new, patients_updated, patients_deleted),
+        (clinics_new, clinics_updated, clinics_deleted),
+        (visits_new, visits_updated, visits_deleted),
+        (string_ids_new, string_ids_updated, string_ids_deleted),
+        (string_content_new, string_content_updated, string_content_deleted),
+        (event_forms_new, event_forms_updated, event_forms_deleted),
+        (patient_registration_forms_new, patient_registration_forms_updated,
+         patient_registration_forms_deleted)
+    )
 
     with get_connection() as conn:
         # updated events
@@ -305,10 +348,8 @@ def getNthTimeSyncData(timestamp):
                 for row in patient_registration_forms_new
             ]
 
-
         # Could support deleted registration forms ... but this needs more thought around how they are managed on the mobile devixe
         # Additionally, each app MUST have a registration form
-        
 
     return (
         (events_new, events_updated, events_deleted),
@@ -318,8 +359,63 @@ def getNthTimeSyncData(timestamp):
         (string_ids_new, string_ids_updated, string_ids_deleted),
         (string_content_new, string_content_updated, string_content_deleted),
         (event_forms_new, event_forms_updated, event_forms_deleted),
-        (patient_registration_forms_new, patient_registration_forms_updated, patient_registration_forms_deleted)
+        (patient_registration_forms_new, patient_registration_forms_updated,
+         patient_registration_forms_deleted)
     )
+
+
+def fetch_records(conn, table, timestamp):
+    """
+    Fetches new, updated, and deleted records from the specified table based on the given timestamp.
+
+    Args:
+        conn: The database connection object.
+        table: The name of the table to fetch records from.
+        timestamp: The timestamp to compare against for fetching records.
+
+    Returns:
+        A tuple containing three lists:
+        - new_records: A list of new records fetched from the table.
+        - updated_records: A list of updated records fetched from the table.
+        - deleted_records: A list of IDs of deleted records fetched from the table.
+    """
+    with conn.cursor() as cur:
+        # Fetch new records
+        cur.execute(
+            "SELECT * FROM {} WHERE server_created_at > %s AND deleted_at IS NULL".format(
+                table),
+            (timestamp,),
+        )
+        new_records = cur.fetchall()
+        new_records = [
+            dict(zip([column[0] for column in cur.description], row))
+            for row in new_records
+        ]
+
+        # Fetch updated records
+        cur.execute(
+            "SELECT * FROM {} WHERE last_modified > %s AND server_created_at < %s AND deleted_at IS NULL".format(
+                table),
+            (timestamp, timestamp),
+        )
+        updated_records = cur.fetchall()
+        updated_records = [
+            dict(zip([column[0] for column in cur.description], row))
+            for row in updated_records
+        ]
+
+        # Fetch deleted records
+        cur.execute(
+            "SELECT id FROM {} WHERE deleted_at > %s".format(
+                table),
+            (timestamp,),
+        )
+        deleted_records = cur.fetchall()
+        deleted_records = [
+            row[0] for row in deleted_records
+        ]
+
+    return new_records, updated_records, deleted_records
 
 
 # data = { "patients": { "created": [], "updated": [], "deleted": [] }, "events": {}, "visits": {}, "users": {}, "clinics": "" }
@@ -421,21 +517,18 @@ def formatGETSyncResponse(syncData):
 def apply_edge_patient_changes(patients, cur, lastPulledAt):
     # CREATED PATIENTS
     if len(patients["created"]) > 0:
-        patient_insert = """INSERT INTO patients (id, given_name, surname, date_of_birth, country, hometown, sex, phone, camp, created_at, updated_at, server_created_at, last_modified)"""
+        patient_insert = """INSERT INTO patients (id, given_name, surname, date_of_birth, citizenship, hometown, sex, phone, camp, created_at, updated_at)"""
         patients_sql = [
             (
                 patient["id"],
                 patient["given_name"],
                 patient["surname"],
                 patient["date_of_birth"],
-                patient["country"],
+                patient["citizenship"],
                 patient["hometown"],
                 patient["sex"],
                 patient["phone"],
                 patient["camp"],
-                date_from_timestamp(patient["created_at"]),
-                date_from_timestamp(patient["updated_at"]),
-                # server timestamps set to be those of the client during creation
                 date_from_timestamp(patient["created_at"]),
                 date_from_timestamp(patient["updated_at"]),
             )
@@ -454,7 +547,22 @@ def apply_edge_patient_changes(patients, cur, lastPulledAt):
     # UPDATE patients SET name = 'new name' WHERE id = 'id'
     for patient in patients["updated"]:
         cur.execute(
-            f"""UPDATE patients SET given_name='{patient["given_name"]}', surname='{patient["surname"]}', date_of_birth='{patient["date_of_birth"]}', country='{patient["country"]}', hometown='{patient["hometown"]}', sex='{patient["sex"]}', phone='{patient["phone"]}', camp='{patient["camp"]}', created_at='{date_from_timestamp(patient["created_at"])}', updated_at='{date_from_timestamp(patient["updated_at"])}', last_modified='{date_from_timestamp(patient["updated_at"])}' WHERE id='{patient["id"]}';"""
+            f"""INSERT INTO patients (id, given_name, surname, date_of_birth, citizenship, hometown, sex, phone, camp, created_at, updated_at, last_modified)
+                VALUES ('{patient["id"]}', '{patient["given_name"]}', '{patient["surname"]}', '{patient["date_of_birth"]}', '{patient["citizenship"]}', '{patient["hometown"]}', '{patient["sex"]}',
+                        '{patient["phone"]}', '{patient["camp"]}', '{date_from_timestamp(patient["created_at"])}', '{date_from_timestamp(patient["updated_at"])}', '{datetime.now()}')
+                ON CONFLICT (id) DO UPDATE
+                SET given_name = EXCLUDED.given_name,
+                    surname = EXCLUDED.surname,
+                    date_of_birth = EXCLUDED.date_of_birth,
+                    citizenship = EXCLUDED.citizenship,
+                    hometown = EXCLUDED.hometown,
+                    sex = EXCLUDED.sex,
+                    phone = EXCLUDED.phone,
+                    camp = EXCLUDED.camp,
+                    created_at = EXCLUDED.created_at,
+                    updated_at = EXCLUDED.updated_at,
+                    last_modified = EXCLUDED.last_modified;
+            """
         )
 
     # DELETED PATIENTS
@@ -464,25 +572,25 @@ def apply_edge_patient_changes(patients, cur, lastPulledAt):
         # deleted_ids = tuple(patients["deleted"])
         # cur.execute(f"""DELETE FROM patients WHERE id IN ({deleted_ids});""")
         cur.execute(
-            f"""UPDATE patients SET is_deleted=true, deleted_at='{date_from_timestamp(lastPulledAt)}' WHERE id = '{patient}';"""
+            f"""UPDATE patients SET is_deleted=true, deleted_at='{
+                date_from_timestamp(lastPulledAt)}' WHERE id = '{patient}';"""
         )
 
 
 def apply_edge_event_changes(events, cur, lastPulledAt):
     # CREATED EVENTS
     if len(events["created"]) > 0:
-        event_insert = "INSERT INTO events (id, patient_id, visit_id, event_type, event_metadata, is_deleted, created_at, updated_at, server_created_at, last_modified) VALUES "
+        event_insert = "INSERT INTO events (id, patient_id, form_id, visit_id, event_type, form_data, metadata, is_deleted, created_at, updated_at) VALUES "
         events_sql = [
             (
                 event["id"],
                 event["patient_id"],
+                event["form_id"],
                 event["visit_id"],
                 event["event_type"],
-                event["event_metadata"],
+                event["form_data"],
+                event["metadata"],
                 event["is_deleted"],
-                date_from_timestamp(event["created_at"]),
-                date_from_timestamp(event["updated_at"]),
-                # server timestamps set to be those of the client during creation
                 date_from_timestamp(event["created_at"]),
                 date_from_timestamp(event["updated_at"]),
             )
@@ -492,7 +600,8 @@ def apply_edge_event_changes(events, cur, lastPulledAt):
         # print("EVENTS SQL: ", events_sql)
 
         args = ",".join(
-            cur.mogrify("(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", i).decode("utf-8")
+            cur.mogrify("(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                        i).decode("utf-8")
             for i in events_sql
         )
         cur.execute(event_insert + (args))
@@ -501,7 +610,8 @@ def apply_edge_event_changes(events, cur, lastPulledAt):
     # UPDATE events SET name = 'new name' WHERE id = 'id'
     for event in events["updated"]:
         cur.execute(
-            f"""UPDATE events SET patient_id='{event["patient_id"]}', visit_id='{event["visit_id"]}', event_type='{event["event_type"]}', event_metadata='{event["event_metadata"]}', is_deleted='{event["is_deleted"]}', created_at='{date_from_timestamp(event["created_at"])}', updated_at='{date_from_timestamp(event["updated_at"])}' WHERE id='{event["id"]}';"""
+            f"""UPDATE events SET patient_id='{event["patient_id"]}', form_id='{event["form_id"]}', visit_id='{event["visit_id"]}', event_type='{event["event_type"]}', form_data='{event["form_data"]}', metadata='{event["metadata"]}', is_deleted='{
+                event["is_deleted"]}', created_at='{date_from_timestamp(event["created_at"])}', updated_at='{date_from_timestamp(event["updated_at"])}', last_modified='{datetime.now()}' WHERE id='{event["id"]}';"""
         )
 
     # DELETED EVENTS
@@ -510,14 +620,15 @@ def apply_edge_event_changes(events, cur, lastPulledAt):
         # deleted_ids = tuple(events["deleted"])
         # cur.execute(f"""DELETE FROM events WHERE id IN ({deleted_ids});""")
         cur.execute(
-            f"""UPDATE events SET is_deleted=true, deleted_at='{date_from_timestamp(lastPulledAt)}' WHERE id = '{event}';"""
+            f"""UPDATE events SET is_deleted=true, deleted_at='{
+                date_from_timestamp(lastPulledAt)}' WHERE id = '{event}';"""
         )
 
 
 def apply_edge_visits_changes(visits, cur, lastPulledAt):
     # CREATED VISITS
     if len(visits["created"]) > 0:
-        visit_insert = "INSERT INTO visits (id, patient_id, clinic_id, provider_id, provider_name, check_in_timestamp, is_deleted, metadata, created_at, updated_at, server_created_at, last_modified) VALUES "
+        visit_insert = "INSERT INTO visits (id, patient_id, clinic_id, provider_id, provider_name, check_in_timestamp, is_deleted, metadata, created_at, updated_at) VALUES "
         visits_sql = [
             (
                 visit["id"],
@@ -530,15 +641,13 @@ def apply_edge_visits_changes(visits, cur, lastPulledAt):
                 visit["metadata"],
                 date_from_timestamp(visit["created_at"]),
                 date_from_timestamp(visit["updated_at"]),
-                # server timestamps set to be those of the client during creation
-                date_from_timestamp(visit["created_at"]),
-                date_from_timestamp(visit["updated_at"]),
             )
             for visit in visits["created"]
         ]
 
         args = ",".join(
-            cur.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", i).decode("utf-8")
+            cur.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                        i).decode("utf-8")
             for i in visits_sql
         )
         cur.execute(visit_insert + (args))
@@ -547,7 +656,8 @@ def apply_edge_visits_changes(visits, cur, lastPulledAt):
     # UPDATE visits SET name = 'new name' WHERE id = 'id'
     for visit in visits["updated"]:
         cur.execute(
-            f"""UPDATE visits SET patient_id='{visit["patient_id"]}', clinic_id='{visit["clinic_id"]}', provider_id='{visit["provider_id"]}', provider_name='{visit["provider_name"]}', check_in_timestamp='{visit["check_in_timestamp"]}', is_deleted='{visit["is_deleted"]}', metadata='{visit["metadata"]}', created_at='{date_from_timestamp(visit["created_at"])}', updated_at='{date_from_timestamp(visit["updated_at"])}' WHERE id='{visit["id"]}';"""
+            f"""UPDATE visits SET patient_id='{visit["patient_id"]}', clinic_id='{visit["clinic_id"]}', provider_id='{visit["provider_id"]}', provider_name='{visit["provider_name"]}', check_in_timestamp='{visit["check_in_timestamp"]}', is_deleted='{
+                visit["is_deleted"]}', metadata='{visit["metadata"]}', created_at='{date_from_timestamp(visit["created_at"])}', updated_at='{date_from_timestamp(visit["updated_at"])}' , last_modified='{datetime.now()}' WHERE id='{visit["id"]}';"""
         )
 
     # DELETED VISITS
@@ -555,13 +665,15 @@ def apply_edge_visits_changes(visits, cur, lastPulledAt):
         # deleted_ids = tuple(visits["deleted"])
         # cur.execute(f"""DELETE FROM visits WHERE id IN {deleted_ids};""")
         cur.execute(
-            f"""UPDATE visits SET is_deleted=true, deleted_at='{date_from_timestamp(lastPulledAt)}' WHERE id = '{visit}';"""
+            f"""UPDATE visits SET is_deleted=true, deleted_at='{
+                date_from_timestamp(lastPulledAt)}' WHERE id = '{visit}';"""
         )
 
 
 # TODO: Move to utils
 def date_from_timestamp(timestamp):
-    date = datetime.utcfromtimestamp(timestamp / 1000).strftime("%Y-%m-%d %H:%M:%S")
+    date = datetime.utcfromtimestamp(
+        timestamp / 1000).strftime("%Y-%m-%d %H:%M:%S")
     return date
 
 

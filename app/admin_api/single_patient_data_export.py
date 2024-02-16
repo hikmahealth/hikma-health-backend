@@ -57,14 +57,14 @@ class SinglePatientDataExporter:
             )
             provider = user_name_by_id(visit.provider_id)
             if provider is not None:
-                self.write_text_event(row, 'doctor', provider.get('en'))   
+                self.write_text_event(row, 'doctor', provider.get('en'))
             camp_event = camp_by_patient(patient_id)
             if camp_event is not None:
                 self.write_text_event(row, 'camp', camp_event.event_metadata)
             for event in events_by_visit(visit.id):
                 if event.event_type == 'Visit Type':
                     self.write_text_event(
-                        row, 'visit_type', event.event_metadata)
+                        row, 'visit_type', event.metadata)
                 elif event.event_type == 'Medical History Full':
                     write_medical_hx_event(row, event)
                 elif event.event_type == 'Vitals':
@@ -83,48 +83,50 @@ class SinglePatientDataExporter:
                     elif row.medication_4 is None:
                         write_med4_event(row, event)
                     elif row.medication_5 is None:
-                        write_med5_event(row, event)        
+                        write_med5_event(row, event)
                 elif event.event_type == 'Notes':
-                    self.write_text_event(row, 'notes', event.event_metadata)
+                    self.write_text_event(row, 'notes', event.metadata)
                 elif event.event_type == 'Dental Treatment':
                     self.write_text_event(
-                        row, 'dental_treatment', event.event_metadata)
+                        row, 'dental_treatment', event.metadata)
                 elif event.event_type == 'Complaint':
                     self.write_text_event(
-                        row, 'complaint', event.event_metadata)
+                        row, 'complaint', event.metadata)
                 elif event.event_type == 'COVID-19 Screening':
                     write_covid_19_event(row, event)
                 elif event.event_type == 'Allergies':
                     self.write_text_event(
-                        row, 'allergies_d', event.event_metadata)
+                        row, 'allergies_d', event.metadata)
                 elif event.event_type == 'Medicine Dispensed':
                     self.write_text_event(
-                        row, 'medicine_dispensed_d', event.event_metadata)
+                        row, 'medicine_dispensed_d', event.metadata)
                 elif event.event_type == 'Medical History':
                     self.write_text_event(
-                        row, 'medical_hx_d', event.event_metadata)
+                        row, 'medical_hx_d', event.metadata)
                 elif event.event_type == 'Examination':
                     self.write_text_event(
-                        row, 'examination_d', event.event_metadata)
+                        row, 'examination_d', event.metadata)
                 elif event.event_type == 'Diagnosis':
                     self.write_text_event(
-                        row, 'diagnosis_d', event.event_metadata)
+                        row, 'diagnosis_d', event.metadata)
                 elif event.event_type == 'Treatment':
                     self.write_text_event(
-                        row, 'treatment_d', event.event_metadata)
+                        row, 'treatment_d', event.metadata)
                 elif event.event_type == 'Prescriptions':
                     self.write_text_event(
-                        row, 'prescriptions_d', event.event_metadata)
+                        row, 'prescriptions_d', event.metadata)
             yield row
 
     def write_text_event(self, row, key, text):
         setattr(row, key, text)
 
     def write_vitals_event(self, row: PatientDataRow, event):
-        data = json.loads(event.event_metadata)
+        data = json.loads(event.metadata)
         row.heart_rate = data.get('heartRate')
-        if data.get('systolic') and data.get('diastolic'):
-            row.blood_pressure = f"{data.get('systolic')}/{data.get('diastolic')}"
+        systolic = data.get('systolic')
+        diastolic = data.get('diastolic')
+        if systolic and diastolic:
+            row.blood_pressure = f"{systolic}/{diastolic}"
         row.o2_sats = data.get('sats')
         row.temperature = data.get('temp')
         row.respiratory_rate = data.get('respiratoryRate')

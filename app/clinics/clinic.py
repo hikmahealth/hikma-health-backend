@@ -5,6 +5,9 @@ from datetime import datetime
 from util import identity, parse_client_timestamp
 
 
+# TODO:
+# Remove translations
+
 @dataclass
 class Clinic(ClientObject):
     id: str
@@ -23,7 +26,7 @@ class Clinic(ClientObject):
 
     @classmethod
     def client_update_sql(cls):
-        return """UPDATE clinics SET name = ?, edited_at = ? WHERE id = ?"""    
+        return """UPDATE clinics SET name = ?, edited_at = ? WHERE id = ?"""
 
     def server_insert_values(self):
         return [self.id, self.name.id, self.edited_at]

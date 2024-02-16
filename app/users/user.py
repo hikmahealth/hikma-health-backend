@@ -6,11 +6,12 @@ import bcrypt
 
 
 class User:
-    def __init__(self, id, name, role, email, hashed_password):
+    def __init__(self, id, name, role, email, clinic_id, hashed_password):
         self.id = id
         self.name = name
         self.role = role
         self.email = email
+        self.clinic_id = clinic_id
         self.hashed_password = hashed_password
 
     @classmethod
@@ -27,9 +28,9 @@ class User:
 
     @classmethod
     def from_db_row(cls, db_row):
-        id, name, role, email, hashed_password = db_row
+        id, name, role, email, clinic_id, hashed_password = db_row
         # return cls(id, LanguageString.from_id(name), role, email, hashed_password.encode())
-        return cls(id, name, role, email, hashed_password.encode())
+        return cls(id, name, role, email, clinic_id, hashed_password.encode())
 
     def reset_password(self, new_password):
         db.update_password(self.id, new_password)
@@ -44,6 +45,7 @@ class User:
             "name": self.name,
             "role": self.role,
             "email": self.email,
+            "clinic_id": self.clinic_id,
         }
 
     def create_token(self):

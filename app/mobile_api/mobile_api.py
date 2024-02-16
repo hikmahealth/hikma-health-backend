@@ -86,6 +86,8 @@ def sync_v2():
         f"lastPulledAt: {lastPulledAt} ({lastPulledAtReq}) and server says: {syncTimestamp} and a difference of: {int(lastPulledAt or 0) - syncTimestamp}"
     )
 
+    print(f"body: {request}")
+
     ## GET REQUEST ##
     ## REQUESTING CHANGES FROM THE SERVER THAT CLIENT DOES NOT HAVE
     # Response must look like:

@@ -19,17 +19,19 @@ depends_on = None
 
 
 def upgrade():
+    # define the clinic_id
+    clinic_id = str(uuid.uuid4())
     op.execute(
         f"""
-    INSERT INTO users (id, name, role, email, hashed_password, instance_url, created_at, updated_at, is_deleted) 
-    VALUES ('{str(uuid.uuid4())}', 'Hikma Admin', 'super_admin', 'admin@hikmahealth.org', '$2b$14$PPY9X2ZxFG93IU9CK4FUtOJW0d11zjHuODO6oJM5UNn59aXjp5h..', '{None}', '{datetime.now().isoformat()}', '{datetime.now().isoformat()}', '{False}')
-    """
+        INSERT INTO clinics (id, name) VALUES ('{clinic_id}', 'Hikma Clinic')
+        """
     )
 
-    # FIXME: CREATE OWN CLINIC
     op.execute(
         f"""
-        INSERT INTO clinics (id, name) VALUES ('{str(uuid.uuid4())}', 'Hikma Clinic')
+    INSERT INTO users (id, clinic_id, name, role, email, hashed_password, instance_url, created_at, updated_at, is_deleted)
+    VALUES ('{str(uuid.uuid4())}', '{clinic_id}', 'Hikma Admin', 'super_admin', 'admin@hikmahealth.org',
+            '$2b$14$PPY9X2ZxFG93IU9CK4FUtOJW0d11zjHuODO6oJM5UNn59aXjp5h..', '{None}', '{datetime.now().isoformat()}', '{datetime.now().isoformat()}', '{False}')
     """
     )
 
