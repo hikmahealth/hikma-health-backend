@@ -647,7 +647,7 @@ def apply_edge_visits_changes(visits, cur, lastPulledAt):
         ]
 
         args = ",".join(
-            cur.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            cur.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                         i).decode("utf-8")
             for i in visits_sql
         )
