@@ -4,7 +4,7 @@ from web_util import assert_data_has_keys, admin_authenticated
 from db_util import get_connection
 from web_errors import WebError
 from users.user import User
-from datetime import datetime
+from datetime import datetime, timedelta
 from patients.patient import Patient
 from patients.data_access import all_patient_data, search_patients
 from users.data_access import all_user_data, add_user, delete_user_by_id, user_data_by_email
@@ -445,3 +445,75 @@ def get_clinics(_admin_user):
                 raise e
 
     return jsonify({'clinics': clinics})
+
+
+@admin_api.route("/get_patients_events", methods=['GET'])
+@admin_authenticated
+def get_patient_events(_admin_user):
+    """Retruns all the formated events as a single table that can be easily rendered"""
+    patient_id = request.args.get('id')
+
+
+@admin_api.route("/get_event_form_data", methods=['GET'])
+@admin_authenticated
+def get_event_form_data(_admin_user):
+    """Retruns all the formated events as a single table that can be easily rendered"""
+    form_id = request.args.get('id')
+    start_date = request.args.get('start_date')
+    if start_date is not None:
+        # Convert start_date from string to datetime
+        start_date = datetime.strptime(start_date, '%Y-%m-%d')
+    else:
+        start_date = datetime.now() - timedelta(days=365)
+    end_date = request.args.get('end_date')
+    if end_date is not None:
+        end_date = datetime.strptime(end_date, '%Y-%m-%d')
+    else:
+        end_date = datetime.now()
+
+    events = []
+
+    # CREATE TABLE events (
+    #         id uuid PRIMARY KEY,
+    #         patient_id uuid REFERENCES patients(id) ON DELETE CASCADE,
+    #         visit_id uuid REFERENCES visits(id) ON DELETE CASCADE DEFAULT NULL,
+    #         form_id uuid REFERENCES event_forms(id) ON DELETE CASCADE DEFAULT NULL,
+    #         event_type TEXT,
+    #         form_data JSONB NOT NULL DEFAULT '{}',
+    #         metadata JSONB NOT NULL DEFAULT '{}',
+    #         is_deleted boolean default false,
+    #         created_at timestamp with time zone default now(),
+    #         updated_at timestamp with time zone default now(),
+    #         last_modified timestamp with time zone default now(),
+    #         server_created_at timestamp with time zone default now(),
+    #         deleted_at timestamp with time zone default null
+    #     )
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            try:
+                cur.execute("""SELECT events.id, events.patient_id, events.visit_id, events.form_id, events.event_type, events.form_data, events.metadata, events.is_deleted, events.created_at, events.updated_at,
+                                  patients.given_name || ' ' || patients.surname AS patient_name 
+                                  FROM events
+                                  JOIN patients ON events.patient_id = patients.id
+                                  WHERE events.form_id = %s AND events.is_deleted = false AND events.created_at >= %s AND events.created_at <= %s
+                                  """, (form_id, start_date, end_date))
+                for entry in cur.fetchall():
+                    events.append({
+                        "id": entry[0],
+                        "patientId": entry[1],
+                        "visitId": entry[2],
+                        "formId": entry[3],
+                        "eventType": entry[4],
+                        "formData": entry[5],
+                        "metadata": entry[6],
+                        "isDeleted": entry[7],
+                        "createdAt": entry[8],
+                        "updatedAt": entry[9],
+                        "patientName": entry[10]
+                    })
+            except Exception as e:
+                print("Error while updating the patient registration form: ", e)
+                raise e
+
+    return jsonify({'events': events})

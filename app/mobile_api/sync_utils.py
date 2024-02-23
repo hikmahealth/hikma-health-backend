@@ -517,7 +517,7 @@ def formatGETSyncResponse(syncData):
 def apply_edge_patient_changes(patients, cur, lastPulledAt):
     # CREATED PATIENTS
     if len(patients["created"]) > 0:
-        patient_insert = """INSERT INTO patients (id, given_name, surname, date_of_birth, citizenship, hometown, sex, phone, camp, created_at, updated_at)"""
+        patient_insert = """INSERT INTO patients (id, given_name, surname, date_of_birth, citizenship, hometown, sex, phone, camp, additional_data, created_at, updated_at)"""
         patients_sql = [
             (
                 patient["id"],
@@ -529,6 +529,7 @@ def apply_edge_patient_changes(patients, cur, lastPulledAt):
                 patient["sex"],
                 patient["phone"],
                 patient["camp"],
+                patient["additional_data"],
                 date_from_timestamp(patient["created_at"]),
                 date_from_timestamp(patient["updated_at"]),
             )
@@ -537,7 +538,7 @@ def apply_edge_patient_changes(patients, cur, lastPulledAt):
 
         args = ",".join(
             cur.mogrify(
-                "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", i
+                "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", i
             ).decode("utf-8")
             for i in patients_sql
         )
