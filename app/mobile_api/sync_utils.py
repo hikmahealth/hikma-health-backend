@@ -601,7 +601,7 @@ def apply_edge_event_changes(events, cur, lastPulledAt):
         # print("EVENTS SQL: ", events_sql)
 
         args = ",".join(
-            cur.mogrify("(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            cur.mogrify("(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                         i).decode("utf-8")
             for i in events_sql
         )
