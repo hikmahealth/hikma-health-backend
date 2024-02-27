@@ -15,6 +15,7 @@ class Patient(ClientObject):
     country: LanguageString
     hometown: LanguageString
     phone: str
+    additional_data: str
     # edited_at: datetime
     created_at: datetime
     updated_at: datetime
@@ -27,12 +28,13 @@ class Patient(ClientObject):
                 self.sex,
                 self.format_string(self.country),
                 self.format_string(self.hometown),
+                self.metadata,
                 self.phone,
                 self.format_ts(self.edited_at)]
 
     @classmethod
     def client_insert_sql(cls):
-        return """INSERT INTO patients (id, given_name, surname, date_of_birth, sex, country, hometown, phone, edited_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+        return """INSERT INTO patients (id, given_name, surname, date_of_birth, sex, country, hometown, additional_data, phone, edited_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
 
     def client_update_values(self):
         return [self.format_string(self.given_name),
@@ -42,6 +44,7 @@ class Patient(ClientObject):
                 self.format_string(self.country),
                 self.format_string(self.hometown),
                 self.phone,
+                self.metadata,
                 self.format_ts(self.edited_at),
                 self.id]
 
@@ -59,6 +62,7 @@ class Patient(ClientObject):
                 self.format_string(self.country),
                 self.format_string(self.hometown),
                 self.phone,
+                self.metadata,
                 self.edited_at]
 
     @classmethod
@@ -74,6 +78,7 @@ class Patient(ClientObject):
                 self.format_string(self.hometown),
                 self.phone,
                 self.edited_at,
+                self.metadata,
                 self.id]
 
     @classmethod
@@ -91,6 +96,7 @@ class Patient(ClientObject):
                 ('country', cls.make_language_string),
                 ('hometown', cls.make_language_string),
                 ('phone', identity),
+                ('additional_data', identity)
                 ('edited_at', identity)]
 
     @classmethod
@@ -103,6 +109,7 @@ class Patient(ClientObject):
                 ('country', cls.make_language_string),
                 ('hometown', cls.make_language_string),
                 ('phone', identity),
+                ('additional_data', identity)
                 ('edited_at', parse_client_timestamp)]
 
     @classmethod
@@ -113,8 +120,8 @@ class Patient(ClientObject):
     def from_db_row(cls, db_row):
         # id, given_name, surname, date_of_birth, sex, country, hometown, phone, edited_at = db_row
         # return cls(id, LanguageString.from_id(given_name), LanguageString.from_id(surname), date_of_birth, sex, LanguageString.from_id(country), LanguageString.from_id(hometown), phone, edited_at)
-        id, given_name, surname, date_of_birth, sex, country, hometown, phone, created_at, updated_at = db_row
-        return cls(id, given_name, surname, date_of_birth, sex, country, hometown, phone, created_at, updated_at)
+        id, given_name, surname, date_of_birth, sex, country, hometown, phone, additional_data, created_at, updated_at = db_row
+        return cls(id, given_name, surname, date_of_birth, sex, country, hometown, phone, additional_data, created_at, updated_at)
 
     # def to_dict(self):
     #     return {
@@ -139,6 +146,7 @@ class Patient(ClientObject):
             'country': self.country,
             'hometown': self.hometown,
             'phone': self.phone,
+            'additional_data': self.additional_data,
             'created_at': self.created_at,
             'updated_at': self.updated_at
         }

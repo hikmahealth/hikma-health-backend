@@ -67,7 +67,7 @@ def all_patient_data():
     # SELECT id, given_name, surname, date_of_birth, sex, citizenship, hometown, phone, edited_at FROM patients ORDER BY edited_at DESC LIMIT 25
     # """
     query = """
-    SELECT id, given_name, surname, date_of_birth, sex, citizenship, hometown, phone, created_at, updated_at FROM patients ORDER BY updated_at DESC
+    SELECT id, given_name, surname, date_of_birth, sex, citizenship, hometown, phone, additional_data, created_at, updated_at FROM patients ORDER BY updated_at DESC
     """
     with get_connection() as conn:
         with conn.cursor() as cur:
