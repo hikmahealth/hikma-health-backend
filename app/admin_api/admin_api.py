@@ -342,7 +342,7 @@ def delete_event_form(_admin_user):
                 # cur.execute("DELETE FROM event_forms WHERE id = %s", (event_form_id,))
                 # Flag form as deleted
                 cur.execute(f"""
-                            UPDATE event_forms SET is_deleted=TRUE, deleted_at='{dt}', last_updated_at='{dt}' WHERE id='{event_form_id}'
+                            UPDATE event_forms SET is_deleted=TRUE, deleted_at='{dt}', last_modified='{dt}' WHERE id='{event_form_id}'
                             """)
             except Exception as e:
                 conn.rollback()
