@@ -498,12 +498,21 @@ def get_event_form_data(_admin_user):
         with conn.cursor() as cur:
             try:
                 cur.execute("""SELECT events.id, events.patient_id, events.visit_id, events.form_id, events.event_type, events.form_data, events.metadata, events.is_deleted, events.created_at, events.updated_at,
-                                  patients.given_name || ' ' || patients.surname AS patient_name 
+                                  patients.*
                                   FROM events
                                   JOIN patients ON events.patient_id = patients.id
                                   WHERE events.form_id = %s AND events.is_deleted = false AND events.created_at >= %s AND events.created_at <= %s
                                   """, (form_id, start_date, end_date))
+                
+                # Get column names from the cursor description
+                column_names = [desc[0] for desc in cur.description]
+                
                 for entry in cur.fetchall():
+                    # Slice the relevant columns for the patient data
+                    patient_data = entry[10:]
+                    # Create the patient object using 'zip' for pairing
+                    patient = dict(zip(column_names[10:], patient_data))
+
                     events.append({
                         "id": entry[0],
                         "patientId": entry[1],
@@ -515,7 +524,7 @@ def get_event_form_data(_admin_user):
                         "isDeleted": entry[7],
                         "createdAt": entry[8],
                         "updatedAt": entry[9],
-                        "patientName": entry[10]
+                        "patient": patient
                     })
             except Exception as e:
                 print("Error while updating the patient registration form: ", e)
