@@ -14,6 +14,7 @@ from admin_api.patient_data_export import most_recent_export
 from admin_api.single_patient_data_export import single_patient_export
 
 import urllib.parse
+from urllib.parse import unquote
 import uuid
 import bcrypt
 import psycopg2.errors
@@ -461,13 +462,13 @@ def get_event_form_data(_admin_user):
     start_date = request.args.get('start_date')
     try:
         # Convert start_date from string to datetime
-        start_date = parser.parse(start_date).replace(hour=0, minute=0, second=0)
+        start_date = parser.parse(unquote(start_date)).replace(hour=0, minute=0, second=0)
     except ValueError:
         start_date = datetime.now() - timedelta(days=14)
 
     end_date = request.args.get('end_date')
     try:
-        end_date = parser.parse(end_date).replace(hour=23, minute=59, second=59)
+        end_date = parser.parse(unquote(end_date)).replace(hour=23, minute=59, second=59)
     except ValueError:
         end_date = datetime.now().replace(hour=23, minute=59, second=59)
 
