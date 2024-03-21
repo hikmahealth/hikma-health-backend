@@ -460,18 +460,22 @@ def get_event_form_data(_admin_user):
     """Retruns all the formated events as a single table that can be easily rendered"""
     form_id = request.args.get('id')
     start_date = request.args.get('start_date')
+
     try:
         # Convert start_date from string to datetime
-        start_date = parser.parse(unquote(start_date)).replace(hour=0, minute=0, second=0)
+        # datetime.datetime.fromisoformat
+        start_date = datetime.fromisoformat(unquote(start_date)).replace(hour=0, minute=1, second=1)
     except ValueError:
         start_date = datetime.now() - timedelta(days=14)
 
     end_date = request.args.get('end_date')
     try:
-        end_date = parser.parse(unquote(end_date)).replace(hour=23, minute=59, second=59)
+        end_date = datetime.fromisoformat(unquote(end_date)).replace(hour=23, minute=59, second=59)
     except ValueError:
         end_date = datetime.now().replace(hour=23, minute=59, second=59)
 
+    print(start_date)
+    print(end_date)
     events = []
 
     # CREATE TABLE events (
