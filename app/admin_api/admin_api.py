@@ -4,6 +4,7 @@ from web_util import assert_data_has_keys, admin_authenticated
 from db_util import get_connection
 from web_errors import WebError
 from users.user import User
+from dateutil import parser
 from datetime import datetime, timedelta
 from patients.patient import Patient
 from patients.data_access import all_patient_data, search_patients
@@ -458,17 +459,17 @@ def get_event_form_data(_admin_user):
     """Retruns all the formated events as a single table that can be easily rendered"""
     form_id = request.args.get('id')
     start_date = request.args.get('start_date')
-    if start_date is not None:
+    try:
         # Convert start_date from string to datetime
-        start_date = datetime.strptime(start_date, '%Y-%m-%d')
-    else:
-        start_date = datetime.now() - timedelta(days=365)
+        start_date = parser.parse(start_date).replace(hour=0, minute=0, second=0)
+    except ValueError:
+        start_date = datetime.now() - timedelta(days=14)
+
     end_date = request.args.get('end_date')
-    if end_date is not None:
-        end_date = datetime.strptime(end_date, '%Y-%m-%d')
-        end_date = end_date.replace(hour=23, minute=59, second=59)
-    else:
-        end_date = datetime.now()
+    try:
+        end_date = parser.parse(end_date).replace(hour=23, minute=59, second=59)
+    except ValueError:
+        end_date = datetime.now().replace(hour=23, minute=59, second=59)
 
     events = []
 
