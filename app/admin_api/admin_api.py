@@ -265,7 +265,7 @@ def update_event_form(admin_user):
         with conn.cursor() as cur:
             try:
                 cur.execute(
-                    "UPDATE event_forms SET name=%s, description=%s, form_fields=%s, metadata=%s, language=%s, is_editable=%s, is_snapshot_form=%s, updated_at=%s WHERE id=%s",
+                    "UPDATE event_forms SET name=%s, description=%s, form_fields=%s, metadata=%s, language=%s, is_editable=%s, is_snapshot_form=%s, updated_at=%s, last_modified=%s WHERE id=%s",
                     (
                         event_form_update['name'],
                         event_form_update['description'],
@@ -274,6 +274,7 @@ def update_event_form(admin_user):
                         event_form_update['language'],
                         event_form_update['is_editable'],
                         event_form_update['is_snapshot_form'],
+                        datetime.now(),
                         datetime.now(),
                         event_form_id
                     )
@@ -295,13 +296,10 @@ def set_event_form_editable(admin_user):
     with get_connection() as conn:
         with conn.cursor() as cur:
             try:
-                cur.execute(
-                    "UPDATE event_forms SET is_editable=%s WHERE id=%s",
-                    (
-                        is_editable,
-                        event_form_id
-                    )
-                )
+                dt = datetime.now()
+                cur.execute(f"""
+                    UPDATE event_forms SET is_editable='{is_editable}', last_modified='{dt}' WHERE id='{event_form_id}'
+                """)
             except Exception as e:
                 conn.rollback()
                 print("Error updating event form: ", e)
@@ -319,10 +317,10 @@ def toggle_snapshot_form(admin_user):
     with get_connection() as conn:
         with conn.cursor() as cur:
             try:
-                cur.execute(
-                    "UPDATE event_forms SET is_snapshot_form = NOT is_snapshot_form WHERE id=%s",
-                    (event_form_id,)
-                )
+                dt = datetime.now()
+                cur.execute(f"""
+                    UPDATE event_forms SET is_snapshot_form = NOT is_snapshot_form, last_modified='{dt}' WHERE id='{event_form_id}'
+                """)
             except Exception as e:
                 conn.rollback()
                 print("Error updating event form: ", e)
@@ -468,6 +466,7 @@ def get_event_form_data(_admin_user):
     end_date = request.args.get('end_date')
     if end_date is not None:
         end_date = datetime.strptime(end_date, '%Y-%m-%d')
+        end_date = end_date.replace(hour=23, minute=59, second=59)
     else:
         end_date = datetime.now()
 
