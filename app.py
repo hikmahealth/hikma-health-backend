@@ -12,7 +12,6 @@ import startup_tasks
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 
-
 app = Flask(__name__)
 
 # WEBSITE_HOSTNAME exists only in production environment
