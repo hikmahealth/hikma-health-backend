@@ -1,6 +1,8 @@
 from flask import jsonify
 import time
 from datetime import timezone, datetime
+import pytz
+
 
 from db_util import get_connection
 
@@ -52,6 +54,11 @@ def getNthTimeSyncData(timestamp):
         get_connection(), "patients", timestamp
     )
 
+    # patient attributes EAV table: shortened name of "patient_additional_attributes"
+    patient_attributes_new, patient_attributes_updated, patient_attributes_deleted = fetch_records(
+        get_connection(), "patient_additional_attributes", timestamp
+    )
+
     clinics_new, clinics_updated, clinics_deleted = fetch_records(
         get_connection(), "clinics", timestamp
     )
@@ -79,6 +86,7 @@ def getNthTimeSyncData(timestamp):
     return (
         (events_new, events_updated, events_deleted),
         (patients_new, patients_updated, patients_deleted),
+        (patient_attributes_new, patient_attributes_updated, patient_attributes_deleted),
         (clinics_new, clinics_updated, clinics_deleted),
         (visits_new, visits_updated, visits_deleted),
         (string_ids_new, string_ids_updated, string_ids_deleted),
@@ -88,280 +96,281 @@ def getNthTimeSyncData(timestamp):
          patient_registration_forms_deleted)
     )
 
-    with get_connection() as conn:
-        # updated events
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT * FROM events WHERE last_modified > %s AND server_created_at < %s"
-                + is_not_deleted_str,
-                (timestamp, timestamp),
-            )
-            events_updated = cur.fetchall()
+    ## TOMBSTONE: Feb 5 2024
+    # with get_connection() as conn:
+    #     # updated events
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT * FROM events WHERE last_modified > %s AND server_created_at < %s"
+    #             + is_not_deleted_str,
+    #             (timestamp, timestamp),
+    #         )
+    #         events_updated = cur.fetchall()
 
-            events_updated = [
-                dict(zip([column[0] for column in cur.description], row))
-                for row in events_updated
-            ]
+    #         events_updated = [
+    #             dict(zip([column[0] for column in cur.description], row))
+    #             for row in events_updated
+    #         ]
 
-        # new events
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT * FROM events WHERE server_created_at > %s AND last_modified > %s"
-                + is_not_deleted_str,
-                (timestamp, timestamp),
-            )
-            events_new = cur.fetchall()
-            events_new = [
-                dict(zip([column[0] for column in cur.description], row))
-                for row in events_new
-            ]
+    #     # new events
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT * FROM events WHERE server_created_at > %s AND last_modified > %s"
+    #             + is_not_deleted_str,
+    #             (timestamp, timestamp),
+    #         )
+    #         events_new = cur.fetchall()
+    #         events_new = [
+    #             dict(zip([column[0] for column in cur.description], row))
+    #             for row in events_new
+    #         ]
 
-        # deleted events
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT id FROM events WHERE deleted_at > %s" + is_deleted_str,
-                (timestamp,),
-            )
-            events_deleted = cur.fetchall()
-            events_deleted = [
-                row[0] for row in events_deleted
-            ]
+    #     # deleted events
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT id FROM events WHERE deleted_at > %s" + is_deleted_str,
+    #             (timestamp,),
+    #         )
+    #         events_deleted = cur.fetchall()
+    #         events_deleted = [
+    #             row[0] for row in events_deleted
+    #         ]
 
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT * FROM patients WHERE last_modified > %s AND server_created_at < %s"
-                + is_not_deleted_str,
-                (timestamp, timestamp),
-            )
-            patients_updated = cur.fetchall()
-            patients_updated = [
-                dict(zip([column[0] for column in cur.description], row))
-                for row in patients_updated
-            ]
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT * FROM patients WHERE last_modified > %s AND server_created_at < %s"
+    #             + is_not_deleted_str,
+    #             (timestamp, timestamp),
+    #         )
+    #         patients_updated = cur.fetchall()
+    #         patients_updated = [
+    #             dict(zip([column[0] for column in cur.description], row))
+    #             for row in patients_updated
+    #         ]
 
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT * FROM patients WHERE server_created_at > %s"
-                + is_not_deleted_str,
-                (timestamp,),
-            )
-            patients_new = cur.fetchall()
-            patients_new = [
-                dict(zip([column[0] for column in cur.description], row))
-                for row in patients_new
-            ]
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT * FROM patients WHERE server_created_at > %s"
+    #             + is_not_deleted_str,
+    #             (timestamp,),
+    #         )
+    #         patients_new = cur.fetchall()
+    #         patients_new = [
+    #             dict(zip([column[0] for column in cur.description], row))
+    #             for row in patients_new
+    #         ]
 
-        # deleted patients
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT id FROM patients WHERE deleted_at > %s" + is_deleted_str,
-                (timestamp,),
-            )
-            patients_deleted = cur.fetchall()
-            patients_deleted = [
-                row[0] for row in patients_deleted
-            ]
+    #     # deleted patients
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT id FROM patients WHERE deleted_at > %s" + is_deleted_str,
+    #             (timestamp,),
+    #         )
+    #         patients_deleted = cur.fetchall()
+    #         patients_deleted = [
+    #             row[0] for row in patients_deleted
+    #         ]
 
-        # new cursor and select by last modiied and server_created_at, like above for visits, string_ids and string_content
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT * FROM clinics WHERE last_modified > %s AND last_modified < %s"
-                + is_not_deleted_str,
-                (timestamp, timestamp),
-            )
-            clinics_updated = cur.fetchall()
-            clinics_updated = [
-                dict(zip([column[0] for column in cur.description], row))
-                for row in clinics_updated
-            ]
+    #     # new cursor and select by last modiied and server_created_at, like above for visits, string_ids and string_content
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT * FROM clinics WHERE last_modified > %s AND last_modified < %s"
+    #             + is_not_deleted_str,
+    #             (timestamp, timestamp),
+    #         )
+    #         clinics_updated = cur.fetchall()
+    #         clinics_updated = [
+    #             dict(zip([column[0] for column in cur.description], row))
+    #             for row in clinics_updated
+    #         ]
 
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT * FROM clinics WHERE server_created_at > %s AND last_modified > %s"
-                + is_not_deleted_str,
-                (timestamp, timestamp),
-            )
-            clinics_new = cur.fetchall()
-            clinics_new = [
-                dict(zip([column[0] for column in cur.description], row))
-                for row in clinics_new
-            ]
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT * FROM clinics WHERE server_created_at > %s AND last_modified > %s"
+    #             + is_not_deleted_str,
+    #             (timestamp, timestamp),
+    #         )
+    #         clinics_new = cur.fetchall()
+    #         clinics_new = [
+    #             dict(zip([column[0] for column in cur.description], row))
+    #             for row in clinics_new
+    #         ]
 
-        ##############
-        ### VISITS ###
-        ##############
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT * FROM visits WHERE last_modified > %s AND server_created_at < %s"
-                + is_not_deleted_str,
-                (timestamp, timestamp),
-            )
-            visits_updated = cur.fetchall()
-            visits_updated = [
-                dict(zip([column[0] for column in cur.description], row))
-                for row in visits_updated
-            ]
+    #     ##############
+    #     ### VISITS ###
+    #     ##############
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT * FROM visits WHERE last_modified > %s AND server_created_at < %s"
+    #             + is_not_deleted_str,
+    #             (timestamp, timestamp),
+    #         )
+    #         visits_updated = cur.fetchall()
+    #         visits_updated = [
+    #             dict(zip([column[0] for column in cur.description], row))
+    #             for row in visits_updated
+    #         ]
 
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT * FROM visits WHERE server_created_at > %s AND last_modified > %s"
-                + is_not_deleted_str,
-                (timestamp, timestamp),
-            )
-            visits_new = cur.fetchall()
-            visits_new = [
-                dict(zip([column[0] for column in cur.description], row))
-                for row in visits_new
-            ]
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT * FROM visits WHERE server_created_at > %s AND last_modified > %s"
+    #             + is_not_deleted_str,
+    #             (timestamp, timestamp),
+    #         )
+    #         visits_new = cur.fetchall()
+    #         visits_new = [
+    #             dict(zip([column[0] for column in cur.description], row))
+    #             for row in visits_new
+    #         ]
 
-        # deleted visits
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT id FROM visits WHERE deleted_at > %s" + is_deleted_str,
-                (timestamp,),
-            )
-            visits_deleted = cur.fetchall()
-            visits_deleted = [
-                row[0] for row in visits_deleted
-            ]
+    #     # deleted visits
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT id FROM visits WHERE deleted_at > %s" + is_deleted_str,
+    #             (timestamp,),
+    #         )
+    #         visits_deleted = cur.fetchall()
+    #         visits_deleted = [
+    #             row[0] for row in visits_deleted
+    #         ]
 
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT * FROM string_ids WHERE last_modified > %s",
-                (timestamp,),
-            )
-            string_ids_updated = cur.fetchall()
-            string_ids_updated = [
-                dict(zip([column[0] for column in cur.description], row))
-                for row in string_ids_updated
-            ]
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT * FROM string_ids WHERE last_modified > %s",
+    #             (timestamp,),
+    #         )
+    #         string_ids_updated = cur.fetchall()
+    #         string_ids_updated = [
+    #             dict(zip([column[0] for column in cur.description], row))
+    #             for row in string_ids_updated
+    #         ]
 
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT * FROM string_ids WHERE server_created_at > %s",
-                (timestamp,),
-            )
-            string_ids_new = cur.fetchall()
-            string_ids_new = [
-                dict(zip([column[0] for column in cur.description], row))
-                for row in string_ids_new
-            ]
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT * FROM string_ids WHERE server_created_at > %s",
+    #             (timestamp,),
+    #         )
+    #         string_ids_new = cur.fetchall()
+    #         string_ids_new = [
+    #             dict(zip([column[0] for column in cur.description], row))
+    #             for row in string_ids_new
+    #         ]
 
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT * FROM string_content WHERE last_modified > %s",
-                (timestamp,),
-            )
-            string_content_updated = cur.fetchall()
-            string_content_updated = [
-                dict(zip([column[0] for column in cur.description], row))
-                for row in string_content_updated
-            ]
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT * FROM string_content WHERE last_modified > %s",
+    #             (timestamp,),
+    #         )
+    #         string_content_updated = cur.fetchall()
+    #         string_content_updated = [
+    #             dict(zip([column[0] for column in cur.description], row))
+    #             for row in string_content_updated
+    #         ]
 
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT * FROM string_content WHERE server_created_at > %s",
-                (timestamp,),
-            )
-            string_content_new = cur.fetchall()
-            string_content_new = [
-                dict(zip([column[0] for column in cur.description], row))
-                for row in string_content_new
-            ]
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT * FROM string_content WHERE server_created_at > %s",
+    #             (timestamp,),
+    #         )
+    #         string_content_new = cur.fetchall()
+    #         string_content_new = [
+    #             dict(zip([column[0] for column in cur.description], row))
+    #             for row in string_content_new
+    #         ]
 
-        #################################
-        ######### EVENT FORMS ###########
-        #################################
-        # Updated event forms
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT * FROM event_forms WHERE last_modified > %s AND server_created_at < %s"
-                + is_not_deleted_str,
-                (timestamp, timestamp),
-            )
-            # cur.execute(
-            #     "SELECT * fromOM event_forms WHERE last_modified > %s", (timestamp,),
-            # )
-            event_forms_updated = cur.fetchall()
-            event_forms_updated = [
-                dict(zip([column[0] for column in cur.description], row))
-                for row in event_forms_updated
-            ]
+    #     #################################
+    #     ######### EVENT FORMS ###########
+    #     #################################
+    #     # Updated event forms
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT * FROM event_forms WHERE last_modified > %s AND server_created_at < %s"
+    #             + is_not_deleted_str,
+    #             (timestamp, timestamp),
+    #         )
+    #         # cur.execute(
+    #         #     "SELECT * fromOM event_forms WHERE last_modified > %s", (timestamp,),
+    #         # )
+    #         event_forms_updated = cur.fetchall()
+    #         event_forms_updated = [
+    #             dict(zip([column[0] for column in cur.description], row))
+    #             for row in event_forms_updated
+    #         ]
 
-        # New event forms
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT * FROM event_forms WHERE server_created_at > %s AND last_modified > %s"
-                + is_not_deleted_str,
-                (timestamp, timestamp),
-            )
-            # cur.execute(
-            #     "SELECT * FROM event_forms WHERE server_created_at > %s", (timestamp,),
-            # )
-            event_forms_new = cur.fetchall()
-            event_forms_new = [
-                dict(zip([column[0] for column in cur.description], row))
-                for row in event_forms_new
-            ]
+    #     # New event forms
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT * FROM event_forms WHERE server_created_at > %s AND last_modified > %s"
+    #             + is_not_deleted_str,
+    #             (timestamp, timestamp),
+    #         )
+    #         # cur.execute(
+    #         #     "SELECT * FROM event_forms WHERE server_created_at > %s", (timestamp,),
+    #         # )
+    #         event_forms_new = cur.fetchall()
+    #         event_forms_new = [
+    #             dict(zip([column[0] for column in cur.description], row))
+    #             for row in event_forms_new
+    #         ]
 
-        # Deleted event forms
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT id FROM event_forms WHERE deleted_at > %s" + is_deleted_str,
-                (timestamp,),
-            )
-            event_forms_deleted = cur.fetchall()
-            event_forms_deleted = [
-                row[0] for row in event_forms_deleted
-            ]
+    #     # Deleted event forms
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT id FROM event_forms WHERE deleted_at > %s" + is_deleted_str,
+    #             (timestamp,),
+    #         )
+    #         event_forms_deleted = cur.fetchall()
+    #         event_forms_deleted = [
+    #             row[0] for row in event_forms_deleted
+    #         ]
 
-        ##################################
-        ### PATIENT REGISTRATION FORMS ###
-        ##################################
-        # updated registration forms
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT * FROM patient_registration_forms  WHERE last_modified > %s AND server_created_at < %s"
-                + is_not_deleted_str,
-                (timestamp, timestamp),
-            )
+    #     ##################################
+    #     ### PATIENT REGISTRATION FORMS ###
+    #     ##################################
+    #     # updated registration forms
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT * FROM patient_registration_forms  WHERE last_modified > %s AND server_created_at < %s"
+    #             + is_not_deleted_str,
+    #             (timestamp, timestamp),
+    #         )
 
-            patient_registration_forms_updated = cur.fetchall()
-            patient_registration_forms_updated = [
-                dict(zip([column[0] for column in cur.description], row))
-                for row in patient_registration_forms_updated
-            ]
+    #         patient_registration_forms_updated = cur.fetchall()
+    #         patient_registration_forms_updated = [
+    #             dict(zip([column[0] for column in cur.description], row))
+    #             for row in patient_registration_forms_updated
+    #         ]
 
-        # New registration forms
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT * FROM patient_registration_forms WHERE server_created_at > %s AND last_modified > %s"
-                + is_not_deleted_str,
-                (timestamp, timestamp),
-            )
-            # cur.execute(
-            #     "SELECT * FROM event_forms WHERE server_created_at > %s", (timestamp,),
-            # )
-            patient_registration_forms_new = cur.fetchall()
-            patient_registration_forms_new = [
-                dict(zip([column[0] for column in cur.description], row))
-                for row in patient_registration_forms_new
-            ]
+    #     # New registration forms
+    #     with conn.cursor() as cur:
+    #         cur.execute(
+    #             "SELECT * FROM patient_registration_forms WHERE server_created_at > %s AND last_modified > %s"
+    #             + is_not_deleted_str,
+    #             (timestamp, timestamp),
+    #         )
+    #         # cur.execute(
+    #         #     "SELECT * FROM event_forms WHERE server_created_at > %s", (timestamp,),
+    #         # )
+    #         patient_registration_forms_new = cur.fetchall()
+    #         patient_registration_forms_new = [
+    #             dict(zip([column[0] for column in cur.description], row))
+    #             for row in patient_registration_forms_new
+    #         ]
 
-        # Could support deleted registration forms ... but this needs more thought around how they are managed on the mobile devixe
-        # Additionally, each app MUST have a registration form
+    #     # Could support deleted registration forms ... but this needs more thought around how they are managed on the mobile devixe
+    #     # Additionally, each app MUST have a registration form
 
-    return (
-        (events_new, events_updated, events_deleted),
-        (patients_new, patients_updated, patients_deleted),
-        (clinics_new, clinics_updated, clinics_deleted),
-        (visits_new, visits_updated, visits_deleted),
-        (string_ids_new, string_ids_updated, string_ids_deleted),
-        (string_content_new, string_content_updated, string_content_deleted),
-        (event_forms_new, event_forms_updated, event_forms_deleted),
-        (patient_registration_forms_new, patient_registration_forms_updated,
-         patient_registration_forms_deleted)
-    )
+    # return (
+    #     (events_new, events_updated, events_deleted),
+    #     (patients_new, patients_updated, patients_deleted),
+    #     (clinics_new, clinics_updated, clinics_deleted),
+    #     (visits_new, visits_updated, visits_deleted),
+    #     (string_ids_new, string_ids_updated, string_ids_deleted),
+    #     (string_content_new, string_content_updated, string_content_deleted),
+    #     (event_forms_new, event_forms_updated, event_forms_deleted),
+    #     (patient_registration_forms_new, patient_registration_forms_updated,
+    #      patient_registration_forms_deleted)
+    # )
 
 
 def fetch_records(conn, table, timestamp):
@@ -422,6 +431,7 @@ def fetch_records(conn, table, timestamp):
 def apply_edge_changes(data, lastPulledAt):
     # patients
     patients = data["patients"]
+    patient_additional_attributes = data["patient_additional_attributes"]
     events = data["events"]
     visits = data["visits"]
     # Function ignores the patient_registration_forms because they are server made only
@@ -430,6 +440,14 @@ def apply_edge_changes(data, lastPulledAt):
         with conn.cursor() as cur:
             try:
                 apply_edge_patient_changes(patients, cur, lastPulledAt)
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                print("Error while executing SQL commands: ", e)
+                raise e
+
+            try:
+                apply_edge_patient_attribute_changes(patient_additional_attributes, cur, lastPulledAt)
                 conn.commit()
             except Exception as e:
                 conn.rollback()
@@ -458,6 +476,7 @@ def formatGETSyncResponse(syncData):
     (
         events,
         patients,
+        patient_additional_attributes,
         clinics,
         visits,
         string_ids,
@@ -477,6 +496,11 @@ def formatGETSyncResponse(syncData):
                     "created": patients[0],
                     "updated": patients[1],
                     "deleted": patients[2],
+                },
+                "patient_additional_attributes": {
+                    "created": patient_additional_attributes[0],
+                    "updated": patient_additional_attributes[1],
+                    "deleted": patient_additional_attributes[2],
                 },
                 "clinics": {
                     "created": clinics[0],
@@ -517,7 +541,7 @@ def formatGETSyncResponse(syncData):
 def apply_edge_patient_changes(patients, cur, lastPulledAt):
     # CREATED PATIENTS
     if len(patients["created"]) > 0:
-        patient_insert = """INSERT INTO patients (id, given_name, surname, date_of_birth, citizenship, hometown, sex, phone, camp, additional_data, created_at, updated_at)"""
+        patient_insert = """INSERT INTO patients (id, given_name, surname, date_of_birth, citizenship, hometown, sex, phone, camp, additional_data, government_id, external_patient_id, created_at, updated_at)"""
         patients_sql = [
             (
                 patient["id"],
@@ -530,6 +554,11 @@ def apply_edge_patient_changes(patients, cur, lastPulledAt):
                 patient["phone"],
                 patient["camp"],
                 patient["additional_data"],
+
+                # V2 migration on app
+                patient["government_id"],
+                patient["external_patient_id"],
+
                 date_from_timestamp(patient["created_at"]),
                 date_from_timestamp(patient["updated_at"]),
             )
@@ -538,7 +567,7 @@ def apply_edge_patient_changes(patients, cur, lastPulledAt):
 
         args = ",".join(
             cur.mogrify(
-                "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", i
+                "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", i
             ).decode("utf-8")
             for i in patients_sql
         )
@@ -548,9 +577,9 @@ def apply_edge_patient_changes(patients, cur, lastPulledAt):
     # UPDATE patients SET name = 'new name' WHERE id = 'id'
     for patient in patients["updated"]:
         cur.execute(
-            f"""INSERT INTO patients (id, given_name, surname, date_of_birth, citizenship, hometown, sex, phone, camp, created_at, updated_at, last_modified)
+            f"""INSERT INTO patients (id, given_name, surname, date_of_birth, citizenship, hometown, sex, phone, camp, additional_data, government_id, external_patient_id, created_at, updated_at, last_modified)
                 VALUES ('{patient["id"]}', '{patient["given_name"]}', '{patient["surname"]}', '{patient["date_of_birth"]}', '{patient["citizenship"]}', '{patient["hometown"]}', '{patient["sex"]}',
-                        '{patient["phone"]}', '{patient["camp"]}', '{date_from_timestamp(patient["created_at"])}', '{date_from_timestamp(patient["updated_at"])}', '{datetime.now()}')
+                        '{patient["phone"]}', '{patient["camp"]}', '{patient["additional_data"]}', '{patient["government_id"]}', '{patient["external_patient_id"]}', '{date_from_timestamp(patient["created_at"])}', '{date_from_timestamp(patient["updated_at"])}', '{datetime.now()}')
                 ON CONFLICT (id) DO UPDATE
                 SET given_name = EXCLUDED.given_name,
                     surname = EXCLUDED.surname,
@@ -560,6 +589,9 @@ def apply_edge_patient_changes(patients, cur, lastPulledAt):
                     sex = EXCLUDED.sex,
                     phone = EXCLUDED.phone,
                     camp = EXCLUDED.camp,
+                    additional_data = EXCLUDED.additional_data,
+                    government_id = EXCLUDED.government_id,
+                    external_patient_id = EXCLUDED.external_patient_id,
                     created_at = EXCLUDED.created_at,
                     updated_at = EXCLUDED.updated_at,
                     last_modified = EXCLUDED.last_modified;
@@ -576,6 +608,119 @@ def apply_edge_patient_changes(patients, cur, lastPulledAt):
             f"""UPDATE patients SET is_deleted=true, deleted_at='{
                 date_from_timestamp(lastPulledAt)}' WHERE id = '{patient}';"""
         )
+
+
+
+
+### PATIENT ADDITIONAL ATTRIBUTES
+def apply_edge_patient_attribute_changes(patient_attributes, cur, lastPulledAt):
+    # CREATED PATIENT ADDITIONAL ATTRIBUTES
+    if len(patient_attributes["created"]) > 0:
+        patient_insert = """INSERT INTO patient_additional_attributes (
+        id,
+        patient_id,
+        attribute_id,
+        attribute,
+        number_value,
+        string_value,
+        date_value,
+        boolean_value,
+        metadata,
+        is_deleted,
+        created_at, 
+        updated_at,
+        last_modified,
+        server_created_at
+        )"""
+        patient_attributes_sql = [
+            (
+                patient_attribute["id"],
+                patient_attribute["patient_id"],
+                patient_attribute["attribute_id"],
+                patient_attribute["attribute"],
+                patient_attribute["number_value"],
+                patient_attribute["string_value"],
+                to_timestamptz(patient_attribute["date_value"]),
+                patient_attribute["boolean_value"],
+                patient_attribute["metadata"],
+                False,
+                date_from_timestamp(patient_attribute["created_at"]),
+                date_from_timestamp(patient_attribute["updated_at"]),
+                datetime.now(),
+                datetime.now()
+            )
+            for patient_attribute in patient_attributes["created"]
+        ]
+
+        args = ",".join(
+            cur.mogrify(
+                "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", i
+            ).decode("utf-8")
+            for i in patient_attributes_sql
+        )
+        cur.execute(patient_insert + " VALUES " + (args))
+
+    # UPDATED PATIENT ADDITIONAL ATTRIBUTES
+    for patient_attribute in patient_attributes["updated"]:
+        cur.execute(
+            f"""INSERT INTO patient_additional_attributes (
+                id,
+                patient_id,
+                attribute_id,
+                attribute,
+                number_value,
+                string_value,
+                date_value,
+                boolean_value,
+                metadata,
+                is_deleted,
+                created_at, 
+                updated_at
+                last_modified,
+                server_created_at,
+            )
+                VALUES (
+                        '{patient_attribute["id"]}', 
+                        '{patient_attribute["patient_id"]}',
+                        '{patient_attribute["attribute_id"]}',
+                        '{patient_attribute["attribute"]}',
+                        '{patient_attribute["number_value"]}',
+                        '{patient_attribute["string_value"]}',
+                        '{patient_attribute["date_value"]}',
+                        '{patient_attribute["boolean_value"]}',
+                        '{patient_attribute["metadata"]}',                       
+                        '{False}',
+                        '{date_from_timestamp(patient["created_at"])}', 
+                        '{date_from_timestamp(patient["updated_at"])}', 
+                        '{datetime.now()}',
+                        '{datetime.now()}')
+                ON CONFLICT (id) DO UPDATE
+                SET 
+                    patient_id = EXCLUDED.patient_id,
+                    attribute_id = EXCLUDED.attribute_id,
+                    attribute = EXCLUDED.attribute,
+                    number_value = EXCLUDED.number_value,
+                    string_value = EXCLUDED.string_value,
+                    date_value = EXCLUDED.date_value,
+                    boolean_value = EXCLUDED.boolean_value,
+                    metadata = EXCLUDED.metadata,
+                                   
+                    updated_at = EXCLUDED.updated_at,
+                    last_modified = EXCLUDED.last_modified;
+            """
+        )
+
+    # DELETED PATIENT ADDITIONAL ATTRIBUTES
+    for patient_attribute in patient_attributes["deleted"]:
+        # if len(patient_additional_attributes["deleted"]) > 0:
+        # convert array of strings to tuple of strings
+        # deleted_ids = tuple(patient_attribute["deleted"])
+        # cur.execute(f"""DELETE FROM patient_additional_attributes WHERE id IN ({deleted_ids});""")
+        cur.execute(
+            f"""UPDATE patient_additional_attributes SET is_deleted=true, deleted_at='{
+                date_from_timestamp(lastPulledAt)}' WHERE id = '{patient_attribute}';"""
+        )
+
 
 
 def apply_edge_event_changes(events, cur, lastPulledAt):
@@ -686,3 +831,18 @@ def get_timestamp_now():
 def convert_timestamp_to_gmt(timestamp):
     # convert the lastPuledAt milliseconds string into a date object of gmt time
     return datetime.fromtimestamp(int(timestamp) / 1000, tz=timezone.utc)
+
+
+def to_timestamptz(value):
+    if isinstance(value, (int, float)):
+        # Assuming the number is a milliseconds Unix timestamp
+        return datetime.fromtimestamp(value / 1000.0, pytz.UTC)
+    elif isinstance(value, str):
+        # Assuming the string is in a standard datetime format
+        try:
+            return datetime.fromisoformat(value).astimezone(pytz.UTC)
+        except ValueError:
+            # Handle other string formats if necessary
+            return datetime.strptime(value, "%Y-%m-%d %H:%M:%S").astimezone(pytz.UTC)
+    return None
+
