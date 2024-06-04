@@ -1,4 +1,5 @@
 from db_util import get_connection
+import json
 from patients.patient import Patient
 from language_strings.data_access import update_language_string
 from language_strings.language_string import to_id, LanguageString
@@ -66,12 +67,83 @@ def all_patient_data():
     # query = """
     # SELECT id, given_name, surname, date_of_birth, sex, citizenship, hometown, phone, edited_at FROM patients ORDER BY edited_at DESC LIMIT 25
     # """
+    # Get the patient data from the patients column
+    # FIXME add support for limit counts
+    # query = """
+    # SELECT id, 
+    # given_name, 
+    # surname, 
+    # date_of_birth, 
+    # sex, 
+    # citizenship, 
+    # hometown, 
+    # phone, 
+    # additional_data, 
+    # government_id, 
+    # external_patient_id, 
+    # created_at, 
+    # updated_at FROM patients ORDER BY updated_at DESC
+    # """
     query = """
-    SELECT id, given_name, surname, date_of_birth, sex, citizenship, hometown, phone, additional_data, created_at, updated_at FROM patients ORDER BY updated_at DESC
+        SELECT
+        JSON_BUILD_OBJECT(
+            'id', p.id,
+            'given_name', p.given_name, 
+            'surname', p.surname, 
+            'date_of_birth', p.date_of_birth, 
+            'sex', p.sex, 
+            'camp', p.camp,
+            'citizenship', p.citizenship, 
+            'hometown', p.hometown, 
+            'phone', p.phone, 
+            'additional_data', p.additional_data, 
+            'government_id', p.government_id, 
+            'external_patient_id', p.external_patient_id, 
+            'created_at', p.created_at, 
+            'updated_at', p.updated_at,
+            'patient_additional_attributes', json_object_agg(COALESCE(pa.attribute_id::text, '_'::text), COALESCE(pa.string_value, pa.number_value::text, pa.boolean_value::text, pa.date_value::text))
+        ) AS patient_data
+        FROM patients p
+        LEFT JOIN patient_additional_attributes pa ON p.id = pa.patient_id
+        GROUP BY p.id, p.given_name, p.surname, p.date_of_birth, p.citizenship, p.created_at, p.updated_at;
     """
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(query, [])
+            results = cur.fetchall()
+            patient_data = []
+            for row in results:
+                patient = row[0]
+                # If not a valid JSON string, treat as empty dict
+                additional_data = patient.get('additional_data', {})  
+                patient_additional_attributes = patient.get('patient_additional_attributes', {})
+
+                # Merge the two attribute dictionaries
+                if patient_additional_attributes != {"_": None}:
+                    merged_attributes = additional_data.copy() 
+                    merged_attributes.update(patient_additional_attributes)
+                    patient['additional_data'] = merged_attributes
+
+                # Remove the original attribute fields
+                # del patient['additional_data']
+                del patient['patient_additional_attributes']
+
+                patient_data.append(patient)
+
+            return patient_data
+
+
+# Given a patient_id get all their additional column values
+def patient_additional_attributes(patient_id: str):
+    query = """
+        SELECT id, attribute_id, attribute, number_value, string_value, date_value, boolean_value
+        FROM patient_additional_attributes
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.excecute(
+                query, []
+            )
             yield from cur
 
 def search_patients(given_name: str, surname: str, country: str, hometown: str):
