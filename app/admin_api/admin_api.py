@@ -5,7 +5,7 @@ from db_util import get_connection
 from web_errors import WebError
 from users.user import User
 from dateutil import parser
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from patients.patient import Patient
 from patients.data_access import all_patient_data, search_patients, patient_additional_attributes
 from users.data_access import all_user_data, add_user, delete_user_by_id, user_data_by_email
@@ -279,8 +279,8 @@ def update_event_form(admin_user):
                         event_form_update['language'],
                         event_form_update['is_editable'],
                         event_form_update['is_snapshot_form'],
-                        datetime.now(),
-                        datetime.now(),
+                        datetime.now(timezone.utc),
+                        datetime.now(timezone.utc),
                         event_form_id
                     )
                 )

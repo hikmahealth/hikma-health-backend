@@ -103,7 +103,7 @@ class Patient(ClientObject):
                 ('country', cls.make_language_string),
                 ('hometown', cls.make_language_string),
                 ('phone', identity),
-                ('additional_data', identity)
+                ('additional_data', identity),
                 ('edited_at', identity)]
 
     @classmethod
@@ -116,7 +116,7 @@ class Patient(ClientObject):
                 ('country', cls.make_language_string),
                 ('hometown', cls.make_language_string),
                 ('phone', identity),
-                ('additional_data', identity)
+                ('additional_data', identity),
                 ('edited_at', parse_client_timestamp)]
 
     @classmethod
