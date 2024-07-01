@@ -1,0 +1,62 @@
+from flask import Flask, jsonify
+from flask_cors import CORS
+
+from app.admin_api.admin_api import admin_api
+from app.mobile_api.mobile_api import mobile_api
+from app.user_api.user_api import user_api
+
+from hikima.server import routes_admin
+
+from hikima.server.utils.errors import WebError
+from hikima.server import config
+
+
+
+app = Flask(__name__)
+CORS(app)
+app.url_map.strict_slashes = False
+
+# for backcompat
+app.register_blueprint(mobile_api, )
+app.register_blueprint(admin_api)
+app.register_blueprint(user_api)
+
+
+app.register_blueprint(routes_admin.app)
+
+
+@app.route("/")
+def hello_world():
+    return jsonify({"message": "Welcome to the Hikma Health backend.", "status": "OK"})
+
+
+@app.errorhandler(WebError)
+def handle_web_error(error):
+    response = jsonify(error.to_dict())
+    response.status_code = error.status_code
+    return response
+
+
+@app.errorhandler(404)
+def page_not_found(_err):
+    response = jsonify({"message": "Endpoint not found."})
+    response.status_code = 404
+    return response
+
+
+@app.errorhandler(405)
+def method_not_found(_err):
+    response = jsonify({"message": "Method not found."})
+    response.status_code = 405
+    return response
+
+
+@app.errorhandler(500)
+def internal_server_error(_err):
+    response = jsonify({"message": "Internal Server Error"})
+    response.status_code = 500
+    return response
+
+
+if __name__ == "__main__":
+    app.run(debug=config.FLASK_DEBUG, host="0.0.0.0", port=config.FLASK_DEBUG_PORT)
