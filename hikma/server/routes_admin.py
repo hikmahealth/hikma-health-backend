@@ -2,7 +2,7 @@
 from flask import Blueprint, request, jsonify
 
 
-app = Blueprint('api.admin', __name__,  url_prefix='/v1/admin')
+app = Blueprint('api-admin', __name__)
 
 
 @app.route('/auth/login', methods=['POST'])

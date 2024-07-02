@@ -1,28 +1,28 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 
-from app.admin_api.admin_api import admin_api
-from app.mobile_api.mobile_api import mobile_api
-from app.user_api.user_api import user_api
+# from app.admin_api.admin_api import admin_api
+# from app.mobile_api.mobile_api import mobile_api
+# from app.user_api.user_api import user_api
 
-from hikima.server import routes_admin
+from hikma.server.routes_admin import app as admin_app
+from hikma.server.routes_mobile import api as mobile_app
 
-from hikima.server.utils.errors import WebError
-from hikima.server import config
-
-
+from hikma.server.utils.errors import WebError
+from hikma.server import config
 
 app = Flask(__name__)
 CORS(app)
 app.url_map.strict_slashes = False
 
+
 # for backcompat
-app.register_blueprint(mobile_api)
-app.register_blueprint(admin_api)
-app.register_blueprint(user_api)
+# app.register_blueprint(mobile_api)
+# app.register_blueprint(admin_api)
+# app.register_blueprint(user_api)
 
-
-app.register_blueprint(routes_admin.app)
+app.register_blueprint(admin_app, url_prefix='/v1/admin')
+app.register_blueprint(mobile_app, url_prefix='/v1/api')
 
 
 @app.route("/")
