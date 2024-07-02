@@ -17,7 +17,7 @@ CORS(app)
 app.url_map.strict_slashes = False
 
 # for backcompat
-app.register_blueprint(mobile_api, )
+app.register_blueprint(mobile_api)
 app.register_blueprint(admin_api)
 app.register_blueprint(user_api)
 
