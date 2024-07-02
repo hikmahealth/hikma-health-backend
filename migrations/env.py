@@ -6,7 +6,7 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from config import PG_USER, PG_PASSWORD, PG_HOST, PG_DB
+from hikima.server import config as srvconfig
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -27,7 +27,9 @@ target_metadata = None
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
-config.set_main_option('sqlalchemy.url', f'postgresql://{PG_USER}:{PG_PASSWORD}@{PG_HOST}/{PG_DB}')
+# Connection string modified to use psycopg version 3
+# https://docs.sqlalchemy.org/en/20/dialects/postgresql.html#dialect-postgresql-psycopg-connect
+config.set_main_option('sqlalchemy.url', f'postgresql+psycopg://{srvconfig.PG_USER}:{srvconfig.PG_PASSWORD}@{srvconfig.PG_HOST}/{srvconfig.PG_DB}')
 
 
 def run_migrations_offline():
