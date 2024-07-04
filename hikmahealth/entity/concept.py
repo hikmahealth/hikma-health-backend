@@ -1,22 +1,18 @@
 from __future__ import annotations
 
-from hikmahealth.entity import base
+from hikmahealth.entity import sync
 
-class Patient(base.SyncronizableEntity):
+class Patient(sync.SyncronizableEntity):
     TABLE_NAME = "patients"
 
-    @classmethod
-    def from_id(cls, id: str) -> Patient:
-        raise NotImplementedError()
 
-
-class Event(base.SyncronizableEntity):
+class Event(sync.SyncronizableEntity):
     TABLE_NAME = "events"
     pass
 
-class Clinic(base.SyncronizableEntity):
+class Clinic(sync.SyncronizableEntity):
     TABLE_NAME = "clinic"
     pass
 
-class Visit(base.SyncronizableEntity):
+class Visit(sync.SyncronizableEntity):
     TABLE_NAME = "visits"

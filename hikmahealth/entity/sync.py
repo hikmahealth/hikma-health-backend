@@ -38,7 +38,7 @@ class DeltaData(object):
 
 # should be move to a different structure. since it depends on psycopg to
 # execute properly
-class Entity(Syncronizable, BaseEntity):
+class SyncronizableEntity(Syncronizable, BaseEntity):
     """Inferface to help implement features needed by an entity that 
     wants to syncronize content between the client and server"""
     @classmethod

@@ -77,7 +77,7 @@ def sync_v2_pull():
 
     
     # list of entities to get the diff from
-    entities_to_sync: dict[str, sync.Entity] = {
+    entities_to_sync: dict[str, sync.SyncronizableEntity] = {
         "events": concept.Event,
         "patients": concept.Patient,
         "visits": concept.Visit,
@@ -105,6 +105,11 @@ def sync_v2_pull():
 
 @api.route('/sync', methods=['POST'])
 def sync_v2_push():
+    _get_authenticated_user_from_request(request)
+    last_synced_at = _get_last_pulled_at_from(request)
+    schemaVersion = request.args.get("schemaVersion", None)
+    migration = request.args.get("migration", None)
+
     # 2. If the changes object contains a record that has been modified on the server after lastPulledAt, you MUST abort push and return an error code
     body = request.get_json()
 
