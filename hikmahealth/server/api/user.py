@@ -53,7 +53,3 @@ def reset_password(user: User, new_password: str):
             cur.execute('UPDATE users SET hashed_password = %s WHERE id = %s',
                         (new_password_hashed, user.id,))
             
-
-def invalidate_tokens(user: User):
-    #  dsdadsadas
-     pass

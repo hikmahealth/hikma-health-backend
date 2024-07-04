@@ -1,5 +1,5 @@
 import psycopg
-from hikma.server import config
+from hikmahealth.server import config
 
 # print(dict(
 #         host=config.PG_HOST, 
