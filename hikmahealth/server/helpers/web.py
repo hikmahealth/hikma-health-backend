@@ -4,7 +4,7 @@ from flask import Request, request
 from functools import wraps
 from typing import Set, Dict
 
-from hikma.server.utils.errors import WebError
+from hikmahealth.server.utils.errors import WebError
 
 def assert_data_has_keys(request_arg: Request, keys: Set[str], data_type='json'):
     if data_type == 'json':
