@@ -9,7 +9,7 @@ from hikmahealth.server.api import user as userapi
 import time
 from base64 import b64decode
 
-import hikmahealth.server.utils.datetime as dateutils
+import hikmahealth.utils.datetime as dateutils
 from hikmahealth.server.client import db
 
 from hikmahealth.entity import concept, sync
@@ -77,7 +77,7 @@ def sync_v2_pull():
 
     
     # list of entities to get the diff from
-    entities_to_sync: dict[str, sync.SyncronizableEntity] = {
+    entities_to_sync: dict[str, sync.SyncDownEntity] = {
         "events": concept.Event,
         "patients": concept.Patient,
         "visits": concept.Visit,
@@ -101,7 +101,11 @@ def sync_v2_pull():
         "timestamp": _get_timestamp_now()
     })
 
-   
+
+_KNOWN_ENTITIES_TO_SYNC_UP: dict[str, sync.ISyncUp] = {
+    "events": concept.Event,
+    "patients": concept.Patient 
+}
 
 @api.route('/sync', methods=['POST'])
 def sync_v2_push():
@@ -111,11 +115,32 @@ def sync_v2_push():
     migration = request.args.get("migration", None)
 
     # 2. If the changes object contains a record that has been modified on the server after lastPulledAt, you MUST abort push and return an error code
-    body = request.get_json()
+    
+    # expected body structure
+    # { [s in 'events' | 'patients' | ....]: { "created": Array<dict[str, any]>, "updated": Array<dict[str, any]>, deleted: []str }}
+    body = dict(request.get_json())
 
-    apply_edge_changes(body, lastPulledAt)
-    return jsonify({"message": True})
-    pass
+    try:
+        for entitykey, deltadata in body:
+            if entitykey not in _KNOWN_ENTITIES_TO_SYNC_UP:
+                continue
+
+            e = _KNOWN_ENTITIES_TO_SYNC_UP[entitykey]
+
+            # package delta data
+            deltadata = sync.DeltaData(
+                created=deltadata["created"],
+                updated=deltadata["updated"],
+                deleted=[{"id": id} for id in deltadata["deleted"]] if deltadata["deleted"] is not None else None
+            )
+
+            e.apply_delta_changes(deltadata, last_pushed_at=last_synced_at, conn=db.get_connection())
+
+        return jsonify({ "ok": True })    
+    except Exception as err:
+        print(err)
+        return jsonify({ "ok": False, "message": "failed horribly" })
+    
 
 def _get_timestamp_now():
     return time.mktime(datetime.now().timetuple()) * 1000

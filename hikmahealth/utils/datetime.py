@@ -16,6 +16,13 @@ def parse_client_timestamp(ts: str):
     raise ValueError('invalid visit date format')        
 
 
+def from_timestamp(timestamp: int ):
+    date = datetime.utcfromtimestamp(
+        (timestamp) / 1000).strftime("%Y-%m-%d %H:%M:%S")
+    return date
+
+
+
 def parse_client_date(date_str: str):
     if not date_str:
         return None
