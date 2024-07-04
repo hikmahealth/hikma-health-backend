@@ -8,7 +8,7 @@ from flask_cors import CORS
 from hikmahealth.server.routes_admin import app as admin_app
 from hikmahealth.server.routes_mobile import api as mobile_app
 
-from hikmahealth.server.utils.errors import WebError
+from hikmahealth.utils.errors import WebError
 from hikmahealth.server import config
 
 app = Flask(__name__)
@@ -58,5 +58,5 @@ def internal_server_error(_err):
     return response
 
 
-if __name__ == "__main__":
-    app.run(debug=config.FLASK_DEBUG, host="0.0.0.0", port=config.FLASK_DEBUG_PORT)
+# if __name__ == "__main__":
+#     app.run(debug=config.FLASK_DEBUG, host="0.0.0.0", port=config.FLASK_DEBUG_PORT)

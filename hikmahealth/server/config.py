@@ -14,7 +14,7 @@ and stopped running any further
 import os
 from enum import Enum
 
-class EnvironmentType(Enum):
+class EnvironmentType:
     """Different environment expected to run in the application"""
     Prod = "prod"
     Staging = "stg"
@@ -26,9 +26,9 @@ PG_HOST=os.environ["DB_HOST"]
 PG_DB=os.environ["DB_NAME"]
 PG_USER=os.environ["DB_USER"]
 PG_PASSWORD=os.environ["DB_PASSWORD"]
-PG_PORT=int(os.environ.get("DB_PORT", "5432"))
+PG_PORT=str(os.environ.get("DB_PORT", "5432"))
 
-APP_ENV = os.environ.get("APP_ENV", EnvironmentType.Local)
+APP_ENV = os.environ.get("APP_ENV", EnvironmentType.Prod)
 
 FLASK_DEBUG = True
 FLASK_DEBUG_PORT = int(os.environ.get("FLASK_DEBUG_PORT", "5000"))

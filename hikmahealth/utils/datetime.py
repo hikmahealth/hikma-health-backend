@@ -16,9 +16,9 @@ def parse_client_timestamp(ts: str):
     raise ValueError('invalid visit date format')        
 
 
-def from_timestamp(timestamp: int ):
+def from_timestamp(timestamp: int | str):
     date = datetime.utcfromtimestamp(
-        (timestamp) / 1000).strftime("%Y-%m-%d %H:%M:%S")
+        int(timestamp) / 1000).strftime("%Y-%m-%d %H:%M:%S")
     return date
 
 
@@ -49,4 +49,10 @@ def as_string(s: Optional[Any]):
 def convert_timestamp_to_gmt(timestamp: int | str):
     # convert the lastPuledAt milliseconds string into a date object of gmt time
     return datetime.fromtimestamp(int(timestamp) / 1000, tz=timezone.utc)
+
+
+# function to convert a javascript timestamp into a datetime object at gmt time
+def convert_timestamp_to_iso(isoTimestamp: str):
+    # convert the lastPuledAt milliseconds string into a date object of gmt time
+    return datetime.fromisoformat(isoTimestamp).isoformat()
 

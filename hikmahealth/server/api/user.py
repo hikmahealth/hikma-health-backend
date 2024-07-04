@@ -2,10 +2,7 @@ from __future__ import annotations
 import bcrypt
 
 from hikmahealth.server.client import db
-
-from hikmahealth.server.api.user import User
-from hikmahealth.server.client import db
-from hikmahealth.server.utils.errors import WebError
+from hikmahealth.utils.errors import WebError
 
 import bcrypt
 from psycopg.rows import dict_row

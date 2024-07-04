@@ -6,7 +6,13 @@ from psycopg.rows import dict_row
 from datetime import datetime
 from hikmahealth.utils import datetime as dtutils
 
-class Patient(sync.SyncronizableEntity):
+import json
+
+# might want to make it such that the syncing 
+# 1. fails properly 
+# 2. not as all or nothing?
+
+class Patient(sync.Entity):
     TABLE_NAME = "patients"
 
     @classmethod
@@ -17,30 +23,51 @@ class Patient(sync.SyncronizableEntity):
         with conn.cursor() as cur:
             # `cur.executemany` can be used instead
             for row in deltadata.created:
+                event = dict(row)
+                print(event)
+
+                event.update(
+                    # TODO: should check the effects of this
+                    # the date time return init posix for now.
+                    # created_at=dtutils.convert_timestamp_to_iso(event["created_at"]),
+                    # updated_at=dtutils.convert_timestamp_to_iso(event["updated_at"]),
+                    # image_timestamp=dtutils.convert_timestamp_to_iso(event["image_timestamp"]),
+                    created_at=event["created_at"],
+                    updated_at=event["updated_at"],
+                    image_timestamp=event["image_timestamp"],
+
+
+                    additional_data=json.dumps(event["additional_data"])
+                )
+
+                # print(event)
+
                 cur.execute(
-                    f"""
+                    """
                     INSERT INTO patients
-                    (id, given_name, surname, date_of_birth, citizenship, hometown, sex, phone, camp, additional_data, government_id, external_patient_id, created_at, updated_at)
+                    (id, given_name, surname, date_of_birth, citizenship, hometown, sex, phone, camp, additional_data, image_timestamp, photo_url, government_id, external_patient_id, created_at, updated_at, last_modified)
                     VALUES
-                    (%(id)s, %(given_name)s, %(surname)s, %(date_of_birth)s, %(citizenship)s, %(hometown)s, %(sex)s, %(phone)s, %(camp)s, %(additional_data)s, %(government_id)s, %(external_patient_id)s, %(created_at)s, %(updated_at)s)
+                    (%(id)s, %(given_name)s, %(surname)s, %(date_of_birth)s, %(citizenship)s, %(hometown)s, %(sex)s, %(phone)s, %(camp)s, %(additional_data)s, now(), '', %(government_id)s, %(external_patient_id)s, %(created_at)s, %(updated_at)s, current_timestamp)
                     """,
-                    row 
+                    event
                 )
 
             # performs upserts
             for row in deltadata.updated:
-                event = dict(event)
+                # NOTE: might want to fix this logic when dealing with aprtials
+                event = dict(row)
                 event.update(
                     created_at=dtutils.from_timestamp(event["created_at"]),
                     updated_at=dtutils.from_timestamp(event["updated_at"]),
                     last_modified=datetime.now()
                 )
                 
+                # TODO: might want to find a way to safely construct the sql body safely
                 cur.execute(
-                    f"""INSERT INTO patients
-                          (id, given_name, surname, date_of_birth, citizenship, hometown, sex, phone, camp, additional_data, government_id, external_patient_id, created_at, updated_at, last_modified)
+                    """INSERT INTO patients
+                          (id, given_name, surname, date_of_birth, citizenship, hometown, sex, phone, camp, additional_data, image_timestamp, photo_url, government_id, external_patient_id, created_at, updated_at, last_modified)
                         VALUES 
-                          (%(id)s, %(given_name)s, %(surname)s, %(date_of_birth)s, %(citizenship)s, %(hometown)s, %(sex)s, %(phone)s, %(camp)s, %(additional_data)s, %(government_id)s, %(external_patient_id)s, %(created_at)s, %(updated_at)s, %(last_modified)s)
+                          (%(id)s, %(given_name)s, %(surname)s, %(date_of_birth)s, %(citizenship)s, %(hometown)s, %(sex)s, %(phone)s, %(camp)s, %(additional_data)s, '', '', %(government_id)s, %(external_patient_id)s, %(created_at)s, %(updated_at)s, %(last_modified)s)
                         ON CONFLICT (id) DO UPDATE
                         SET given_name = EXCLUDED.given_name,
                             surname = EXCLUDED.surname,
@@ -57,16 +84,17 @@ class Patient(sync.SyncronizableEntity):
                             updated_at = EXCLUDED.updated_at,
                             last_modified = EXCLUDED.last_modified;
                     """,
+                    event
                 )
 
-            for row in deltadata.deleted:
+            for id in deltadata.deleted:
                 cur.execute(
-                    f"""UPDATE {cls.TABLE_NAME} SET is_deleted=true, deleted_at='%s' WHERE id = '%s';""",
-                        (dtutils.from_timestamp(last_pushed_at), row["id"])
+                    """UPDATE patients SET is_deleted=true, deleted_at='%s' WHERE id = '%s';""",
+                        (dtutils.from_timestamp(last_pushed_at), id)
                 )
 
 
-class Event(sync.SyncronizableEntity):
+class Event(sync.Entity):
     TABLE_NAME = "events"
     
     @classmethod
@@ -75,11 +103,11 @@ class Event(sync.SyncronizableEntity):
             # `cur.executemany` can be used instead
             for row in deltadata.created:
                 cur.execute(
-                    f""""
+                    """"
                     INSERT INTO events
                     (id, patient_id, form_id, visit_id, event_type, form_data, metadata, is_deleted, created_at, updated_at)   
                     VALUES
-                    (%(id)s, %(patient_id)s, %(form_id)s, %(visit_id)s, %(event_type)s, %(form_data)s, %(metadata)s, %(is_deleted)s, %(created_at)s, %(updated_at)s)   
+                    (%(id)s, %(patient_id)s, %(form_id)s, %(visit_id)s, %(event_type)s, %(form_data)s, %(metadata)s, false, %(created_at)s, %(updated_at)s)   
                     """,
                     row 
                 )
@@ -94,7 +122,7 @@ class Event(sync.SyncronizableEntity):
                 )
 
                 cur.execute(
-                    f"""
+                    """
                     UPDATE 
                         events SET
                         patient_id='%(patient_id)s',  

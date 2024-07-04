@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from hikmahealth.entity import sync
-
 class Entity(object):
     @classmethod
     @property

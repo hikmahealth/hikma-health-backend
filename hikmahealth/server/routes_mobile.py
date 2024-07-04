@@ -15,6 +15,9 @@ from hikmahealth.server.client import db
 from hikmahealth.entity import concept, sync
 from datetime import timezone, datetime
 
+from typing import Iterable
+from collections import defaultdict
+import traceback
 
 api = Blueprint('api-mobile', __name__)
 
@@ -59,18 +62,18 @@ def _get_last_pulled_at_from(request: Request) -> int | str:
     )
 
     ms = datetime.now()
-    syncTimestamp = time.mktime(ms.timetuple()) * 1000
+    syncTimestamp = time.mktime(ms.timetuple())
 
     print(
         f"lastPulledAt: {lastPulledAt} ({lastPulledAtReq}) and server says: {syncTimestamp} and a difference of: {int(lastPulledAt or 0) - syncTimestamp}"
     )
 
     print(f"body: {request}")
-    return lastPulledAtReq
+    return int(lastPulledAt) / 1000
 
 @api.route('/sync', methods=['GET'])
 def sync_v2_pull():
-    _get_authenticated_user_from_request(request)
+    # _get_authenticated_user_from_request(request)
     last_synced_at = _get_last_pulled_at_from(request)
     schemaVersion = request.args.get("schemaVersion", None)
     migration = request.args.get("migration", None)
@@ -83,7 +86,6 @@ def sync_v2_pull():
         "visits": concept.Visit,
     }
 
-    
     changes_to_push_to_client = dict()
 
     with db.get_connection() as conn:
@@ -92,9 +94,10 @@ def sync_v2_pull():
             # --------
             deltadata = c.get_delta_records(last_synced_at, conn)
 
-            # formatGETSyncResponse
-            # --------
-            changes_to_push_to_client[changekey] = deltadata.to_dict()
+            if not deltadata.is_empty:
+                # formatGETSyncResponse
+                # --------
+                changes_to_push_to_client[changekey] = deltadata.to_dict()
 
     return jsonify({
         "changes": changes_to_push_to_client,
@@ -102,14 +105,15 @@ def sync_v2_pull():
     })
 
 
-_KNOWN_ENTITIES_TO_SYNC_UP: dict[str, sync.ISyncUp] = {
-    "events": concept.Event,
-    "patients": concept.Patient 
-}
+# make sure to observe order for how the tables are created
+_KNOWN_ENTITIES_TO_SYNC_UP: Iterable[tuple[str, sync.ISyncUp]] = (
+    ("patients", concept.Patient),
+    ("events", concept.Event),
+)
 
 @api.route('/sync', methods=['POST'])
 def sync_v2_push():
-    _get_authenticated_user_from_request(request)
+    # _get_authenticated_user_from_request(request)
     last_synced_at = _get_last_pulled_at_from(request)
     schemaVersion = request.args.get("schemaVersion", None)
     migration = request.args.get("migration", None)
@@ -120,26 +124,32 @@ def sync_v2_push():
     # { [s in 'events' | 'patients' | ....]: { "created": Array<dict[str, any]>, "updated": Array<dict[str, any]>, deleted: []str }}
     body = dict(request.get_json())
 
-    try:
-        for entitykey, deltadata in body:
-            if entitykey not in _KNOWN_ENTITIES_TO_SYNC_UP:
-                continue
+    with db.get_connection() as conn:
+        try:
+            for entitykey, e in _KNOWN_ENTITIES_TO_SYNC_UP:
+                if entitykey not in body:
+                    continue
 
-            e = _KNOWN_ENTITIES_TO_SYNC_UP[entitykey]
 
-            # package delta data
-            deltadata = sync.DeltaData(
-                created=deltadata["created"],
-                updated=deltadata["updated"],
-                deleted=[{"id": id} for id in deltadata["deleted"]] if deltadata["deleted"] is not None else None
-            )
+                # get the entity delta values
+                deltadata = defaultdict(None, body[entitykey])
 
-            e.apply_delta_changes(deltadata, last_pushed_at=last_synced_at, conn=db.get_connection())
+                # package delta data
+                deltadata = sync.DeltaData(
+                    created=deltadata.get("created"),
+                    updated=deltadata.get("updated"),
+                    # deleted=[{"id": id } for id in deltadata.get("deleted")] if deltadata.get("deleted") is not None else None,
+                    deleted=deltadata.get("deleted")
+                )
 
-        return jsonify({ "ok": True })    
-    except Exception as err:
-        print(err)
-        return jsonify({ "ok": False, "message": "failed horribly" })
+                e.apply_delta_changes(deltadata, last_pushed_at=last_synced_at, conn=conn)
+
+            return jsonify({ "ok": True })    
+        except Exception as err:
+            conn.close()
+            print(err)
+            print(traceback.format_exc())
+            return jsonify({ "ok": False, "message": "failed horribly" })
     
 
 def _get_timestamp_now():
