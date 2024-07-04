@@ -1,14 +1,14 @@
-from abc import abstractmethod
+from __future__ import annotations
 
-class Client(object):
-    pass
+from hikmahealth.entity import sync
 
-class Syncable(object):
-    """Inferface to help implement features needed by an entity that 
-    wants to syncronize content between the client and server"""
-    def __init__(self):
-        pass
+class Entity(object):
+    @classmethod
+    @property
+    def TABLE_NAME(self) -> str:
+        """This refers to the name of the able associated with
+        the entity"""
+        raise NotImplementedError(f"require {__class__}.TABLE_NAME to be defined")
+    
 
-    @abstractmethod
-    def get_delta_records(self): 
-        raise NotImplementedError()
+

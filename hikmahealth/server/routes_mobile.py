@@ -10,6 +10,9 @@ import time
 from base64 import b64decode
 
 import hikmahealth.server.utils.datetime as dateutils
+from hikmahealth.server.client import db
+
+from hikmahealth.entity import concept, sync
 from datetime import timezone, datetime
 
 
@@ -26,15 +29,8 @@ def login():
 @api.route('/user/reset_password', methods=['POST'])
 def reset_password():
     params = web.assert_data_has_keys(request, {"email", "password", "new_password"})
-    u = userapi.authenticate_with_email(params["email"], params["password"])
-    
-    
-    userapi.reset_password(u, "asdasd")
-
-    userapi.authenticate_with_email()
-
-    
-    # reset_password(u, params['new_password'])
+    u = userapi.authenticate_with_email(params["email"], params["password"])    
+    userapi.reset_password(u, params['new_password'])
     return jsonify(u.to_dict())
 
 
@@ -75,13 +71,36 @@ def _get_last_pulled_at_from(request: Request) -> int | str:
 @api.route('/sync', methods=['GET'])
 def sync_v2_pull():
     _get_authenticated_user_from_request(request)
-    last_pulled_at = _get_last_pulled_at_from(request)
-    
+    last_synced_at = _get_last_pulled_at_from(request)
     schemaVersion = request.args.get("schemaVersion", None)
     migration = request.args.get("migration", None)
 
-    syncData = getNthTimeSyncData(dateutils.convert_timestamp_to_gmt(last_pulled_at))
-    return formatGETSyncResponse(syncData)
+    
+    # list of entities to get the diff from
+    entities_to_sync: dict[str, sync.Entity] = {
+        "events": concept.Event,
+        "patients": concept.Patient,
+        "visits": concept.Visit,
+    }
+
+    
+    changes_to_push_to_client = dict()
+
+    with db.get_connection() as conn:
+        for changekey, c in entities_to_sync.items():
+            # getNthTimeSyncData
+            # --------
+            deltadata = c.get_delta_records(last_synced_at, conn)
+
+            # formatGETSyncResponse
+            # --------
+            changes_to_push_to_client[changekey] = deltadata.to_dict()
+
+    return jsonify({
+        "changes": changes_to_push_to_client,
+        "timestamp": _get_timestamp_now()
+    })
+
    
 
 @api.route('/sync', methods=['POST'])
@@ -92,3 +111,6 @@ def sync_v2_push():
     apply_edge_changes(body, lastPulledAt)
     return jsonify({"message": True})
     pass
+
+def _get_timestamp_now():
+    return time.mktime(datetime.now().timetuple()) * 1000
