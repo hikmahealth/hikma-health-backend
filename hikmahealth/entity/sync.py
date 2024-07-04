@@ -36,7 +36,6 @@ class DeltaData(object):
             deleted=self.deleted
         )
     
-    
 
 
 
