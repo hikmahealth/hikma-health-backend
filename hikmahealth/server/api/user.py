@@ -1,11 +1,11 @@
 from __future__ import annotations
 import bcrypt
 
-from hikma.server.client import db
+from hikmahealth.server.client import db
 
-from hikma.server.api.user import User
-from hikma.server.client import db
-from hikma.server.utils.errors import WebError
+from hikmahealth.server.api.user import User
+from hikmahealth.server.client import db
+from hikmahealth.server.utils.errors import WebError
 
 import bcrypt
 from psycopg.rows import dict_row
@@ -29,7 +29,6 @@ class User(object):
         }
 
 
-
 def authenticate_with_email(email: str, password: str) -> User:
         """Verifies if there's such a user with the email and matching passowrds"""
         with db.get_connection().cursor(row_factory=dict_row) as cur:
@@ -43,7 +42,6 @@ def authenticate_with_email(email: str, password: str) -> User:
                 raise WebError("password incorrect", status_code=401)
             
             return User(**row)
-        
 
 
 def reset_password(user: User, new_password: str):
@@ -54,4 +52,8 @@ def reset_password(user: User, new_password: str):
             
             cur.execute('UPDATE users SET hashed_password = %s WHERE id = %s',
                         (new_password_hashed, user.id,))
+            
 
+def invalidate_tokens(user: User):
+    #  dsdadsadas
+     pass

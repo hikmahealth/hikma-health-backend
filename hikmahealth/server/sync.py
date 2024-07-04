@@ -4,7 +4,7 @@ from datetime import timezone, datetime
 import pytz
 
 
-from hikma.server.client.db import get_connection
+from hikmahealth.server.client.db import get_connection
 
 
 def getNthTimeSyncData(timestamp):

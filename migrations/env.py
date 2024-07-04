@@ -6,7 +6,7 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from hikima.server import config as srvconfig
+from hikma.server import config as srvconfig
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

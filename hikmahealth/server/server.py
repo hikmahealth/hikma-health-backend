@@ -5,18 +5,18 @@ from flask_cors import CORS
 # from app.mobile_api.mobile_api import mobile_api
 # from app.user_api.user_api import user_api
 
-from hikma.server.routes_admin import app as admin_app
-from hikma.server.routes_mobile import api as mobile_app
+from hikmahealth.server.routes_admin import app as admin_app
+from hikmahealth.server.routes_mobile import api as mobile_app
 
-from hikma.server.utils.errors import WebError
-from hikma.server import config
+from hikmahealth.server.utils.errors import WebError
+from hikmahealth.server import config
 
 app = Flask(__name__)
 CORS(app)
 app.url_map.strict_slashes = False
 
 
-# for backcompat
+# # for backcompat
 # app.register_blueprint(mobile_api)
 # app.register_blueprint(admin_api)
 # app.register_blueprint(user_api)
