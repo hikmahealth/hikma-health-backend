@@ -19,7 +19,6 @@ class ISyncDown(object):
          Implement this to prevent the code base from exploding"""
         raise NotImplementedError()
 
-
 class DeltaData(object):
     """Handles database delta data"""
     def __init__(self, 
@@ -45,7 +44,7 @@ class DeltaData(object):
 
 # should be move to a different structure. since it depends on psycopg to
 # execute properly
-class SyncDownEntity(ISyncDown, base.Entity):
+class SyncToClientEntity(ISyncDown, base.Entity):
     """For entity that expects to apply changes from server to client
 
         Args:
@@ -77,12 +76,12 @@ class SyncDownEntity(ISyncDown, base.Entity):
             deleted=[row["id"] for row in deleterecords]
         )
         
-class ISyncUp(object):
+class ISyncToServer(object):
     """Abstract for entities that expect to apply changes from client to server"""
     @classmethod
     @abstractmethod
     def apply_delta_changes(cls, deltadata: DeltaData, last_pushed_at: int | str, conn: Connection):
         raise NotImplementedError(f"require that the {__class__} implement this to syncronize from client")
     
-class Entity(SyncDownEntity, ISyncUp):
+class SyncableEntity(SyncToClientEntity, ISyncToServer):
     pass

@@ -13,12 +13,13 @@ from base64 import b64decode
 from hikmahealth.utils import datetime as dateutils
 from hikmahealth.server.client import db
 
-from hikmahealth.entity import concept, sync
+from hikmahealth.entity import hh, sync
 from datetime import timezone, datetime
 
 from typing import Iterable
 from collections import defaultdict
 import traceback
+
 
 from oldhikma.sync.db_sychronization import DbSynchronizer
 
@@ -91,27 +92,34 @@ def backcompat_old_deprecated_sync():
     synchronizer.execute_server_side_sql()
     return jsonify({"to_execute": synchronizer.get_client_sql()})
 
+
+
+# list of entities to get the diff from
+ENTITIES_TO_PUSH_TO_MOBILE: dict[str, sync.SyncToClientEntity] = {
+    "events": hh.Event,
+    "patients": hh.Patient,
+    "patient_additional_attributes": hh.PatientAttribute,
+    "clinics": hh.Clinic,
+    "visits": hh.Visit,
+    "string_ids": hh.StringId,
+    "string_content": hh.StringContent,
+    "event_forms": hh.EventForm,
+    "registration_forms": hh.PatientRegistrationForm
+    # "nurses": concept.Nurse,
+}
+
 @backcompatapi.route('/v2/sync', methods=['GET'])
 @api.route('/sync', methods=['GET'])
 def sync_v2_pull():
     # _get_authenticated_user_from_request(request)
     last_synced_at = _get_last_pulled_at_from(request)
     schemaVersion = request.args.get("schemaVersion", None)
-    migration = request.args.get("migration", None)
-
-    
-    # list of entities to get the diff from
-    entities_to_sync: dict[str, sync.SyncDownEntity] = {
-        "events": concept.Event,
-        "patients": concept.Patient,
-        "visits": concept.Visit,
-        # "nurses": concept.Nurse,
-    }
+    migration = request.args.get("migration", None)    
 
     changes_to_push_to_client = dict()
 
     with db.get_connection() as conn:
-        for changekey, c in entities_to_sync.items():
+        for changekey, c in ENTITIES_TO_PUSH_TO_MOBILE.items():
             # getNthTimeSyncData
             # --------
             deltadata = c.get_delta_records(last_synced_at, conn)
@@ -126,14 +134,16 @@ def sync_v2_pull():
         "timestamp": _get_timestamp_now()
     })
 
+def _get_timestamp_now():
+    return int(time.mktime(datetime.now().timetuple()))
 
 # using tuple to make sure the we observe order
 # of the entities to be syncronized
-_KNOWN_ENTITIES_TO_SYNC_UP: Iterable[tuple[str, sync.ISyncUp]] = (
-    ("patients", concept.Patient),
-    # ("patient_attribute", concept.Event),
-    # ("visits", concept.Event),
-    ("events", concept.Event),
+ENTITIES_TO_APPLY_TO_SERVER_IN_ORDER: Iterable[tuple[str, sync.ISyncToServer]] = (
+    ("patients", hh.Patient),
+    ("patient_additional_attributes", hh.PatientAttribute),
+    ("visits", hh.Visit),
+    ("events", hh.Event),
 )
 
 @backcompatapi.route('/v2/sync', methods=['POST'])
@@ -152,7 +162,7 @@ def sync_v2_push():
 
     with db.get_connection() as conn:
         try:
-            for entitykey, e in _KNOWN_ENTITIES_TO_SYNC_UP:
+            for entitykey, e in ENTITIES_TO_APPLY_TO_SERVER_IN_ORDER:
                 if entitykey not in body:
                     continue
 
@@ -177,6 +187,3 @@ def sync_v2_push():
             print(traceback.format_exc())
             return jsonify({ "ok": False, "message": "failed horribly" })
     
-
-def _get_timestamp_now():
-    return time.mktime(datetime.now().timetuple()) * 1000
