@@ -30,7 +30,7 @@ backcompatapi = Blueprint('api-mobile-backcompat', __name__, url_prefix="/api")
 @api.route('/login', methods=['POST'])
 def login():
     params = webhelper.assert_data_has_keys(request, {"email", "password"})
-    u = auth.authenticate_with_email(params["email"], params["password"])
+    u = auth.get_user_with_email(params["email"], params["password"])
     return jsonify(u.to_dict())
 
 
@@ -38,9 +38,9 @@ def login():
 @api.route('/user/reset_password', methods=['POST'])
 def reset_password():
     params = webhelper.assert_data_has_keys(request, {"email", "password", "new_password"})
-    u = auth.authenticate_with_email(params["email"], params["password"])    
+    u = auth.get_user_with_email(params["email"], params["password"])    
     auth.reset_password(u, params['new_password'])
-    return jsonify(u.to_dict())
+    return jsonify({ 'ok': True, 'message': "password updated", })
 
 
 def _get_authenticated_user_from_request(request: Request) -> User:
@@ -53,7 +53,7 @@ def _get_authenticated_user_from_request(request: Request) -> User:
     # Split the decoded string into email and password
     email, password = decoded_username_password.split(':')
 
-    u = auth.authenticate_with_email(email, password)
+    u = auth.get_user_with_email(email, password)
     return u
 
 
@@ -76,7 +76,6 @@ def _get_last_pulled_at_from(request: Request) -> int | str:
 
     print(f"body: {request}")
     return int(lastPulledAt) / 1000
-
 
 @backcompatapi.route("/sync", methods=["POST"])
 def backcompat_old_deprecated_sync():
@@ -128,7 +127,8 @@ def sync_v2_pull():
     })
 
 
-# make sure to observe order for how the tables are created
+# using tuple to make sure the we observe order
+# of the entities to be syncronized
 _KNOWN_ENTITIES_TO_SYNC_UP: Iterable[tuple[str, sync.ISyncUp]] = (
     ("patients", concept.Patient),
     # ("patient_attribute", concept.Event),

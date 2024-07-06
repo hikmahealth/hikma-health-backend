@@ -19,25 +19,6 @@ import json
 # When creating an entity, ask youself:
 # 1. is the thing syncable (up or down, ... or both)
 
-
-class Nurse(sync.SyncDownEntity):
-    TABLE_NAME = "nurses"
-
-
-class Token(sync.ISyncUp):
-    @classmethod    
-    def apply_delta_changes(cls, deltadata, last_pushed_at, conn):
-        with conn.cursor() as cur:
-            for t in deltadata.created:
-                pass
-    # @classmethod
-    # def apply_delta_changes(cls, deltadata, last_pushed_at, conn):
-    #     with conn.cursor() as cur:
-    #         for row in deltadata.created:
-    #             cur.execute("INSERT ...")
-
-
-            
             
 
 class Patient(sync.Entity):
@@ -63,8 +44,6 @@ class Patient(sync.Entity):
                     created_at=event["created_at"],
                     updated_at=event["updated_at"],
                     image_timestamp=event["image_timestamp"],
-
-
                     additional_data=json.dumps(event["additional_data"])
                 )
 

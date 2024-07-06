@@ -26,7 +26,7 @@ class User(object):
         }
 
 
-def authenticate_with_email(email: str, password: str) -> User:
+def get_user_with_email(email: str, password: str) -> User:
         """Verifies if there's such a user with the email and matching passowrds"""
         with db.get_connection().cursor(row_factory=dict_row) as cur:
             cur.execute(
