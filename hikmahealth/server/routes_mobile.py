@@ -11,7 +11,7 @@ from hikmahealth.utils.errors import WebError
 import time
 from base64 import b64decode
 
-from hikmahealth.utils.datetime import local as dateutils
+from hikmahealth.utils.datetime import utc
 from hikmahealth.server.client import db
 
 from hikmahealth.entity import hh, sync
@@ -74,13 +74,13 @@ def _get_last_pulled_at_from(request: Request) -> datetime | None:
             # thus, you need to divide with 1000
             #
             # See this: https://stackoverflow.com/questions/10286224/javascript-timestamp-to-python-datetime-conversion
-            return datetime.fromtimestamp(int(last_pull_in_unix_time) / 1000)
+            return utc.from_unixtimestamp(last_pull_in_unix_time)
         
 
         try:
             # attempts to deal the date input as if it's a
             # ISO 8601 formatted date.
-            return dateutil.parser.isoparse(last_pull_in_unix_time)
+            return utc.from_iso1601(last_pull_in_unix_time)
         except Exception:
             traceback.format_exc()
             return None
@@ -125,6 +125,11 @@ def sync_v2_pull():
     schemaVersion = request.args.get("schemaVersion", None)
     migration = request.args.get("migration", None)    
 
+
+    if last_synced_at is None:
+        raise WebError("missing last_pulled_at from request query", 400)
+
+
     changes_to_push_to_client = dict()
 
     print("last_synced_at", last_synced_at)
@@ -166,8 +171,10 @@ def sync_v2_push():
     schemaVersion = request.args.get("schemaVersion", None)
     migration = request.args.get("migration", None)
 
-    # 2. If the changes object contains a record that has been modified on the server after lastPulledAt, you MUST abort push and return an error code
-    
+    if last_synced_at is None:
+        raise WebError("missing last_pulled_at from request query", 400)
+
+
     # expected body structure
     # { [s in 'events' | 'patients' | ....]: { "created": Array<dict[str, any]>, "updated": Array<dict[str, any]>, deleted: []str }}
     body = dict(request.get_json())
@@ -192,7 +199,7 @@ def sync_v2_push():
 
                 e.apply_delta_changes(deltadata, last_pushed_at=last_synced_at, conn=conn)
 
-            return jsonify({ "ok": True })    
+            return jsonify({ "ok": True })
         except Exception as err:
             conn.close()
             print(err)

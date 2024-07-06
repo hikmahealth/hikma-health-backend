@@ -55,20 +55,24 @@ class SyncToClientEntity(ISyncDown, base.Entity):
     @classmethod
     @override
     def get_delta_records(cls, last_sync_time: datetime.datetime, conn: Connection): 
+        print(last_sync_time)
         with conn.cursor(row_factory=dict_row) as cur:
             newrecords = cur.execute(
-                f"SELECT * from {cls.TABLE_NAME} WHERE server_created_at > %s AND deleted_at IS NULL",
+                "SELECT * from {} WHERE server_created_at > %s AND deleted_at IS NULL"\
+                    .format(cls.TABLE_NAME),
                 (last_sync_time, )
             ).fetchall()
 
             updatedrecords = cur.execute(
-            f"SELECT * FROM {cls.TABLE_NAME} WHERE last_modified > %s AND server_created_at < %s AND deleted_at IS NULL",
+            "SELECT * FROM {} WHERE last_modified > %s AND server_created_at < %s AND deleted_at IS NULL"\
+                .format(cls.TABLE_NAME),
                 (last_sync_time, last_sync_time),
             ).fetchall()
 
             deleterecords = cur.execute(
-            f"SELECT id FROM {cls.TABLE_NAME} WHERE deleted_at > %s",
-            (last_sync_time,)).fetchall()
+            "SELECT id FROM {} WHERE deleted_at > %s"\
+                .format(cls.TABLE_NAME),
+            (last_sync_time, )).fetchall()
 
         return DeltaData(
             created=newrecords,

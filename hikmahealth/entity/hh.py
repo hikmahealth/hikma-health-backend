@@ -3,7 +3,7 @@ from __future__ import annotations
 from hikmahealth.entity import sync
 
 from datetime import datetime
-from hikmahealth.utils.datetime import local as dtlocal, tz as  dttz
+from hikmahealth.utils.datetime import local as dtlocal, utc as  dttz
 
 from datetime import timezone
 
@@ -35,14 +35,9 @@ class Patient(sync.SyncableEntity):
             # performs upserts (insert + update when existing)
             for row in itertools.chain(deltadata.created, deltadata.updated):
                 patient = dict(row)
-                print(patient)
+                # print(patient)
 
                 patient.update(
-                    # TODO: should check the effects of this
-                    # the date time return init posix for now.
-                    # created_at=dtutils.convert_timestamp_to_iso(patient["created_at"]),
-                    # updated_at=dtutils.convert_timestamp_to_iso(patient["updated_at"]),
-                    # image_timestamp=dtutils.convert_timestamp_to_iso(patient["image_timestamp"]),
                     created_at=dttz.from_unixtimestamp(patient["created_at"]),
                     updated_at=dttz.from_unixtimestamp(patient["updated_at"]),
                     image_timestamp=dttz.from_unixtimestamp(patient["image_timestamp"]),
@@ -75,43 +70,7 @@ class Patient(sync.SyncableEntity):
                     patient
                 )
 
-            # performs upserts
-            # for row in deltadata.updated:
-            #     # NOTE: might want to fix this logic when dealing with aprtials
-            #     event = dict(row)
-            #     event.update(
-            #         created_at=dtutils.from_timestamp(event["created_at"]),
-            #         updated_at=dtutils.from_timestamp(event["updated_at"]),
-            #         last_modified=datetime.now()
-            #     )
-                
-            #     # TODO: might want to find a way to safely construct the sql body safely
-            #     cur.execute(
-            #         """INSERT INTO patients
-            #               (id, given_name, surname, date_of_birth, citizenship, hometown, sex, phone, camp, additional_data, image_timestamp, photo_url, government_id, external_patient_id, created_at, updated_at, last_modified)
-            #             VALUES 
-            #               (%(id)s, %(given_name)s, %(surname)s, %(date_of_birth)s, %(citizenship)s, %(hometown)s, %(sex)s, %(phone)s, %(camp)s, %(additional_data)s, '', '', %(government_id)s, %(external_patient_id)s, %(created_at)s, %(updated_at)s, %(last_modified)s)
-            #             ON CONFLICT (id) DO UPDATE
-            #             SET given_name = EXCLUDED.given_name,
-            #                 surname = EXCLUDED.surname,
-            #                 date_of_birth = EXCLUDED.date_of_birth,
-            #                 citizenship = EXCLUDED.citizenship,
-            #                 hometown = EXCLUDED.hometown,
-            #                 sex = EXCLUDED.sex,
-            #                 phone = EXCLUDED.phone,
-            #                 camp = EXCLUDED.camp,
-            #                 additional_data = EXCLUDED.additional_data,
-            #                 government_id = EXCLUDED.government_id,
-            #                 external_patient_id = EXCLUDED.external_patient_id,
-            #                 created_at = EXCLUDED.created_at,
-            #                 updated_at = EXCLUDED.updated_at,
-            #                 last_modified = EXCLUDED.last_modified;
-            #         """,
-            #         event
-            #     )
-
             for id in deltadata.deleted:
-                print(id)
                 cur.execute(
                     """UPDATE patients SET is_deleted=true, deleted_at=%s WHERE id = %s::uuid;""",
                         (last_pushed_at, id)
@@ -130,10 +89,11 @@ class PatientAttribute(sync.SyncableEntity):
                     date_value=dttz.from_unixtimestamp(pattr["date_value"]),
                     created_at=dttz.from_unixtimestamp(pattr["created_at"]),
                     updated_at=dttz.from_unixtimestamp(pattr["updated_at"]),
+                    metadata=json.dumps(pattr["metadata"]),
                 )
 
                 cur.execute(
-                    """"
+                    """
                     INSERT INTO patient_additional_attributes 
                     (id, patient_id, attribute_id, attribute, number_value, string_value, date_value, boolean_value, metadata, is_deleted, created_at, updated_at, last_modified, server_created_at) VALUES
                     (%(id)s, %(patient_id)s, %(attribute_id)s, %(attribute)s, %(number_value)s, %(string_value)s, %(date_value)s, %(boolean_value)s, %(metadata)s, false, %(created_at)s, %(updated_at)s, current_timestamp, current_timestamp)   
@@ -172,11 +132,12 @@ class Event(sync.SyncableEntity):
                 event.update(
                     created_at=dttz.from_unixtimestamp(event["created_at"]),
                     updated_at=dttz.from_unixtimestamp(event["updated_at"]),
+                    metadata=json.dumps(event["metadata"]),
                     last_modified=dttz.now()
                 )
 
                 cur.execute(
-                    """"
+                    """
                     INSERT INTO events
                     (id, patient_id, form_id, visit_id, event_type, form_data, metadata, is_deleted, created_at, updated_at)   
                     VALUES
@@ -195,21 +156,6 @@ class Event(sync.SyncableEntity):
                     event
                 )
 
-            # for event in deltadata.updated:
-            #     cur.execute(
-            #         """
-            #         UPDATE 
-            #             events SET
-            #             patient_id='%(patient_id)s',  
-            #             form_id='%(form_id)s', 
-            #             visit_id='%(visit_id)s', 
-            #             event_type='%(event_type)s', 
-            #             form_data='%(form_data)s', 
-            #             metadata='%(metadata)s', 
-            #             is_deleted='%(is_deleted)s', 
-            #             created_at='%(created_at)s', 
-            #             updated_at='%(updated_at)s', 
-            #             last_modified='%(last_modified)s' WHERE id='%(id)s';""", event)
             for id in deltadata.deleted:
                 cur.execute(
                     """UPDATE events SET is_deleted=true, deleted_at=%s WHERE id = %s;""",
@@ -230,11 +176,12 @@ class Visit(sync.SyncableEntity):
                     check_in_timestamp=dttz.from_unixtimestamp(visit['check_in_timestamp']),
                     created_at=dttz.from_unixtimestamp(visit['created_at']),
                     updated_at=dttz.from_unixtimestamp(visit['updated_at']),
-                    last_modified=datetime.now()
+                    metadata=json.dumps(visit["metadata"]),
+                    last_modified=dttz.now()
                 )
 
                 cur.execute(
-                    """"
+                    """
                     INSERT INTO visits
                         (id, patient_id, clinic_id, provider_id, provider_name, check_in_timestamp, metadata, created_at, updated_at, last_modified)
                     VALUES
@@ -253,29 +200,6 @@ class Visit(sync.SyncableEntity):
                     """,
                     visit
                 )
-
-            # performs upserts
-            # for visit in deltadata.updated:
-            #     visit = dict(visit)
-            #     visit.update(
-            #         check_in_timestamp=dtutils.from_timestamp(visit['check_in_timestamp']),
-            #         created_at=dtutils.from_timestamp(visit["created_at"]),
-            #         updated_at=dtutils.from_timestamp(visit["updated_at"]),
-            #         last_modified=datetime.now()
-            #     )
-            #     cur.execute(
-            #         """
-            #         UPDATE 
-            #             visits SET
-            #             patient_id='%(patient_id)s',  
-            #             clinic_id='%(clinic_id)s', 
-            #             provider_id='%(provider_id)s', 
-            #             provider_name='%(provider_name)s', 
-            #             check_in_timestamp='%(check_in_timestamp)s', 
-            #             metadata='%(metadata)s', 
-            #             created_at='%(created_at)s',
-            #             updated_at='%(updated_at)s', 
-            #             last_modified='%(last_modified)s' WHERE id='%(id)s';""", visit)
 
             for id in deltadata.deleted:
                 cur.execute(
