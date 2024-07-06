@@ -1,4 +1,4 @@
-from config import PG_USER, PG_PASSWORD, PG_HOST, PG_DB
+from oldhikma.config import PG_USER, PG_PASSWORD, PG_HOST, PG_DB
 import psycopg2
 
 

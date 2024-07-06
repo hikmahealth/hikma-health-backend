@@ -20,6 +20,8 @@ from typing import Iterable
 from collections import defaultdict
 import traceback
 
+from oldhikma.sync.db_sychronization import DbSynchronizer
+
 api = Blueprint('api-mobile', __name__)
 backcompatapi = Blueprint('api-mobile-backcompat', __name__, url_prefix="/api")
 
@@ -77,7 +79,7 @@ def _get_last_pulled_at_from(request: Request) -> int | str:
 
 
 @backcompatapi.route("/sync", methods=["POST"])
-def sync():
+def backcompat_old_deprecated_sync():
     params = webhelper.assert_data_has_keys(request, {"email", "password"}, data_type="form")
     User.authenticate(params["email"], params["password"])
     if "db" not in request.files:

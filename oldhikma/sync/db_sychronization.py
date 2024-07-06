@@ -12,7 +12,9 @@ import itertools
 from oldhikma.util import parse_client_timestamp
 from typing import List
 
+from oldhikma import code
 
+@code.deprecated("this will be deleted")
 class DbSynchronizer:
     def __init__(self, client_db_file: FileStorage):
         self.client_db_filename = self._write_client_db_to_tempfile(client_db_file)

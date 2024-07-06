@@ -1,5 +1,5 @@
 from datetime import datetime, timezone, date
-from language_strings.language_string import LanguageString
+from oldhikma.language_strings.language_string import LanguageString
 
 
 class ClientObject:

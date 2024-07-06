@@ -1,6 +1,6 @@
-import users.data_access as db
-from web_errors import WebError
-from language_strings.language_string import LanguageString
+import oldhikma.users.data_access as db
+from oldhikma.web_errors import WebError
+from oldhikma.language_strings.language_string import LanguageString
 
 import bcrypt
 

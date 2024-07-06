@@ -7,8 +7,6 @@ from psycopg.connection import Connection
 from psycopg.rows import dict_row
 
 from hikmahealth.entity import base
-from typing import Optional
-
 from hikmahealth.utils import datetime as dtutils
 
 class ISyncDown(object):
@@ -73,7 +71,7 @@ class SyncDownEntity(ISyncDown, base.Entity):
             f"SELECT id FROM {cls.TABLE_NAME} WHERE deleted_at > %s",
             (timestamp,)).fetchall()
 
-        return dict(
+        return DeltaData(
             created=newrecords,
             updated=updatedrecords,
             deleted=[row["id"] for row in deleterecords]

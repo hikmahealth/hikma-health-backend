@@ -1,5 +1,5 @@
 from oldhikma.db_util import get_connection
-from web_errors import WebError
+from oldhikma.web_errors import WebError
 import bcrypt
 from oldhikma.language_strings.data_access import update_language_string
 from oldhikma.language_strings.language_string import LanguageString

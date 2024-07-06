@@ -11,19 +11,20 @@ from hikmahealth.server import routes_mobile
 from hikmahealth.utils.errors import WebError
 from hikmahealth.server import config
 
+from oldhikma.admin_api.admin_api import admin_api as old_admin_api
+
 app = Flask(__name__)
 CORS(app)
 app.url_map.strict_slashes = False
 
 
-# # for backcompat
-# app.register_blueprint(mobile_api)
-# app.register_blueprint(admin_api)
-# app.register_blueprint(user_api)
+# for backcompat
+app.register_blueprint(old_admin_api)
+app.register_blueprint(routes_mobile.backcompatapi)
+# --------------------------------
 
 app.register_blueprint(admin_app, url_prefix='/v1/admin')
 app.register_blueprint(routes_mobile.api, url_prefix="/v1/api")
-app.register_blueprint(routes_mobile.backcompatapi)
 
 
 @app.route("/")

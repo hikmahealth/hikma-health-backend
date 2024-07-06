@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-from client_object import ClientObject
+from oldhikma import client_object as co
 from datetime import datetime
-from util import identity, parse_client_timestamp, parse_server_uuid, parse_client_bool
+from oldhikma.util import identity, parse_client_timestamp, parse_server_uuid, parse_client_bool
 
 @dataclass
-class Visit(ClientObject):
+class Visit(co.ClientObject):
     id: str
     patient_id: str
     clinic_id: str
