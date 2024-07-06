@@ -20,7 +20,7 @@ from typing import Iterable
 from collections import defaultdict
 import traceback
 
-api = Blueprint('api-mobile', __name__, url="/v1/api")
+api = Blueprint('api-mobile', __name__)
 backcompatapi = Blueprint('api-mobile-backcompat', __name__, url_prefix="/api")
 
 

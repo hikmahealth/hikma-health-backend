@@ -22,7 +22,7 @@ app.url_map.strict_slashes = False
 # app.register_blueprint(user_api)
 
 app.register_blueprint(admin_app, url_prefix='/v1/admin')
-app.register_blueprint(routes_mobile.api)
+app.register_blueprint(routes_mobile.api, url_prefix="/v1/api")
 app.register_blueprint(routes_mobile.backcompatapi)
 
 
@@ -58,6 +58,3 @@ def internal_server_error(_err):
     response.status_code = 500
     return response
 
-
-# if __name__ == "__main__":
-#     app.run(debug=config.FLASK_DEBUG, host="0.0.0.0", port=config.FLASK_DEBUG_PORT)
