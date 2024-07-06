@@ -6,7 +6,7 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from hikma.server import config as srvconfig
+from hikmahealth.server import config as srvconfig
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -29,7 +29,12 @@ target_metadata = None
 
 # Connection string modified to use psycopg version 3
 # https://docs.sqlalchemy.org/en/20/dialects/postgresql.html#dialect-postgresql-psycopg-connect
-config.set_main_option('sqlalchemy.url', f'postgresql+psycopg://{srvconfig.PG_USER}:{srvconfig.PG_PASSWORD}@{srvconfig.PG_HOST}/{srvconfig.PG_DB}')
+if srvconfig.PG_PORT is None:
+    conn_url = f'postgresql+psycopg://{srvconfig.PG_USER}:{srvconfig.PG_PASSWORD}@{srvconfig.PG_HOST}/{srvconfig.PG_DB}'
+else:
+    conn_url = f'postgresql+psycopg://{srvconfig.PG_USER}:{srvconfig.PG_PASSWORD}@{srvconfig.PG_HOST}:{srvconfig.PG_PORT}/{srvconfig.PG_DB}'
+
+config.set_main_option('sqlalchemy.url', conn_url)
 
 
 def run_migrations_offline():

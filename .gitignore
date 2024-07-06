@@ -96,6 +96,8 @@ celerybeat-schedule
 .env
 .env.local
 .env.*
+.env-shouldnt-run
+
 
 # virtualenv
 .venv
