@@ -7,7 +7,9 @@ from psycopg.connection import Connection
 from psycopg.rows import dict_row
 
 from hikmahealth.entity import base
-from hikmahealth.utils import datetime as dtutils
+from hikmahealth.utils.datetime import local as dtutils
+
+import datetime
 
 class ISyncDown(object):
     @classmethod
@@ -52,23 +54,21 @@ class SyncToClientEntity(ISyncDown, base.Entity):
     """
     @classmethod
     @override
-    def get_delta_records(cls, last_sync_time: int | str, conn: Connection): 
-        timestamp = dtutils.from_timestamp(last_sync_time)
-
+    def get_delta_records(cls, last_sync_time: datetime.datetime, conn: Connection): 
         with conn.cursor(row_factory=dict_row) as cur:
             newrecords = cur.execute(
                 f"SELECT * from {cls.TABLE_NAME} WHERE server_created_at > %s AND deleted_at IS NULL",
-                (timestamp, )
+                (last_sync_time, )
             ).fetchall()
 
             updatedrecords = cur.execute(
             f"SELECT * FROM {cls.TABLE_NAME} WHERE last_modified > %s AND server_created_at < %s AND deleted_at IS NULL",
-                (timestamp, timestamp),
+                (last_sync_time, last_sync_time),
             ).fetchall()
 
             deleterecords = cur.execute(
             f"SELECT id FROM {cls.TABLE_NAME} WHERE deleted_at > %s",
-            (timestamp,)).fetchall()
+            (last_sync_time,)).fetchall()
 
         return DeltaData(
             created=newrecords,
@@ -80,7 +80,7 @@ class ISyncToServer(object):
     """Abstract for entities that expect to apply changes from client to server"""
     @classmethod
     @abstractmethod
-    def apply_delta_changes(cls, deltadata: DeltaData, last_pushed_at: int | str, conn: Connection):
+    def apply_delta_changes(cls, deltadata: DeltaData, last_pushed_at: datetime.datetime, conn: Connection):
         raise NotImplementedError(f"require that the {__class__} implement this to syncronize from client")
     
 class SyncableEntity(SyncToClientEntity, ISyncToServer):

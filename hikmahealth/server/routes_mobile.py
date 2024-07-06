@@ -1,4 +1,5 @@
 
+import dateutil.parser
 from flask import Blueprint, request, Request, jsonify
 
 from hikmahealth.server.helpers import web as webhelper
@@ -10,7 +11,7 @@ from hikmahealth.utils.errors import WebError
 import time
 from base64 import b64decode
 
-from hikmahealth.utils import datetime as dateutils
+from hikmahealth.utils.datetime import local as dateutils
 from hikmahealth.server.client import db
 
 from hikmahealth.entity import hh, sync
@@ -19,6 +20,7 @@ from datetime import timezone, datetime
 from typing import Iterable
 from collections import defaultdict
 import traceback
+import dateutil
 
 
 from oldhikma.sync.db_sychronization import DbSynchronizer
@@ -54,29 +56,36 @@ def _get_authenticated_user_from_request(request: Request) -> User:
     # Split the decoded string into email and password
     email, password = decoded_username_password.split(':')
 
-    u = auth.get_user_with_email(email, password)
-    return u
+    # u = auth.get_user_with_email(email, password)
+    # return u
 
 
-def _get_last_pulled_at_from(request: Request) -> int | str:
-    lastPulledAtReq = request.args.get("last_pulled_at", 0)
-    lastPulledAt = (
-        int(lastPulledAtReq)
-        if type(lastPulledAtReq) == int
-        or type(lastPulledAtReq) == float
-        or (type(lastPulledAtReq) == str and str(lastPulledAtReq).isnumeric())
-        else 0
-    )
+def _get_last_pulled_at_from(request: Request) -> datetime | None:
+    """Uses the `last_pulled_at` part of the request query to return a `datetime.datetime` object"""
+    last_pull_in_unix_time = request.args.get("last_pulled_at", None)
+    print(type(last_pull_in_unix_time))
 
-    ms = datetime.now()
-    syncTimestamp = time.mktime(ms.timetuple())
+    if last_pull_in_unix_time is None:
+        return None
+        
+    if type(last_pull_in_unix_time) == str:    
+        if str(last_pull_in_unix_time).isnumeric():
+            # the from timestamp precision is in seconds as opposed to milliseconds (like in Js) 
+            # thus, you need to divide with 1000
+            #
+            # See this: https://stackoverflow.com/questions/10286224/javascript-timestamp-to-python-datetime-conversion
+            return datetime.fromtimestamp(int(last_pull_in_unix_time) / 1000)
+        
 
-    print(
-        f"lastPulledAt: {lastPulledAt} ({lastPulledAtReq}) and server says: {syncTimestamp} and a difference of: {int(lastPulledAt or 0) - syncTimestamp}"
-    )
+        try:
+            # attempts to deal the date input as if it's a
+            # ISO 8601 formatted date.
+            return dateutil.parser.isoparse(last_pull_in_unix_time)
+        except Exception:
+            traceback.format_exc()
+            return None
 
-    print(f"body: {request}")
-    return int(lastPulledAt) / 1000
+    return None
 
 @backcompatapi.route("/sync", methods=["POST"])
 def backcompat_old_deprecated_sync():
@@ -111,12 +120,14 @@ ENTITIES_TO_PUSH_TO_MOBILE: dict[str, sync.SyncToClientEntity] = {
 @backcompatapi.route('/v2/sync', methods=['GET'])
 @api.route('/sync', methods=['GET'])
 def sync_v2_pull():
-    # _get_authenticated_user_from_request(request)
+    _get_authenticated_user_from_request(request)
     last_synced_at = _get_last_pulled_at_from(request)
     schemaVersion = request.args.get("schemaVersion", None)
     migration = request.args.get("migration", None)    
 
     changes_to_push_to_client = dict()
+
+    print("last_synced_at", last_synced_at)
 
     with db.get_connection() as conn:
         for changekey, c in ENTITIES_TO_PUSH_TO_MOBILE.items():
@@ -131,6 +142,7 @@ def sync_v2_pull():
 
     return jsonify({
         "changes": changes_to_push_to_client,
+        # NOTE: ASK: why is this not infered from the client.
         "timestamp": _get_timestamp_now()
     })
 
@@ -149,7 +161,7 @@ ENTITIES_TO_APPLY_TO_SERVER_IN_ORDER: Iterable[tuple[str, sync.ISyncToServer]] =
 @backcompatapi.route('/v2/sync', methods=['POST'])
 @api.route('/sync', methods=['POST'])
 def sync_v2_push():
-    # _get_authenticated_user_from_request(request)
+    _get_authenticated_user_from_request(request)
     last_synced_at = _get_last_pulled_at_from(request)
     schemaVersion = request.args.get("schemaVersion", None)
     migration = request.args.get("migration", None)

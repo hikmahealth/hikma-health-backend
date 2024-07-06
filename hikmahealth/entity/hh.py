@@ -3,7 +3,9 @@ from __future__ import annotations
 from hikmahealth.entity import sync
 
 from datetime import datetime
-from hikmahealth.utils import datetime as dtutils
+from hikmahealth.utils.datetime import local as dtlocal, tz as  dttz
+
+from datetime import timezone
 
 import itertools
 
@@ -20,7 +22,6 @@ import json
 
 # When creating an entity, ask youself:
 # 1. is the thing syncable (up or down, ... or both)
-
 
 class Patient(sync.SyncableEntity):
     TABLE_NAME = "patients"
@@ -42,11 +43,12 @@ class Patient(sync.SyncableEntity):
                     # created_at=dtutils.convert_timestamp_to_iso(patient["created_at"]),
                     # updated_at=dtutils.convert_timestamp_to_iso(patient["updated_at"]),
                     # image_timestamp=dtutils.convert_timestamp_to_iso(patient["image_timestamp"]),
-                    created_at=patient["created_at"],
-                    updated_at=patient["updated_at"],
-                    image_timestamp=patient["image_timestamp"],
+                    created_at=dttz.from_unixtimestamp(patient["created_at"]),
+                    updated_at=dttz.from_unixtimestamp(patient["updated_at"]),
+                    image_timestamp=dttz.from_unixtimestamp(patient["image_timestamp"]),
                     additional_data=json.dumps(patient["additional_data"]),
-                    photo_url="https://cdn.server.fake/image/convcing-id"
+                    photo_url="https://cdn.server.fake/image/convincing-id",
+                    last_modified=dttz.now()
                 )
 
                 cur.execute(
@@ -109,9 +111,10 @@ class Patient(sync.SyncableEntity):
             #     )
 
             for id in deltadata.deleted:
+                print(id)
                 cur.execute(
-                    """UPDATE patients SET is_deleted=true, deleted_at='%s' WHERE id = '%s';""",
-                        (dtutils.from_timestamp(last_pushed_at), id)
+                    """UPDATE patients SET is_deleted=true, deleted_at=%s WHERE id = %s::uuid;""",
+                        (last_pushed_at, id)
                 )
 
 class PatientAttribute(sync.SyncableEntity):
@@ -124,11 +127,9 @@ class PatientAttribute(sync.SyncableEntity):
             for row in itertools.chain(deltadata.created, deltadata.updated):
                 pattr = dict(row)
                 pattr.update(
-                    date_value=dtutils.from_timestamp(pattr["date_value"]),
-                    created_at=dtutils.from_timestamp(pattr["created_at"]),
-                    updated_at=dtutils.from_timestamp(pattr["updated_at"]),
-                    last_modified=datetime.now(),
-                    server_created_at=datetime.now()
+                    date_value=dttz.from_unixtimestamp(pattr["date_value"]),
+                    created_at=dttz.from_unixtimestamp(pattr["created_at"]),
+                    updated_at=dttz.from_unixtimestamp(pattr["updated_at"]),
                 )
 
                 cur.execute(
@@ -153,8 +154,8 @@ class PatientAttribute(sync.SyncableEntity):
 
             for id in deltadata.deleted:
                 cur.execute(
-                    f"""UPDATE patient_additional_attributes SET is_deleted=true, deleted_at='%s' WHERE id = '%s';""",
-                        (dtutils.from_timestamp(last_pushed_at), id)
+                    """UPDATE patient_additional_attributes SET is_deleted=true, deleted_at=%s WHERE id = %s::uuid;""",
+                        (last_pushed_at, id)
                 )
 
 
@@ -169,9 +170,9 @@ class Event(sync.SyncableEntity):
             for row in itertools.chain(deltadata.created, deltadata.updated):
                 event = dict(row)
                 event.update(
-                    created_at=dtutils.from_timestamp(event["created_at"]),
-                    updated_at=dtutils.from_timestamp(event["updated_at"]),
-                    last_modified=datetime.now()
+                    created_at=dttz.from_unixtimestamp(event["created_at"]),
+                    updated_at=dttz.from_unixtimestamp(event["updated_at"]),
+                    last_modified=dttz.now()
                 )
 
                 cur.execute(
@@ -209,11 +210,10 @@ class Event(sync.SyncableEntity):
             #             created_at='%(created_at)s', 
             #             updated_at='%(updated_at)s', 
             #             last_modified='%(last_modified)s' WHERE id='%(id)s';""", event)
-
             for id in deltadata.deleted:
                 cur.execute(
-                    f"""UPDATE events SET is_deleted=true, deleted_at='%s' WHERE id = '%s';""",
-                        (dtutils.from_timestamp(last_pushed_at), id)
+                    """UPDATE events SET is_deleted=true, deleted_at=%s WHERE id = %s;""",
+                        (last_pushed_at, id)
                 )
 
 
@@ -227,9 +227,9 @@ class Visit(sync.SyncableEntity):
             for visit in itertools.chain(deltadata.created, deltadata.updated):
                 visit = dict(visit)
                 visit.update(
-                    check_in_timestamp=dtutils.from_timestamp(visit['check_in_timestamp']),
-                    created_at=dtutils.from_timestamp(visit['created_at']),
-                    updated_at=dtutils.from_timestamp(visit['updated_at']),
+                    check_in_timestamp=dttz.from_unixtimestamp(visit['check_in_timestamp']),
+                    created_at=dttz.from_unixtimestamp(visit['created_at']),
+                    updated_at=dttz.from_unixtimestamp(visit['updated_at']),
                     last_modified=datetime.now()
                 )
 
@@ -279,8 +279,8 @@ class Visit(sync.SyncableEntity):
 
             for id in deltadata.deleted:
                 cur.execute(
-                    f"""UPDATE visits SET is_deleted=true, deleted_at='%s' WHERE id = '%s';""",
-                        (dtutils.from_timestamp(last_pushed_at), id)
+                    """UPDATE visits SET is_deleted=true, deleted_at=%s WHERE id=%s;""",
+                        (last_pushed_at, id)
                 )
 
 
@@ -291,7 +291,7 @@ class PatientRegistrationForm(sync.SyncToClientEntity):
     TABLE_NAME = "patient_registration_forms"
 
 class EventForm(sync.SyncToClientEntity):
-    TABLE_NAME = "patient_registration_forms"
+    TABLE_NAME = "event_forms"
 
 class StringId(sync.SyncToClientEntity):
     TABLE_NAME = "string_ids"
