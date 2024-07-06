@@ -6,7 +6,7 @@ from flask_cors import CORS
 # from app.user_api.user_api import user_api
 
 from hikmahealth.server.routes_admin import app as admin_app
-from hikmahealth.server.routes_mobile import api as mobile_app
+from hikmahealth.server import routes_mobile 
 
 from hikmahealth.utils.errors import WebError
 from hikmahealth.server import config
@@ -22,7 +22,8 @@ app.url_map.strict_slashes = False
 # app.register_blueprint(user_api)
 
 app.register_blueprint(admin_app, url_prefix='/v1/admin')
-app.register_blueprint(mobile_app, url_prefix='/v1/api')
+app.register_blueprint(routes_mobile.api)
+app.register_blueprint(routes_mobile.backcompatapi)
 
 
 @app.route("/")

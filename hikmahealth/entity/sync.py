@@ -48,7 +48,11 @@ class DeltaData(object):
 # should be move to a different structure. since it depends on psycopg to
 # execute properly
 class SyncDownEntity(ISyncDown, base.Entity):
-    """For entity that expects to apply changes from server to client"""
+    """For entity that expects to apply changes from server to client
+
+        Args:
+       Example:
+    """
     @classmethod
     @override
     def get_delta_records(cls, last_sync_time: int | str, conn: Connection): 
@@ -69,7 +73,7 @@ class SyncDownEntity(ISyncDown, base.Entity):
             f"SELECT id FROM {cls.TABLE_NAME} WHERE deleted_at > %s",
             (timestamp,)).fetchall()
 
-        return DeltaData(
+        return dict(
             created=newrecords,
             updated=updatedrecords,
             deleted=[row["id"] for row in deleterecords]

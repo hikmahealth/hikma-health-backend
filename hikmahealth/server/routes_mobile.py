@@ -1,15 +1,16 @@
 
 from flask import Blueprint, request, Request, jsonify
 
-from hikmahealth.server.helpers import web
+from hikmahealth.server.helpers import web as webhelper
 
-from hikmahealth.server.api.user import User
-from hikmahealth.server.api import user as userapi
+from hikmahealth.server.api.auth import User
+from hikmahealth.server.api import auth as auth
+from hikmahealth.utils.errors import WebError
 
 import time
 from base64 import b64decode
 
-import hikmahealth.utils.datetime as dateutils
+from hikmahealth.utils import datetime as dateutils
 from hikmahealth.server.client import db
 
 from hikmahealth.entity import concept, sync
@@ -19,21 +20,24 @@ from typing import Iterable
 from collections import defaultdict
 import traceback
 
-api = Blueprint('api-mobile', __name__)
+api = Blueprint('api-mobile', __name__, url="/v1/api")
+backcompatapi = Blueprint('api-mobile-backcompat', __name__, url_prefix="/api")
 
 
+@backcompatapi.route('/login', methods=['POST'])
 @api.route('/login', methods=['POST'])
 def login():
-    params = web.assert_data_has_keys(request, {"email", "password"})
-    u = userapi.authenticate_with_email(params["email"], params["password"])
+    params = webhelper.assert_data_has_keys(request, {"email", "password"})
+    u = auth.authenticate_with_email(params["email"], params["password"])
     return jsonify(u.to_dict())
 
 
+@backcompatapi.route('/user/reset_password', methods=['POST'])
 @api.route('/user/reset_password', methods=['POST'])
 def reset_password():
-    params = web.assert_data_has_keys(request, {"email", "password", "new_password"})
-    u = userapi.authenticate_with_email(params["email"], params["password"])    
-    userapi.reset_password(u, params['new_password'])
+    params = webhelper.assert_data_has_keys(request, {"email", "password", "new_password"})
+    u = auth.authenticate_with_email(params["email"], params["password"])    
+    auth.reset_password(u, params['new_password'])
     return jsonify(u.to_dict())
 
 
@@ -47,7 +51,7 @@ def _get_authenticated_user_from_request(request: Request) -> User:
     # Split the decoded string into email and password
     email, password = decoded_username_password.split(':')
 
-    u = userapi.authenticate_with_email(email, password)
+    u = auth.authenticate_with_email(email, password)
     return u
 
 
@@ -71,6 +75,22 @@ def _get_last_pulled_at_from(request: Request) -> int | str:
     print(f"body: {request}")
     return int(lastPulledAt) / 1000
 
+
+@backcompatapi.route("/sync", methods=["POST"])
+def sync():
+    params = webhelper.assert_data_has_keys(request, {"email", "password"}, data_type="form")
+    User.authenticate(params["email"], params["password"])
+    if "db" not in request.files:
+        raise WebError("db must be provided", 400)
+
+    synchronizer = DbSynchronizer(request.files["db"])
+    if not synchronizer.prepare_sync():
+        raise WebError("Synchronization failed", 500)
+
+    synchronizer.execute_server_side_sql()
+    return jsonify({"to_execute": synchronizer.get_client_sql()})
+
+@backcompatapi.route('/v2/sync', methods=['GET'])
 @api.route('/sync', methods=['GET'])
 def sync_v2_pull():
     # _get_authenticated_user_from_request(request)
@@ -84,6 +104,7 @@ def sync_v2_pull():
         "events": concept.Event,
         "patients": concept.Patient,
         "visits": concept.Visit,
+        # "nurses": concept.Nurse,
     }
 
     changes_to_push_to_client = dict()
@@ -94,10 +115,10 @@ def sync_v2_pull():
             # --------
             deltadata = c.get_delta_records(last_synced_at, conn)
 
-            if not deltadata.is_empty:
-                # formatGETSyncResponse
-                # --------
-                changes_to_push_to_client[changekey] = deltadata.to_dict()
+            # if not deltadata.is_empty:
+            # formatGETSyncResponse
+            # --------
+            changes_to_push_to_client[changekey] = deltadata.to_dict()
 
     return jsonify({
         "changes": changes_to_push_to_client,
@@ -108,9 +129,12 @@ def sync_v2_pull():
 # make sure to observe order for how the tables are created
 _KNOWN_ENTITIES_TO_SYNC_UP: Iterable[tuple[str, sync.ISyncUp]] = (
     ("patients", concept.Patient),
+    # ("patient_attribute", concept.Event),
+    # ("visits", concept.Event),
     ("events", concept.Event),
 )
 
+@backcompatapi.route('/v2/sync', methods=['POST'])
 @api.route('/sync', methods=['POST'])
 def sync_v2_push():
     # _get_authenticated_user_from_request(request)

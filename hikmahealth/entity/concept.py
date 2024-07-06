@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from hikmahealth.entity import sync
-from psycopg.rows import dict_row
 
 from datetime import datetime
 from hikmahealth.utils import datetime as dtutils
@@ -11,6 +10,35 @@ import json
 # might want to make it such that the syncing 
 # 1. fails properly 
 # 2. not as all or nothing?
+
+# -----
+# TO NOTE:
+# 1. include docs (with copy-pastable examples) on 
+# how to create and 'deal' with new concept like the Nurse, when i want to sync up
+
+# When creating an entity, ask youself:
+# 1. is the thing syncable (up or down, ... or both)
+
+
+class Nurse(sync.SyncDownEntity):
+    TABLE_NAME = "nurses"
+
+
+class Token(sync.ISyncUp):
+    @classmethod    
+    def apply_delta_changes(cls, deltadata, last_pushed_at, conn):
+        with conn.cursor() as cur:
+            for t in deltadata.created:
+                pass
+    # @classmethod
+    # def apply_delta_changes(cls, deltadata, last_pushed_at, conn):
+    #     with conn.cursor() as cur:
+    #         for row in deltadata.created:
+    #             cur.execute("INSERT ...")
+
+
+            
+            
 
 class Patient(sync.Entity):
     TABLE_NAME = "patients"
