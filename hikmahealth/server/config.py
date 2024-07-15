@@ -52,8 +52,8 @@ else:
     
 PG_PORT=os.environ.get("DB_PORT", "5432")
 
-# APP_ENV = os.environ.get("APP_ENV", EnvironmentType.Prod)
-APP_ENV = os.environ["APP_ENV"]
+APP_ENV = os.environ.get("APP_ENV", EnvironmentType.Prod)
+# APP_ENV = os.environ["APP_ENV"]
 
 FLASK_DEBUG = True
 FLASK_DEBUG_PORT = int(os.environ.get("FLASK_DEBUG_PORT", "5000"))
