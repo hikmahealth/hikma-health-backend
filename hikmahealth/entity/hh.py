@@ -219,9 +219,9 @@ class Visit(sync.SyncableEntity):
                 visit.update(
                     check_in_timestamp=utc.from_unixtimestamp(visit['check_in_timestamp']),
                     created_at=utc.from_unixtimestamp(visit['created_at']),
-                    updated_at=dttz.from_unixtimestamp(visit['updated_at']),
+                    updated_at=utc.from_unixtimestamp(visit['updated_at']),
                     metadata=json.dumps(visit["metadata"]),
-                    last_modified=dttz.now()
+                    last_modified=utc.now()
                 )
 
                 cur.execute(
