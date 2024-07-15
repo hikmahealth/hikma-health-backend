@@ -11,8 +11,6 @@ import json
 from typing import Callable, Any, Optional
 from operator import xor
 
-from dateutil import parser
-
 class _blankclass:
     """Singleton implementation for the help deal with the `BLANK` constant"""
     _instance = None

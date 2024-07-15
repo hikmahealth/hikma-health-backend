@@ -200,7 +200,7 @@ def change_user_password(_, uid: str):
     
 @admin_api.route('/all_patients', methods=['GET'])
 @api.route("/patients", methods=["GET"])
-# @middleware.authenticated_admin
+@middleware.authenticated_admin
 def get_patients():
     with db.get_connection() as conn:
         with conn.cursor(row_factory=class_row(hh.Patient)) as cur:
@@ -299,23 +299,6 @@ def get_summary_stats(_):
             
     return jsonify(stats)
 
-
-@dataclass(init=True)
-class EventFormData:
-    name: str
-    description: str
-    language: str | None = "en"
-
-    form_fields: f.JSON = f.JSON(default_factory=list)
-    metadata: f.JSON = f.JSON(default_factory=dict)
-
-    is_editable: bool | None = True
-    is_snapshot_form: bool | None = False
-
-    def to_dict(self):
-        fields = set(( f.name for f in dataclasses.fields(self)))
-        return { k: getattr(self, k) for k in fields }
-
 @api.post('/event-forms')
 @middleware.authenticated_admin
 def save_event_form(_):
@@ -356,12 +339,7 @@ def _save_event_form(d):
 @api.get('/event-forms')
 @middleware.authenticated_admin
 def get_many_event_forms(_):
-    with db.get_connection() as conn:
-        with conn.cursor(row_factory=class_row(hh.EventForm)) as cur:
-            event_forms = cur.execute(
-                """SELECT * FROM {} WHERE is_deleted = FALSE""".format(hh.EventForm.TABLE_NAME)
-            ).fetchall()
-
+    event_forms = hh.EventForm.get_all()
     return jsonify({'event_forms': event_forms})
 
 
@@ -540,8 +518,6 @@ def _get_event_form_data(id: str):
             "e.created_at <= %(end_date)s"
         )
 
-
-
     # print("check sql", """
     #         SELECT e.*,
     #             json_agg(p.*) as patient
@@ -670,39 +646,20 @@ def OLD_set_event_form_snapshot_toggle(_):
 @middleware.authenticated_admin
 def get_patient_registration_forms(_):
     """Gets the patient registraion forms"""
-    with db.get_connection().cursor(row_factory=class_row(hh.PatientRegistrationForm)) as cur:
-        forms = cur.execute(
-            """
-            SELECT * FROM {} WHERE is_deleted = FALSE
-            """.format(hh.PatientRegistrationForm.TABLE_NAME)
-        ).fetchall()
-
+    forms = hh.PatientRegistrationForm.get_all()
     return jsonify({"forms": forms})
 
 @api.get("/patient-forms/<id>")
 @middleware.authenticated_admin
 def get_patient_registration_form(_, id: str):
     """Get single patient reistration form"""
-    with db.get_connection().cursor(row_factory=class_row(hh.PatientRegistrationForm)) as cur:
-        form = cur.execute(
-            """
-            SELECT * FROM {} WHERE is_deleted = FALSE AND id = %s
-            """.format(hh.PatientRegistrationForm.TABLE_NAME),
-            [id]
-        ).fetchone()
-
-    return jsonify({ "form": form })
-
-@dataclass
-class PatientRegistrationFormData:
-    fields: str
-    metadata: str
+    data = hh.PatientRegistrationForm.from_id(id)
+    return jsonify(data)
 
 @api.put("/patient-forms/<id>")
 @middleware.authenticated_admin
 def set_patient_registration_form(_, id:str):
     """This performs an upsert on the patient registration form"""
-
     regform = request.json()
 
     with db.get_connection().cursor() as cur:
@@ -713,7 +670,7 @@ def set_patient_registration_form(_, id:str):
             VALUES
             (%(id)s, DEFAULT, %(fields)s::jsonb, %(metadata)s::jsonb)
             """.format(hh.PatientRegistrationForm.TABLE_NAME),
-            dict(id=id, fields=regform.fields, metadata=regform.metadata)
+            dict(id=id, fields=regform["fields"], metadata=regform["metadata"])
         )
 
     return jsonify({ "ok": True })
@@ -721,15 +678,15 @@ def set_patient_registration_form(_, id:str):
 @api.get("/clinics")
 @middleware.authenticated_admin
 def get_all_clinics(_):
-    with db.get_connection().cursor(row_factory=class_row(hh.Clinic)) as cur:
+    with db.get_connection().cursor(row_factory=dict_row) as cur:
         clinics = cur.execute(
             """
             SELECT 
                 c.id,
                 c.name,
-                c.is_deleted as isDeleted,
-                c.created_at as createdAt,
-                c.updated_at as updatedAt
+                c.is_deleted as "isDeleted",
+                c.created_at as "createdAt",
+                c.updated_at as "updatedAt"
             FROM {} as c
             WHERE is_deleted = FALSE
             """.format(hh.Clinic.TABLE_NAME),

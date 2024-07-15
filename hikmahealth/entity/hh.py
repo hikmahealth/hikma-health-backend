@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from hikmahealth.entity import core, sync, fields
+from hikmahealth.entity import core, sync, fields, helpers
 
 from datetime import datetime
 from hikmahealth.utils.datetime import utc
@@ -33,7 +33,7 @@ import json
 
 
 @core.dataentity
-class Patient(sync.SyncableEntity):
+class Patient(sync.SyncableEntity, helpers.SimpleCRUD):
     TABLE_NAME = "patients"
 
     id: str
@@ -48,6 +48,7 @@ class Patient(sync.SyncableEntity):
     
     government_id: str | None = None 
     external_patient_id: str | None = None 
+
     created_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
     updated_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
 
@@ -157,7 +158,6 @@ class Event(sync.SyncableEntity):
     form_id: str
     event_type: str
     form_data: str
-
     metadata: dict
     
     @classmethod
@@ -251,38 +251,36 @@ class Clinic(sync.SyncToClientEntity):
 
     id: str
     name: str
-    created_at: datetime
-    updated_at: datetime
+    created_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
+    updated_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
 
 @core.dataentity
-class PatientRegistrationForm(sync.SyncToClientEntity):
+class PatientRegistrationForm(sync.SyncToClientEntity, helpers.SimpleCRUD):
     TABLE_NAME = "patient_registration_forms"
 
     id: str
     name: str
     fields: str
     metadata: str
-    created_at: datetime
-    updated_at: datetime
-
-
+    created_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
+    updated_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
 
 @core.dataentity
-class EventForm(sync.SyncToClientEntity):
+class EventForm(sync.SyncToClientEntity, helpers.SimpleCRUD):
     TABLE_NAME = "event_forms"
 
     id: str
     name: str
     description: str
 
-    form_fields: fields.JSON = fields.JSON(default_factory=list)
-    metadata: fields.JSON = fields.JSON(default_factory=dict)
+    metadata: dict
+    form_fields: fields.JSON = fields.JSON(default_factory=tuple)
+    # metadata: fields.JSON = fields.JSON(default_factory=dict)
 
     is_editable: bool | None = None
     is_snapshot_form:  bool | None = None
-    created_at: datetime | None = None
-    who_did_it: str | None = None
-    updated_at: datetime | None = None
+    created_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
+    updated_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
 
     @classmethod
     def from_id(cls, id: str) -> EventForm:

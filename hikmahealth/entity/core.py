@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import dataclasses
         
-dataentity = dataclasses.dataclass(init=False, kw_only=True,)
+dataentity = dataclasses.dataclass(init=False, kw_only=True)
 
 class Entity:
     @property
