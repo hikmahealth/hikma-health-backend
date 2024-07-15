@@ -43,12 +43,12 @@ class Patient(sync.SyncableEntity):
     sex: str | None = None 
     hometown: str | None = None 
     phone: str | None = None 
-    additional_data: fields.JSON = fields.JSON(default=None) 
+    additional_data: dict | list | None = None
     
     government_id: str | None = None 
     external_patient_id: str | None = None 
-    created_at: fields.ISODateTime = fields.ISODateTime(default_factory=utc.now)
-    updated_at: fields.ISODateTime = fields.ISODateTime(default_factory=utc.now)
+    created_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
+    updated_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
 
     @classmethod
     def apply_delta_changes(cls, deltadata, last_pushed_at, conn):
@@ -157,15 +157,7 @@ class Event(sync.SyncableEntity):
     event_type: str
     form_data: str
 
-    # NOTE: think of a way to standardize the how to convert the values to 
-    # useful formats
     metadata: dict
-    
-    @property
-    def metadata(self): return json.loads(self._metadata)
-
-    @metadata.setter
-    def metadata(self, value: str | bytes): self._metadata = value
     
     @classmethod
     def apply_delta_changes(cls, deltadata, last_pushed_at, conn):
@@ -273,8 +265,6 @@ class PatientRegistrationForm(sync.SyncToClientEntity):
     updated_at: datetime
 
 
-
-
 @core.dataentity
 class EventForm(sync.SyncToClientEntity):
     TABLE_NAME = "event_forms"
@@ -283,15 +273,8 @@ class EventForm(sync.SyncToClientEntity):
     name: str
     description: str
 
-    form_fields: list = dataclasses.field(default=list)
-
-    @property
-    def form_fields(self): return json.loads(self._form_fields)
-    
-    @form_fields.setter
-    def form_fields(self, value: str | bytes): self._form_fields = value
-
-    metadata: fields.JSON
+    form_fields: fields.JSON = fields.JSON(default_factory=list)
+    metadata: fields.JSON = fields.JSON(default_factory=dict)
 
     is_editable: bool | None = None
     is_snapshot_form:  bool | None = None
@@ -313,9 +296,11 @@ class EventForm(sync.SyncToClientEntity):
         
         return cls(**data)
 
+@core.dataentity
 class StringId(sync.SyncToClientEntity):
     TABLE_NAME = "string_ids"
 
+@core.dataentity
 class StringContent(sync.SyncToClientEntity):
     TABLE_NAME = "string_content"
 

@@ -199,8 +199,8 @@ def change_user_password(_, uid: str):
     
 @admin_api.route('/all_patients', methods=['GET'])
 @api.route("/patients", methods=["GET"])
-@middleware.authenticated_admin
-def get_patients(_):
+# @middleware.authenticated_admin
+def get_patients():
     with db.get_connection() as conn:
         with conn.cursor(row_factory=class_row(hh.Patient)) as cur:
             patients = cur.execute(

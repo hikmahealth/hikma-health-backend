@@ -11,6 +11,8 @@ import json
 from typing import Callable, Any, Optional
 from operator import xor
 
+from dateutil import parser
+
 class _blankclass:
     """Singleton implementation for the help deal with the `BLANK` constant"""
     _instance = None
@@ -30,7 +32,7 @@ BLANK = _blankclass.create()
 """This object represnts a missing value. Since `None` can also be a value, we need a
 way to demostrate 'nothing'. Similar to `dataclasses.MISSING`"""
 
-class ISODateTime:
+class UTCDateTime:
     """Field to represent a date object that's converted from and ISO8601 string"""
     def __init__(self, default_factory: Callable[[Any], datetime] = BLANK):
         self._default_factory = default_factory
@@ -51,8 +53,18 @@ class ISODateTime:
         
         return value
 
-    def __set__(self, obj, value: str):
-        setattr(obj, self._private_name, datetime.fromisoformat(value).astimezone(timezone.utc))
+    def __set__(self, obj, value: str | datetime):
+        value_to_set = None
+        if isinstance(value, datetime):
+            value_to_set = value
+        else:
+            # assumes is string
+            try:
+                value_to_set = datetime.fromisoformat(value)
+            except ValueError :
+                raise ValueError("input must be datetime or iso-8601 valid string")
+            
+        setattr(obj, self._private_name, value_to_set.astimezone(timezone.utc))
 
 
 class JSON:
