@@ -20,7 +20,6 @@ class Entity:
             if k in names:
                 setattr(self, k, v)
 
-
     def to_dict(self, ignore_nil: bool = False):
         if not ignore_nil:
             return { fn: getattr(self, fn) for fn in self.fields_ }
@@ -35,8 +34,8 @@ class Entity:
 
             return out     
 
-    @classmethod
     @property
+    @classmethod
     def TABLE_NAME(self) -> str:
         """This refers to the name of the able associated with
         the entity"""

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from hikmahealth.entity import core, sync
+from hikmahealth.entity import core, sync, fields
 
 from datetime import datetime
-from hikmahealth.utils.datetime import local as dtlocal, utc as  dttz
+from hikmahealth.utils.datetime import utc
 
-from datetime import timezone, date
-from psycopg import Connection
+from datetime import  date
+
 
 import itertools
 from psycopg.rows import dict_row
@@ -43,12 +43,12 @@ class Patient(sync.SyncableEntity):
     sex: str | None = None 
     hometown: str | None = None 
     phone: str | None = None 
-    additional_data: dict 
+    additional_data: fields.JSON = fields.JSON(default=None) 
     
     government_id: str | None = None 
     external_patient_id: str | None = None 
-    created_at: datetime
-    updated_at: datetime
+    created_at: fields.ISODateTime = fields.ISODateTime(default_factory=utc.now)
+    updated_at: fields.ISODateTime = fields.ISODateTime(default_factory=utc.now)
 
     @classmethod
     def apply_delta_changes(cls, deltadata, last_pushed_at, conn):
@@ -62,12 +62,12 @@ class Patient(sync.SyncableEntity):
                 # print(patient)
 
                 patient.update(
-                    created_at=dttz.from_unixtimestamp(patient["created_at"]),
-                    updated_at=dttz.from_unixtimestamp(patient["updated_at"]),
-                    image_timestamp=dttz.from_unixtimestamp(patient["image_timestamp"]) if "image_timestamp" in patient else None,
+                    created_at=utc.from_unixtimestamp(patient["created_at"]),
+                    updated_at=utc.from_unixtimestamp(patient["updated_at"]),
+                    image_timestamp=utc.from_unixtimestamp(patient["image_timestamp"]) if "image_timestamp" in patient else None,
                     additional_data=patient["additional_data"],
                     photo_url="https://cdn.server.fake/image/convincing-id",
-                    last_modified=dttz.now()
+                    last_modified=utc.now()
                 )
 
 
@@ -113,9 +113,9 @@ class PatientAttribute(sync.SyncableEntity):
             for row in itertools.chain(deltadata.created, deltadata.updated):
                 pattr = dict(row)
                 pattr.update(
-                    date_value=dttz.from_unixtimestamp(pattr["date_value"]),
-                    created_at=dttz.from_unixtimestamp(pattr["created_at"]),
-                    updated_at=dttz.from_unixtimestamp(pattr["updated_at"]),
+                    date_value=utc.from_unixtimestamp(pattr["date_value"]),
+                    created_at=utc.from_unixtimestamp(pattr["created_at"]),
+                    updated_at=utc.from_unixtimestamp(pattr["updated_at"]),
                     metadata=pattr["metadata"],
                 )
 
@@ -174,8 +174,8 @@ class Event(sync.SyncableEntity):
             for row in itertools.chain(deltadata.created, deltadata.updated):
                 event = dict(row)
                 event.update(
-                    created_at=dttz.from_unixtimestamp(event["created_at"]),
-                    updated_at=dttz.from_unixtimestamp(event["updated_at"]),
+                    created_at=utc.from_unixtimestamp(event["created_at"]),
+                    updated_at=utc.from_unixtimestamp(event["updated_at"]),
                     metadata=json.dumps(event["metadata"]),
                 )
 
@@ -217,8 +217,8 @@ class Visit(sync.SyncableEntity):
             for visit in itertools.chain(deltadata.created, deltadata.updated):
                 visit = dict(visit)
                 visit.update(
-                    check_in_timestamp=dttz.from_unixtimestamp(visit['check_in_timestamp']),
-                    created_at=dttz.from_unixtimestamp(visit['created_at']),
+                    check_in_timestamp=utc.from_unixtimestamp(visit['check_in_timestamp']),
+                    created_at=utc.from_unixtimestamp(visit['created_at']),
                     updated_at=dttz.from_unixtimestamp(visit['updated_at']),
                     metadata=json.dumps(visit["metadata"]),
                     last_modified=dttz.now()
@@ -291,13 +291,7 @@ class EventForm(sync.SyncToClientEntity):
     @form_fields.setter
     def form_fields(self, value: str | bytes): self._form_fields = value
 
-    metadata: dict = dataclasses.field(default=dict)
-
-    @property
-    def metadata(self): return json.loads(self._metadata)
-
-    @form_fields.setter
-    def metadata(self, value: str | bytes): self._metadata = value
+    metadata: fields.JSON
 
     is_editable: bool | None = None
     is_snapshot_form:  bool | None = None
