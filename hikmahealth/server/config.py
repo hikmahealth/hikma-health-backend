@@ -12,8 +12,8 @@ and stopped running any further
 """
 # added to support back compat as
 # .env might be in the <PROJECT_ROOT>/app
-# from dotenv import load_dotenv
-# load_dotenv()
+from dotenv import load_dotenv
+load_dotenv()
 
 # preferably control how the environment variables are injected.
 # This is left here for familiarity reasons. This should be removed

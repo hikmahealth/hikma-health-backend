@@ -55,7 +55,7 @@ class SyncToClientEntity(ISyncDown, core.Entity):
     @classmethod
     @override
     def get_delta_records(cls, last_sync_time: datetime.datetime, conn: Connection): 
-        print(last_sync_time)
+        # print(last_sync_time)
         with conn.cursor(row_factory=dict_row) as cur:
             newrecords = cur.execute(
                 "SELECT * from {} WHERE server_created_at > %s AND deleted_at IS NULL"\
