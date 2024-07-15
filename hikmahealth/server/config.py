@@ -33,7 +33,7 @@ PG_HOST=os.environ["DB_HOST"]
 PG_DB=os.environ["DB_NAME"]
 PG_USER=os.environ["DB_USER"]
 PG_PASSWORD=os.environ["DB_PASSWORD"]
-PG_PORT=os.environ.get("DB_PORT", None)
+PG_PORT=os.environ.get("DB_PORT", "5432")
 
 # APP_ENV = os.environ.get("APP_ENV", EnvironmentType.Prod)
 APP_ENV = os.environ["APP_ENV"]
