@@ -23,7 +23,7 @@ import traceback
 import dateutil
 
 
-from oldhikma.sync.db_sychronization import DbSynchronizer
+# from oldhikma.sync.db_sychronization import DbSynchronizer
 
 api = Blueprint('api-mobile', __name__)
 backcompatapi = Blueprint('api-mobile-backcompat', __name__, url_prefix="/api")
@@ -87,19 +87,19 @@ def _get_last_pulled_at_from(request: Request) -> datetime | None:
 
     return None
 
-@backcompatapi.route("/sync", methods=["POST"])
-def backcompat_old_deprecated_sync():
-    params = webhelper.assert_data_has_keys(request, {"email", "password"}, data_type="form")
-    User.authenticate(params["email"], params["password"])
-    if "db" not in request.files:
-        raise WebError("db must be provided", 400)
+# @backcompatapi.route("/sync", methods=["POST"])
+# def backcompat_old_deprecated_sync():
+#     params = webhelper.assert_data_has_keys(request, {"email", "password"}, data_type="form")
+#     User.authenticate(params["email"], params["password"])
+#     if "db" not in request.files:
+#         raise WebError("db must be provided", 400)
 
-    synchronizer = DbSynchronizer(request.files["db"])
-    if not synchronizer.prepare_sync():
-        raise WebError("Synchronization failed", 500)
+#     synchronizer = DbSynchronizer(request.files["db"])
+#     if not synchronizer.prepare_sync():
+#         raise WebError("Synchronization failed", 500)
 
-    synchronizer.execute_server_side_sql()
-    return jsonify({"to_execute": synchronizer.get_client_sql()})
+#     synchronizer.execute_server_side_sql()
+#     return jsonify({"to_execute": synchronizer.get_client_sql()})
 
 
 
