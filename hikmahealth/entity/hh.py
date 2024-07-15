@@ -9,11 +9,11 @@ from datetime import  date
 
 
 import itertools
-from psycopg.rows import dict_row
 
 from hikmahealth.server.client import db
 from typing import Any
 
+from psycopg.rows import class_row, dict_row
 import dataclasses
 import json
 
@@ -30,6 +30,7 @@ import json
 # 1. is the thing syncable (up or down, ... or both)
 
 # TODO: 👇🏽 that one
+
 
 @core.dataentity
 class Patient(sync.SyncableEntity):
@@ -263,6 +264,7 @@ class PatientRegistrationForm(sync.SyncToClientEntity):
     metadata: str
     created_at: datetime
     updated_at: datetime
+
 
 
 @core.dataentity

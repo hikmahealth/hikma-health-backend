@@ -7,6 +7,7 @@ from hikmahealth.server.client import db
 from hikmahealth.server.helpers import web as webhelper
 
 from hikmahealth.entity import hh
+import hikmahealth.entity.fields as f
 
 from hikmahealth.utils.errors import WebError
 
@@ -304,30 +305,12 @@ class EventFormData:
     name: str
     description: str
     language: str | None = "en"
-    # form_fields = property(lambda self: self._form_fields)
-    form_fields: list[dict] | None = []
-    metadata: dict | None = dict()
+
+    form_fields: f.JSON = f.JSON(default_factory=list)
+    metadata: f.JSON = f.JSON(default_factory=dict)
+
     is_editable: bool | None = True
     is_snapshot_form: bool | None = False
-
-    def __init__(self, **kwargs):
-        self._form_fields = []
-        self._metadata = []
-
-    @property
-    def form_fields(self): return json.load(self._form_fields)
-
-    @form_fields.setter
-    def form_fields(self, val): 
-        self._form_fields = val
-
-    @property
-    def metadata(self): return json.load(self._metadata)
-
-    @metadata.setter
-    def metadata(self, val): 
-        self._metadata = (val)
-        print(self._metadata)
 
     def to_dict(self):
         fields = set(( f.name for f in dataclasses.fields(self)))
@@ -680,20 +663,7 @@ def OLD_set_event_form_snapshot_toggle(_):
     return jsonify({ "ok": True })
 
 
-@dataclass
-class PatientRegistrationFormData:
-    fields: dict | None = None
-    metadata: dict | None = None
 
-    @property
-    def fields(self): return self._fields
-
-    @fields.setter
-    def fields(self, val: Any):
-        if val is None:
-            self._fields = None
-        else:
-            self._fields = json.dumps(val)
 
 @admin_api.route('/get_patient_registration_forms', methods=['GET'])
 @api.get("/patient-forms")
@@ -723,13 +693,17 @@ def get_patient_registration_form(_, id: str):
 
     return jsonify({ "form": form })
 
+@dataclass
+class PatientRegistrationFormData:
+    fields: str
+    metadata: str
 
 @api.put("/patient-forms/<id>")
 @middleware.authenticated_admin
 def set_patient_registration_form(_, id:str):
     """This performs an upsert on the patient registration form"""
 
-    regform = PatientRegistrationFormData(**request.get_json())
+    regform = request.json()
 
     with db.get_connection().cursor() as cur:
         cur.execute(
@@ -737,7 +711,7 @@ def set_patient_registration_form(_, id:str):
             INSERT INTO {}
             (id, name, fields, metadata)
             VALUES
-            (%(id)s, DEFAULT, %(fields)s, %(metadata)s)
+            (%(id)s, DEFAULT, %(fields)s::jsonb, %(metadata)s::jsonb)
             """.format(hh.PatientRegistrationForm.TABLE_NAME),
             dict(id=id, fields=regform.fields, metadata=regform.metadata)
         )
@@ -751,8 +725,12 @@ def get_all_clinics(_):
         clinics = cur.execute(
             """
             SELECT 
-
-            FROM {} 
+                c.id,
+                c.name,
+                c.is_deleted as isDeleted,
+                c.created_at as createdAt,
+                c.updated_at as updatedAt
+            FROM {} as c
             WHERE is_deleted = FALSE
             """.format(hh.Clinic.TABLE_NAME),
         ).fetchall()
