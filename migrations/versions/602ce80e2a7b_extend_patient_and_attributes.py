@@ -42,7 +42,7 @@ def upgrade():
         sa.Column('deleted_at', sa.TIMESTAMP(True), nullable=True),
 
         # composite index allows for uniquely identifying these two columns. there shouldn't be two of these
-        sa.PrimaryKeyConstraint('patient_ids', 'attribute_id'),
+        sa.PrimaryKeyConstraint('patient_id', 'attribute_id'),
         sa.Index('ix_patient_additional_attributes_patient_id', 'patient_ids'),
         sa.Index('ix_patient_additional_attributes_attribute_id', 'attribute_id')
     )
