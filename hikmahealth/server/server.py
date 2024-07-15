@@ -1,17 +1,9 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 
-# from app.admin_api.admin_api import admin_api
-# from app.mobile_api.mobile_api import mobile_api
-# from app.user_api.user_api import user_api
-
-from hikmahealth.server.routes_admin import app as admin_app
-from hikmahealth.server import routes_mobile 
+from hikmahealth.server import routes_mobile, routes_admin
 
 from hikmahealth.utils.errors import WebError
-from hikmahealth.server import config
-
-from oldhikma.admin_api.admin_api import admin_api as old_admin_api
 
 app = Flask(__name__)
 CORS(app)
@@ -19,11 +11,11 @@ app.url_map.strict_slashes = False
 
 
 # for backcompat
-app.register_blueprint(old_admin_api)
 app.register_blueprint(routes_mobile.backcompatapi)
+app.register_blueprint(routes_admin.admin_api)
 # --------------------------------
 
-app.register_blueprint(admin_app, url_prefix='/v1/admin')
+app.register_blueprint(routes_admin.api, url_prefix='/v1/admin')
 app.register_blueprint(routes_mobile.api, url_prefix="/v1/api")
 
 
@@ -33,10 +25,8 @@ def hello_world():
 
 
 @app.errorhandler(WebError)
-def handle_web_error(error):
-    response = jsonify(error.to_dict())
-    response.status_code = error.status_code
-    return response
+def handle_web_error(error):    
+    return jsonify(error.to_dict()), error.status_code
 
 
 @app.errorhandler(404)
@@ -48,14 +38,10 @@ def page_not_found(_err):
 
 @app.errorhandler(405)
 def method_not_found(_err):
-    response = jsonify({"message": "Method not found."})
-    response.status_code = 405
-    return response
+    return jsonify({"message": "Method not found."}), 405
 
 
 @app.errorhandler(500)
 def internal_server_error(_err):
-    response = jsonify({"message": "Internal Server Error"})
-    response.status_code = 500
-    return response
+    return jsonify({"message": "Internal Server Error"}), 500
 

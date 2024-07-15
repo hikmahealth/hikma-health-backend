@@ -1,7 +1,7 @@
 import os
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
-load_dotenv()
+# load_dotenv()
 ENV = os.environ.get("APP_ENV", "dev_local")
 
 print("ENV: ", os.getenv("APP_ENV"))

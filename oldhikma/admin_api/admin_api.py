@@ -133,13 +133,6 @@ def search(_admin_user):
     return jsonify({'patient': patient})
 
 
-@admin_api.route('/export_patient', methods=['POST'])
-@admin_authenticated
-def export_patient_data(_admin_user):
-    params = assert_data_has_keys(request, {'patient_id'})
-    export_filename = single_patient_export(params['patient_id'])
-    return send_file(export_filename, attachment_filename='hikma_patient_export.xlsx')
-
 
 @admin_api.route('/summary_stats', methods=['GET'])
 @admin_authenticated
@@ -391,6 +384,7 @@ def update_patient_registration_form(_admin_user):
                     form['createdAt'],
                     form['updatedAt']
                 ))
+                
             except Exception as e:
                 conn.rollback()
                 print("Error while updating the patient registration form: ", e)

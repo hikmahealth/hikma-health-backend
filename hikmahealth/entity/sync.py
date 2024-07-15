@@ -6,7 +6,7 @@ from typing import override
 from psycopg.connection import Connection
 from psycopg.rows import dict_row
 
-from hikmahealth.entity import base
+from hikmahealth.entity import core
 from hikmahealth.utils.datetime import local as dtutils
 
 import datetime
@@ -46,7 +46,7 @@ class DeltaData(object):
 
 # should be move to a different structure. since it depends on psycopg to
 # execute properly
-class SyncToClientEntity(ISyncDown, base.Entity):
+class SyncToClientEntity(ISyncDown, core.Entity):
     """For entity that expects to apply changes from server to client
 
         Args:

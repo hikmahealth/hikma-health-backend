@@ -824,7 +824,7 @@ def date_from_timestamp(timestamp):
 
 
 def get_timestamp_now():
-    return time.mktime(datetime.now().timetuple()) * 1000
+    return time.mktime(time.gmtime()) * 1000
 
 
 # function to convert a javascript timestamp into a datetime object at gmt time

@@ -15,7 +15,7 @@ from hikmahealth.utils.datetime import utc
 from hikmahealth.server.client import db
 
 from hikmahealth.entity import hh, sync
-from datetime import timezone, datetime
+from datetime import  datetime
 
 from typing import Iterable
 from collections import defaultdict
@@ -33,7 +33,7 @@ backcompatapi = Blueprint('api-mobile-backcompat', __name__, url_prefix="/api")
 @api.route('/login', methods=['POST'])
 def login():
     params = webhelper.assert_data_has_keys(request, {"email", "password"})
-    u = auth.get_user_with_email(params["email"], params["password"])
+    u = auth.get_user_from_email(params["email"], params["password"])
     return jsonify(u.to_dict())
 
 
@@ -41,7 +41,7 @@ def login():
 @api.route('/user/reset_password', methods=['POST'])
 def reset_password():
     params = webhelper.assert_data_has_keys(request, {"email", "password", "new_password"})
-    u = auth.get_user_with_email(params["email"], params["password"])    
+    u = auth.get_user_from_email(params["email"], params["password"])    
     auth.reset_password(u, params['new_password'])
     return jsonify({ 'ok': True, 'message': "password updated", })
 
@@ -114,7 +114,6 @@ ENTITIES_TO_PUSH_TO_MOBILE: dict[str, sync.SyncToClientEntity] = {
     "string_content": hh.StringContent,
     "event_forms": hh.EventForm,
     "registration_forms": hh.PatientRegistrationForm
-    # "nurses": concept.Nurse,
 }
 
 @backcompatapi.route('/v2/sync', methods=['GET'])
@@ -132,7 +131,6 @@ def sync_v2_pull():
 
     changes_to_push_to_client = dict()
 
-    print("last_synced_at", last_synced_at)
 
     with db.get_connection() as conn:
         for changekey, c in ENTITIES_TO_PUSH_TO_MOBILE.items():
@@ -144,15 +142,17 @@ def sync_v2_pull():
             # formatGETSyncResponse
             # --------
             changes_to_push_to_client[changekey] = deltadata.to_dict()
+        
+    # server generated timestamp for the current data changes
+    timestamp = _get_timestamp_now()
 
     return jsonify({
         "changes": changes_to_push_to_client,
-        # NOTE: ASK: why is this not infered from the client.
-        "timestamp": _get_timestamp_now()
+        "timestamp": timestamp
     })
 
 def _get_timestamp_now():
-    return int(time.mktime(datetime.now().timetuple()))
+    return time.mktime(datetime.now().timetuple()) * 1000
 
 # using tuple to make sure the we observe order
 # of the entities to be syncronized
