@@ -26,7 +26,7 @@ def upgrade():
     op.create_table(
         'patient_additional_attributes',
         sa.Column('id', sa.UUID, nullable=False),
-        sa.Column('patient_ids', sa.String, nullable=False), # migrated to UUIDs
+        sa.Column('patient_id', sa.String, nullable=False), # migrated to UUIDs
         sa.Column('attribute_id', sa.String, nullable=False),
         sa.Column('attribute', sa.String, nullable=False, default=""),
         sa.Column('number_value', sa.Float, nullable=True),
