@@ -41,7 +41,6 @@ services:
 
 
 databases:
-  - name: 'hikma-health-db-server'
-    databaseName: 'hikma-health-db'
+  - name: 'hikma-health-db'
 
 # Define any additional services or database configurations if needed
