@@ -1,0 +1,11 @@
+[project]
+name = "hikima-server"
+version = "0.1.0"
+description = "The first free mobile health data system for physicians serving refugees."
+license = "MIT License"
+readme = "README.md"
+requires-python = ">=3.11"
+
+
+[build-system]
+requires = ["setuptools", "wheel"]

@@ -1,3 +1,4 @@
 #!/bin/bash
 
-PYTHONPATH=. alembic upgrade head
+cd ../
+./scripts/run_migrations.sh

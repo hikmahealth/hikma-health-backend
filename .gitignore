@@ -94,6 +94,10 @@ celerybeat-schedule
 
 # dotenv
 .env
+.env.local
+.env.*
+.env-shouldnt-run
+
 
 # virtualenv
 .venv
@@ -115,3 +119,6 @@ ENV/
 
 # Redis
 dump.rdb
+
+# playground files
+playground.py
