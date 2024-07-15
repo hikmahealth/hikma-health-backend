@@ -31,10 +31,25 @@ class EnvironmentType:
     Docker = "dev_docker"
 
 # for PostgreSQL connection
-PG_HOST=os.environ["DB_HOST"]
-PG_DB=os.environ["DB_NAME"]
-PG_USER=os.environ["DB_USER"]
-PG_PASSWORD=os.environ["DB_PASSWORD"]
+DATABASE_URL=os.environ.get("DATABASE_URL", None)
+if DATABASE_URL:
+    # IF there is a connection string, proceed to extract the data from it
+    db_proto, connection_params = DATABASE_URL.split("//");
+    if db_proto != "postgresql":
+        raise Exception("Using a non postgresql database. HH only supports PostgreSQL.")
+
+    credentials, url = connection_params.split("@")
+    
+    PG_HOST=url.split("/")[0]
+    PG_DB=url.split("/")[1]
+    PG_USER=credentials.split(":")[0]
+    PG_PASSWORD=credentials.split(":")[1]
+else:
+    PG_HOST=os.environ["DB_HOST"]
+    PG_DB=os.environ["DB_NAME"]
+    PG_USER=os.environ["DB_USER"]
+    PG_PASSWORD=os.environ["DB_PASSWORD"]
+    
 PG_PORT=os.environ.get("DB_PORT", "5432")
 
 # APP_ENV = os.environ.get("APP_ENV", EnvironmentType.Prod)
