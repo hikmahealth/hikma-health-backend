@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-ENV = os.environ.get("APP_ENV", "dev_local")
+ENV = os.environ.get("APP_ENV", "prod")
 PG_PORT=os.environ.get("DB_PORT", "5432")
 
 print("ENV: ", os.getenv("APP_ENV"))
