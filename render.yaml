@@ -8,6 +8,11 @@ services:
     startCommand: ./run.sh
 
     envVars:
+     # DATABASE_URL trumps all other env variables.
+     - key: DATABASE_URL
+       fromDatabase:
+         name: hikma-health-db
+         property: connectionString
      - key: DB_HOST
        value: "HOST_NAME"
      - key: DB_NAME
@@ -23,7 +28,10 @@ services:
      - key: PHOTOS_STORAGE_BUCKET
        value: "VALUE_HERE"
      - key: PYTHON_VERSION
-       value: "3.10.6"
+       value: "3.12.4"
 
+
+databases:
+  - name: 'hikma-health-db'
 
 # Define any additional services or database configurations if needed
