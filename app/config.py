@@ -5,7 +5,7 @@ load_dotenv()
 ENV = os.environ.get("APP_ENV", "prod")
 PG_PORT=os.environ.get("DB_PORT", "5432")
 
-print("ENV: ", os.getenv("APP_ENV"))
+print("ENV: ", ENV)
 
 FLASK_DEBUG_PORT = 5000
 
