@@ -26,6 +26,7 @@ if ENV in ("dev_local", "dev_docker", "stg"):
 
 if ENV == "prod":
     FLASK_DEBUG = False
+    DATABASE_URL=os.environ.get("DATABASE_URL", None)
     PG_USER = os.environ["DB_USER"]
     # PG_USER = os.environ["DB_NAME"]
     PG_PASSWORD = os.environ["DB_PASSWORD"]
