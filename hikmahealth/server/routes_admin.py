@@ -284,7 +284,7 @@ def update_patient_registration_form(_):
                 )
 
 
-    return jsonify({'message': 'OK'})
+    return jsonify({ "ok": True })
 
 @admin_api.route('/search_patients', methods=['POST'])
 @api.route("/search/patients", methods=["GET"])
