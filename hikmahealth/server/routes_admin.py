@@ -718,6 +718,7 @@ def set_patient_registration_form(_, id:str):
 
     return jsonify({ "ok": True })
 
+@admin_api.route('/get_clinics', methods=['GET'])
 @api.get("/clinics")
 @middleware.authenticated_admin
 def get_all_clinics(_):
@@ -735,4 +736,4 @@ def get_all_clinics(_):
             """.format(hh.Clinic.TABLE_NAME),
         ).fetchall()
 
-    return jsonify(clinics)
+    return jsonify({"clinics": clinics})
