@@ -376,8 +376,8 @@ def OLD_update_event_form(admin_user):
                     (
                         event_form_update['name'],
                         event_form_update['description'],
-                        event_form_update['form_fields'],
-                        event_form_update['metadata'],
+                        json.dumps(event_form_update['form_fields']),
+                        json.dumps(event_form_update['metadata']),
                         event_form_update['language'],
                         event_form_update['is_editable'],
                         event_form_update['is_snapshot_form'],
