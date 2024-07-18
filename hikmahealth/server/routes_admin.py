@@ -627,18 +627,6 @@ class PatientRegistrationFormData:
     createdAt: f.UTCDateTime = f.UTCDateTime()
     updatedAt: f.UTCDateTime = f.UTCDateTime()
 
-@admin_api.route('/update_patient_registration_form', methods=['POST'])
-@api.post("/patient-form")
-@middleware.authenticated_admin
-def update_patient_registration_form(_):
-    params = webhelper.assert_data_has_keys(request, {"form"})
-    form = PatientRegistrationFormData(**params["form"])
-
-    if form.id is None:
-        raise WebError("missing id in the patient registration form", 400)
-
-    return jsonify({ "ok": True })
-
 def _patient_registration_form_upsert(data: PatientRegistrationFormData):
     with db.get_connection().cursor() as cur:
         cur.execute(
@@ -657,9 +645,23 @@ def _patient_registration_form_upsert(data: PatientRegistrationFormData):
             (data.id, data.name, data.fields, data.metadata, data.createdAt, data.updatedAt)
         )
 
+@admin_api.route('/update_patient_registration_form', methods=['POST'])
+@api.post("/patient-form")
+@middleware.authenticated_admin
+def update_patient_registration_form(_):
+    params = webhelper.assert_data_has_keys(request, {"form"})
+    form = PatientRegistrationFormData(**params["form"])
+
+    if form.id is None:
+        raise WebError("missing id in the patient registration form", 400)
+
+    _patient_registration_form_upsert(form)
+    return jsonify({ "ok": True })
+
+
 @api.put("/patient-forms/<id>")
 @middleware.authenticated_admin
-def set_patient_registration_form(_, id:str):
+def set_patient_registration_form(_, id: str):
     """This performs an upsert on the patient registration form"""
     form = PatientRegistrationFormData(**request.json())
 
