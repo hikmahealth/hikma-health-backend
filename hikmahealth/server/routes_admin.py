@@ -243,49 +243,6 @@ def get_patient_events(_, id: str):
 
     return jsonify(events)
 
-@dataclass
-class PatientRegistrationFormData:
-    id: str
-    name: str
-    metadata: str | None
-    fields: str | None
-    createdAt: f.UTCDateTime = f.UTCDateTime()
-    updatedAt: f.UTCDateTime = f.UTCDateTime()
-
-@admin_api.route('/update_patient_registration_form', methods=['POST'])
-@api.post("/patient-form")
-@middleware.authenticated_admin
-def update_patient_registration_form(_):
-    params = webhelper.assert_data_has_keys(request, {"form"})
-    form = PatientRegistrationFormData(**params["form"])
-
-    with db.get_connection() as conn:
-        with conn.cursor() as cur:
-                # upsert the form using the id field
-                # "form" has the the following fields:
-                # id: string
-                # fields: json
-                # metadata: json
-                query = f"""
-                    INSERT INTO patient_registration_forms(id, name, fields, metadata, is_deleted, created_at, updated_at, last_modified)
-                    VALUES (%s, %s, %s::jsonb, %s::jsonb, false, %s, %s, current_timestamp)
-                    ON CONFLICT (id)
-                    DO UPDATE SET
-                        name = EXCLUDED.name,
-                        fields = EXCLUDED.fields,
-                        metadata = EXCLUDED.metadata,
-                        is_deleted = EXCLUDED.is_deleted,
-                        updated_at = EXCLUDED.updated_at,
-                        last_modified = current_timestamp;
-                """
-                cur.execute(
-                    query,
-                    (form.id, form.name, form.fields, form.metadata, form.createdAt, form.updatedAt)
-                )
-
-
-    return jsonify({ "ok": True })
-
 @admin_api.route('/search_patients', methods=['POST'])
 @api.route("/search/patients", methods=["GET"])
 @middleware.authenticated_admin
@@ -561,17 +518,6 @@ def _get_event_form_data(id: str):
             "e.created_at <= %(end_date)s"
         )
 
-    # print("check sql", """
-    #         SELECT e.*,
-    #             json_agg(p.*) as patient
-    #         FROM events as e
-    #         LEFT JOIN patients p ON e.patient_id = p.id
-    #         WHERE e.form_id = %(form_id)s
-    #             AND e.is_deleted = FALSE
-    #             AND {}
-    #         GROUP BY e.id
-    #         """.format(" AND \n".join(where_clause)))
-
     events = []
     with db.get_connection() as conn:
         with conn.cursor() as cur:
@@ -610,36 +556,6 @@ def _get_event_form_data(id: str):
                 raise e
 
         return events
-
-
-    # with db.get_connection().cursor(row_factory=dict_row) as cur:
-    #     events_data = cur.execute(
-    #         """
-    #         SELECT
-    #             e.id,
-    #             e.patient_id as "patientId",
-    #             e.visit_id as "visitId",
-    #             e.form_id as "formId",
-    #             e.event_type as "eventType",
-    #             e.form_data as "formData",
-    #             e.metadata,
-    #             e.is_deleted as "isDeleted",
-    #             e.created_at as "createdAt",
-    #             e.updated_at as "updatedAt",
-    #             json_agg(p.*) as patient
-    #         FROM events as e
-    #         LEFT JOIN patients p ON e.patient_id = p.id
-    #         WHERE e.form_id = %(form_id)s
-    #             AND e.is_deleted = FALSE
-    #             AND {}
-    #         GROUP BY e.id
-    #         """.format(" AND \n".join(where_clause)),
-    #         dict(form_id=id, start_date=start_date, end_date=end_date)
-    #     ).fetchall()
-
-    # # print(events_data[0])
-    # return events_data
-
 
 @admin_api.route("/set_event_form_editable", methods=["POST"])
 @middleware.authenticated_admin
@@ -699,23 +615,58 @@ def get_patient_registration_form(_, id: str):
     data = hh.PatientRegistrationForm.from_id(id)
     return jsonify(data)
 
+
+@dataclass
+class PatientRegistrationFormData:
+    id: str | None
+    """None for the situations where `id` is inserted later on"""
+
+    name: str
+    metadata: str | None
+    fields: str | None
+    createdAt: f.UTCDateTime = f.UTCDateTime()
+    updatedAt: f.UTCDateTime = f.UTCDateTime()
+
+@admin_api.route('/update_patient_registration_form', methods=['POST'])
+@api.post("/patient-form")
+@middleware.authenticated_admin
+def update_patient_registration_form(_):
+    params = webhelper.assert_data_has_keys(request, {"form"})
+    form = PatientRegistrationFormData(**params["form"])
+
+    if form.id is None:
+        raise WebError("missing id in the patient registration form", 400)
+
+    return jsonify({ "ok": True })
+
+def _patient_registration_form_upsert(data: PatientRegistrationFormData):
+    with db.get_connection().cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO patient_registration_forms(id, name, fields, metadata, is_deleted, created_at, updated_at, last_modified)
+                VALUES (%s, %s, %s::jsonb, %s::jsonb, false, %s, %s, current_timestamp)
+                ON CONFLICT (id)
+                DO UPDATE SET
+                    name = EXCLUDED.name,
+                    fields = EXCLUDED.fields,
+                    metadata = EXCLUDED.metadata,
+                    is_deleted = EXCLUDED.is_deleted,
+                    updated_at = EXCLUDED.updated_at,
+                    last_modified = current_timestamp;
+            """.format(hh.PatientRegistrationForm.TABLE_NAME),
+            (data.id, data.name, data.fields, data.metadata, data.createdAt, data.updatedAt)
+        )
+
 @api.put("/patient-forms/<id>")
 @middleware.authenticated_admin
 def set_patient_registration_form(_, id:str):
     """This performs an upsert on the patient registration form"""
-    regform = request.json()
+    form = PatientRegistrationFormData(**request.json())
 
-    with db.get_connection().cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO {}
-            (id, name, fields, metadata)
-            VALUES
-            (%(id)s, DEFAULT, %(fields)s::jsonb, %(metadata)s::jsonb)
-            """.format(hh.PatientRegistrationForm.TABLE_NAME),
-            dict(id=id, fields=regform["fields"], metadata=regform["metadata"])
-        )
+    # set the ID of the registration form to perform update query for already existing data
+    form.id = id
 
+    _patient_registration_form_upsert(form)
     return jsonify({ "ok": True })
 
 @admin_api.route('/get_clinics', methods=['GET'])
