@@ -303,7 +303,7 @@ def get_summary_stats(_):
 @middleware.authenticated_admin
 def save_event_form(_):
     # event_form = EventFormData(**request.get_json())
-    d = request.get_json()
+    d = EventFormData(**request.get_json())
     _save_event_form(d)
     return jsonify({"ok": True, "message": "event form saved"})
 
@@ -312,16 +312,25 @@ def save_event_form(_):
 def OLD_save_event_form(_):
     # event_form = EventFormData(**request.get_json())
     d = webhelper.assert_data_has_keys(request, {'event_form'})
-    _save_event_form(d['event_form'])
+    _save_event_form(EventFormData(**d['event_form']))
     return jsonify({"ok": True, "message": "event form saved"})
 
-def _save_event_form(d):
-    e = dict(d)
-    e.update(
-        form_fields=json.dumps(e['form_fields']),
-        metadata=json.dumps(e['metadata']),
-    )
+@dataclass
+class EventFormData:
+    id: str
+    name: str
+    description: str
+    form_fields: str | None
+    """Fields composition that make up the Event Form. Format required as string JSON """
+    metadata: str | None
+    language: str | None = "en"
+    is_editable: bool | None = True
+    is_snapshot_form: bool | None = False
+    createdAt: f.UTCDateTime = f.UTCDateTime(default_factory=utc.now)
+    updatedAt: f.UTCDateTime = f.UTCDateTime(default_factory=utc.now)
 
+
+def _save_event_form(data: EventFormData):
     with db.get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -329,9 +338,9 @@ def _save_event_form(d):
                 INSERT INTO event_forms
                 (id, name, description, form_fields, metadata, language, is_editable, is_snapshot_form, created_at, updated_at)
                 VALUES
-                (%(id)s, %(name)s, %(description)s, %(form_fields)s::jsonb, %(metadata)s::jsonb, %(language)s, %(is_editable)s, %(is_snapshot_form)s, %(createdAt)s, %(updatedAt)s)
+                (%(id)s, %(name)s, %(description)s, %(form_fields)s, %(metadata)s, %(language)s, %(is_editable)s, %(is_snapshot_form)s, %(createdAt)s, %(updatedAt)s)
                 """,
-                e
+                data
             )
 
 
@@ -341,7 +350,6 @@ def _save_event_form(d):
 def get_many_event_forms(_):
     event_forms = hh.EventForm.get_all()
     return jsonify({'event_forms': event_forms})
-
 
 @admin_api.route("/update_event_form", methods=["POST"])
 @middleware.authenticated_admin
@@ -353,12 +361,23 @@ def OLD_update_event_form(admin_user):
         with conn.cursor() as cur:
             try:
                 cur.execute(
-                    "UPDATE event_forms SET name=%s, description=%s, form_fields=%s, metadata=%s, language=%s, is_editable=%s, is_snapshot_form=%s, updated_at=%s, last_modified=%s WHERE id=%s",
+                    """
+                    UPDATE event_forms
+                    SET
+                        name=%s,
+                        description=%s,
+                        form_fields=%s,
+                        metadata=%s,
+                        language=%s,
+                        is_editable=%s,
+                        is_snapshot_form=%s, updated_at=%s, last_modified=current_timestamp
+                    WHERE id=%s
+                    """,
                     (
                         event_form_update['name'],
                         event_form_update['description'],
-                        json.dumps(event_form_update['form_fields']),
-                        json.dumps(event_form_update['metadata']),
+                        event_form_update['form_fields'],
+                        event_form_update['metadata'],
                         event_form_update['language'],
                         event_form_update['is_editable'],
                         event_form_update['is_snapshot_form'],
