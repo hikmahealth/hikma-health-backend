@@ -6,7 +6,7 @@
 # cd <PROJECT_ROOT_DIR>
 # ./scripts/run.sh
 
-echo -e "\e[33mThis script is deprecated. Please follow new instructions from README on how to run the project\e[0m"
+echo -e "This script is deprecated. Please follow new instructions from README on how to run the project"
 sleep 3
 
 ./run_migrations.sh

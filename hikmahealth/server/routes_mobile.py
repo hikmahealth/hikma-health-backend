@@ -1,5 +1,4 @@
 
-import dateutil.parser
 from flask import Blueprint, request, Request, jsonify
 
 from hikmahealth.server.helpers import web as webhelper
@@ -20,10 +19,7 @@ from datetime import  datetime
 from typing import Iterable
 from collections import defaultdict
 import traceback
-import dateutil
 
-
-# from oldhikma.sync.db_sychronization import DbSynchronizer
 
 api = Blueprint('api-mobile', __name__)
 backcompatapi = Blueprint('api-mobile-backcompat', __name__, url_prefix="/api")
@@ -56,8 +52,8 @@ def _get_authenticated_user_from_request(request: Request) -> User:
     # Split the decoded string into email and password
     email, password = decoded_username_password.split(':')
 
-    # u = auth.get_user_with_email(email, password)
-    # return u
+    u = auth.get_user_with_email(email, password)
+    return u
 
 
 def _get_last_pulled_at_from(request: Request) -> datetime | None:
@@ -86,21 +82,6 @@ def _get_last_pulled_at_from(request: Request) -> datetime | None:
             return None
 
     return None
-
-# @backcompatapi.route("/sync", methods=["POST"])
-# def backcompat_old_deprecated_sync():
-#     params = webhelper.assert_data_has_keys(request, {"email", "password"}, data_type="form")
-#     User.authenticate(params["email"], params["password"])
-#     if "db" not in request.files:
-#         raise WebError("db must be provided", 400)
-
-#     synchronizer = DbSynchronizer(request.files["db"])
-#     if not synchronizer.prepare_sync():
-#         raise WebError("Synchronization failed", 500)
-
-#     synchronizer.execute_server_side_sql()
-#     return jsonify({"to_execute": synchronizer.get_client_sql()})
-
 
 
 # list of entities to get the diff from
