@@ -18,7 +18,7 @@ import dataclasses
 from typing import Any
 import json
 
-import uuid 
+import uuid
 import bcrypt
 
 from psycopg.rows import dict_row, class_row
@@ -30,7 +30,7 @@ from hikmahealth.utils.datetime import utc
 
 
 admin_api = Blueprint('admin_api_backcompat', __name__, url_prefix='/admin_api')
-api = Blueprint('api-admin', __name__)   
+api = Blueprint('api-admin', __name__)
 
 
 @admin_api.route('/login', methods=['POST'])
@@ -66,7 +66,7 @@ def get_all_users(_):
             ).fetchall()
 
             return jsonify({ 'users': rows })
-        
+
 
 @admin_api.route('/user', methods=['POST'])
 @api.route("/users", methods=['POST'])
@@ -74,15 +74,15 @@ def get_all_users(_):
 def create_user(_):
     params = webhelper.assert_data_has_keys(request,
          {'email', 'password', 'clinic_id', 'name', 'role'})
-    
+
     if params['role'] not in ['admin', 'provider']:
         raise WebError('Role must be either "admin" or "provider"', 400)
-    
+
     id = str(uuid.uuid4())
 
     hashed_password = bcrypt.hashpw(
         params['password'].encode(), bcrypt.gensalt()).decode()
-    
+
     user: auth.User | None = None
 
     # movet to auth.create_user(**params)
@@ -91,9 +91,9 @@ def create_user(_):
             with conn.cursor(row_factory=dict_row) as cur:
                 row = cur.execute(
                     """
-                    INSERT INTO users 
-                    (id, name, role, email, clinic_id, hashed_password) 
-                    VALUES 
+                    INSERT INTO users
+                    (id, name, role, email, clinic_id, hashed_password)
+                    VALUES
                     (%s, %s, %s, %s, %s, %s)
                     RETURNING *
                     """,
@@ -105,7 +105,7 @@ def create_user(_):
         raise WebError("user already exists", 409)
     except BaseException:
         raise WebError("failed to create new user. please try again later", 500)
-    
+
     return jsonify(user.to_dict())
 
 
@@ -113,7 +113,7 @@ def create_user(_):
 @middleware.authenticated_admin
 def OLD_delete_user(u: auth.User):
     # NOTE:
-    # - should there be a rule for who is allowed to delete what? 
+    # - should there be a rule for who is allowed to delete what?
     #   (the person can technically delete themselves)
     # - why use 'email' instead of user_id ? (this is the same for delete)
     params = webhelper.assert_data_has_keys(request, {'email'})
@@ -147,15 +147,15 @@ def delete_user(_, uid: str):
             )
 
             if cur.rowcount > 0:
-                return jsonify({ 
-                    "ok": True, 
+                return jsonify({
+                    "ok": True,
                     "message": "user deleted",
                     "details": dict(uid=uid,)
                 })
-            
+
             else:
-                return jsonify({ 
-                    "ok": True, 
+                return jsonify({
+                    "ok": True,
                     "message": "no such user record. might have already been deleted"
                 }, 208)
 
@@ -173,10 +173,10 @@ def OLD_change_user_password(_):
         with conn.cursor() as cur:
             new_password_hashed = bcrypt.hashpw(
                 chg.new_password.encode(), bcrypt.gensalt()).decode()
-            
+
             cur.execute('UPDATE users SET hashed_password = %s WHERE email = %s',
                         [new_password_hashed, chg.email])
-            
+
     return jsonify({ "ok": True })
 
 @api.route("/users/<uid>/manage/password", methods=['PUT'])
@@ -189,19 +189,19 @@ def change_user_password(_, uid: str):
         with conn.cursor() as cur:
             new_password_hashed = bcrypt.hashpw(
                 new_password.encode(), bcrypt.gensalt()).decode()
-            
+
             cur.execute('UPDATE users SET hashed_password = %s WHERE id = %s',
                         [new_password_hashed, uid])
-    
-    return jsonify({ 
-        "ok": True, 
+
+    return jsonify({
+        "ok": True,
         "message": "updated user password",
     })
-    
+
 @admin_api.route('/all_patients', methods=['GET'])
 @api.route("/patients", methods=["GET"])
 @middleware.authenticated_admin
-def get_patients():
+def get_patients(_):
     with db.get_connection() as conn:
         with conn.cursor(row_factory=class_row(hh.Patient)) as cur:
             patients = cur.execute(
@@ -221,10 +221,10 @@ def get_single_patient(_, id: str):
         with conn.cursor(row_factory=class_row(hh.Patient)) as cur:
             patient = cur.execute(
                 """
-                SELECT * FROM patients 
+                SELECT * FROM patients
                 WHERE is_deleted = false
                 AND id = %s
-                """, 
+                """,
                 [id]).fetchone()
 
     return jsonify({"patient": patient})
@@ -249,7 +249,7 @@ def get_patient_events(_, id: str):
 def search_patients(_):
     searchparams = webhelper.pluck_optional_data_keys(
         request, {'given_name', 'surname', 'hometown'})
-        
+
     # TODO: aggregate the search params to sql query
     or_clause = []
 
@@ -270,7 +270,7 @@ def search_patients(_):
                 """.format(complete_query),
                 { k: v.upper() for k, v in searchparams.items() }
                 ).fetchall()
-    
+
     return jsonify({ "patients": patients })
 
 
@@ -284,7 +284,7 @@ def get_summary_stats(_):
                 # get the total counts for patients, events, visits, users and forms
                 stats = cur.execute(
                     """
-                    SELECT 
+                    SELECT
                         (SELECT count(*) FROM patients) as patient_count,
                         (SELECT count(*) FROM events) as event_count,
                         (SELECT count(*) FROM users) as user_count,
@@ -296,14 +296,14 @@ def get_summary_stats(_):
             except Exception as e:
                 print("Error while getting summary stats: ", e)
                 raise e
-            
+
     return jsonify(stats)
 
 @api.post('/event-forms')
 @middleware.authenticated_admin
 def save_event_form(_):
     # event_form = EventFormData(**request.get_json())
-    d = request.get_json()
+    d = EventFormData(**request.get_json())
     _save_event_form(d)
     return jsonify({"ok": True, "message": "event form saved"})
 
@@ -312,16 +312,25 @@ def save_event_form(_):
 def OLD_save_event_form(_):
     # event_form = EventFormData(**request.get_json())
     d = webhelper.assert_data_has_keys(request, {'event_form'})
-    _save_event_form(d['event_form'])
+    _save_event_form(EventFormData(**d['event_form']))
     return jsonify({"ok": True, "message": "event form saved"})
 
-def _save_event_form(d):
-    e = dict(d)
-    e.update(
-        form_fields=json.dumps(e['form_fields']),
-        metadata=json.dumps(e['metadata']),
-    )
+@dataclass
+class EventFormData:
+    id: str
+    name: str
+    description: str
+    form_fields: str | None
+    """Fields composition that make up the Event Form. Format required as string JSON """
+    metadata: str | None
+    language: str | None = "en"
+    is_editable: bool | None = True
+    is_snapshot_form: bool | None = False
+    createdAt: f.UTCDateTime = f.UTCDateTime(default_factory=utc.now)
+    updatedAt: f.UTCDateTime = f.UTCDateTime(default_factory=utc.now)
 
+
+def _save_event_form(data: EventFormData):
     with db.get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -329,9 +338,9 @@ def _save_event_form(d):
                 INSERT INTO event_forms
                 (id, name, description, form_fields, metadata, language, is_editable, is_snapshot_form, created_at, updated_at)
                 VALUES
-                (%(id)s, %(name)s, %(description)s, %(form_fields)s::jsonb, %(metadata)s::jsonb, %(language)s, %(is_editable)s, %(is_snapshot_form)s, %(createdAt)s, %(updatedAt)s)
+                (%(id)s, %(name)s, %(description)s, %(form_fields)s, %(metadata)s, %(language)s, %(is_editable)s, %(is_snapshot_form)s, %(createdAt)s, %(updatedAt)s)
                 """,
-                e
+                data
             )
 
 
@@ -341,7 +350,6 @@ def _save_event_form(d):
 def get_many_event_forms(_):
     event_forms = hh.EventForm.get_all()
     return jsonify({'event_forms': event_forms})
-
 
 @admin_api.route("/update_event_form", methods=["POST"])
 @middleware.authenticated_admin
@@ -353,7 +361,18 @@ def OLD_update_event_form(admin_user):
         with conn.cursor() as cur:
             try:
                 cur.execute(
-                    "UPDATE event_forms SET name=%s, description=%s, form_fields=%s, metadata=%s, language=%s, is_editable=%s, is_snapshot_form=%s, updated_at=%s, last_modified=%s WHERE id=%s",
+                    """
+                    UPDATE event_forms
+                    SET
+                        name=%s,
+                        description=%s,
+                        form_fields=%s,
+                        metadata=%s,
+                        language=%s,
+                        is_editable=%s,
+                        is_snapshot_form=%s, updated_at=%s, last_modified=current_timestamp
+                    WHERE id=%s
+                    """,
                     (
                         event_form_update['name'],
                         event_form_update['description'],
@@ -455,7 +474,7 @@ def update_event_form(_, id: str):
     for k, v in updates.items():
         # if k in eventform:
         fields_to_update.append((k, v))
-        
+
     if len(fields_to_update) == 0:
         return jsonify({ "ok": False, "message": "there's nothing to update"}, 208)
 
@@ -467,7 +486,7 @@ def update_event_form(_, id: str):
             cur.execute(
                 """
                 UPDATE event_forms
-                SET 
+                SET
                 {},
                 last_modified=current_timestamp,
                 updated_at=current_timestamp
@@ -475,7 +494,7 @@ def update_event_form(_, id: str):
                     id = %(id)s AND is_deleted = FALSE
                 """.format(update_string),
                 dict(
-                    **updates, 
+                    **updates,
                      id=id)
             )
 
@@ -505,7 +524,7 @@ def _get_event_form_data(id: str):
     if start_date is not None:
         start_date = utc.from_datetime(
             datetime.fromisoformat(urlparse.unquote(start_date)))
-        
+
         where_clause.append(
             "e.created_at >= %(start_date)s"
         )
@@ -513,21 +532,10 @@ def _get_event_form_data(id: str):
     if end_date is not None:
         end_date = utc.from_datetime(
             datetime.fromisoformat(urlparse.unquote(end_date)))
-        
+
         where_clause.append(
             "e.created_at <= %(end_date)s"
         )
-
-    # print("check sql", """
-    #         SELECT e.*,
-    #             json_agg(p.*) as patient
-    #         FROM events as e
-    #         LEFT JOIN patients p ON e.patient_id = p.id
-    #         WHERE e.form_id = %(form_id)s
-    #             AND e.is_deleted = FALSE
-    #             AND {}
-    #         GROUP BY e.id
-    #         """.format(" AND \n".join(where_clause)))
 
     events = []
     with db.get_connection() as conn:
@@ -539,10 +547,10 @@ def _get_event_form_data(id: str):
                                   JOIN patients ON events.patient_id = patients.id
                                   WHERE events.form_id = %s AND events.is_deleted = false AND events.created_at >= %s AND events.created_at <= %s
                                   """, (id, start_date, end_date))
-                
+
                 # Get column names from the cursor description
                 column_names = [desc[0] for desc in cur.description]
-                
+
                 for entry in cur.fetchall():
                     # Slice the relevant columns for the patient data
                     patient_data = entry[10:]
@@ -565,38 +573,8 @@ def _get_event_form_data(id: str):
             except Exception as e:
                 print("Error while updating the patient registration form: ", e)
                 raise e
-            
+
         return events
-
-
-    # with db.get_connection().cursor(row_factory=dict_row) as cur:
-    #     events_data = cur.execute(
-    #         """
-    #         SELECT 
-    #             e.id,
-    #             e.patient_id as "patientId",
-    #             e.visit_id as "visitId",
-    #             e.form_id as "formId",
-    #             e.event_type as "eventType",
-    #             e.form_data as "formData",
-    #             e.metadata,
-    #             e.is_deleted as "isDeleted",
-    #             e.created_at as "createdAt",
-    #             e.updated_at as "updatedAt",
-    #             json_agg(p.*) as patient
-    #         FROM events as e
-    #         LEFT JOIN patients p ON e.patient_id = p.id
-    #         WHERE e.form_id = %(form_id)s
-    #             AND e.is_deleted = FALSE
-    #             AND {}
-    #         GROUP BY e.id
-    #         """.format(" AND \n".join(where_clause)),
-    #         dict(form_id=id, start_date=start_date, end_date=end_date)
-    #     ).fetchall()
-
-    # # print(events_data[0])
-    # return events_data
-
 
 @admin_api.route("/set_event_form_editable", methods=["POST"])
 @middleware.authenticated_admin
@@ -615,7 +593,7 @@ def OLD_set_event_form_edit_status(_):
                 """,
                 (params['is_editable'], params['id'])
             )
-    
+
     return jsonify({ "ok": True })
 
 @admin_api.route("/toggle_snapshot_form", methods=["POST"])
@@ -635,7 +613,7 @@ def OLD_set_event_form_snapshot_toggle(_):
                 """,
                 [params['id']]
             )
-    
+
     return jsonify({ "ok": True })
 
 
@@ -656,32 +634,70 @@ def get_patient_registration_form(_, id: str):
     data = hh.PatientRegistrationForm.from_id(id)
     return jsonify(data)
 
-@api.put("/patient-forms/<id>")
-@middleware.authenticated_admin
-def set_patient_registration_form(_, id:str):
-    """This performs an upsert on the patient registration form"""
-    regform = request.json()
 
+@dataclass
+class PatientRegistrationFormData:
+    id: str | None
+    """None for the situations where `id` is inserted later on"""
+
+    name: str
+    metadata: str | None
+    fields: str | None
+    createdAt: f.UTCDateTime = f.UTCDateTime()
+    updatedAt: f.UTCDateTime = f.UTCDateTime()
+
+def _patient_registration_form_upsert(data: PatientRegistrationFormData):
     with db.get_connection().cursor() as cur:
         cur.execute(
             """
-            INSERT INTO {}
-            (id, name, fields, metadata)
-            VALUES
-            (%(id)s, DEFAULT, %(fields)s::jsonb, %(metadata)s::jsonb)
+            INSERT INTO patient_registration_forms(id, name, fields, metadata, is_deleted, created_at, updated_at, last_modified)
+                VALUES (%s, %s, %s::jsonb, %s::jsonb, false, %s, %s, current_timestamp)
+                ON CONFLICT (id)
+                DO UPDATE SET
+                    name = EXCLUDED.name,
+                    fields = EXCLUDED.fields,
+                    metadata = EXCLUDED.metadata,
+                    is_deleted = EXCLUDED.is_deleted,
+                    updated_at = EXCLUDED.updated_at,
+                    last_modified = current_timestamp;
             """.format(hh.PatientRegistrationForm.TABLE_NAME),
-            dict(id=id, fields=regform["fields"], metadata=regform["metadata"])
+            (data.id, data.name, data.fields, data.metadata, data.createdAt, data.updatedAt)
         )
 
+@admin_api.route('/update_patient_registration_form', methods=['POST'])
+@api.post("/patient-form")
+@middleware.authenticated_admin
+def update_patient_registration_form(_):
+    params = webhelper.assert_data_has_keys(request, {"form"})
+    form = PatientRegistrationFormData(**params["form"])
+
+    if form.id is None:
+        raise WebError("missing id in the patient registration form", 400)
+
+    _patient_registration_form_upsert(form)
     return jsonify({ "ok": True })
 
+
+@api.put("/patient-forms/<id>")
+@middleware.authenticated_admin
+def set_patient_registration_form(_, id: str):
+    """This performs an upsert on the patient registration form"""
+    form = PatientRegistrationFormData(**request.json())
+
+    # set the ID of the registration form to perform update query for already existing data
+    form.id = id
+
+    _patient_registration_form_upsert(form)
+    return jsonify({ "ok": True })
+
+@admin_api.route('/get_clinics', methods=['GET'])
 @api.get("/clinics")
 @middleware.authenticated_admin
 def get_all_clinics(_):
     with db.get_connection().cursor(row_factory=dict_row) as cur:
         clinics = cur.execute(
             """
-            SELECT 
+            SELECT
                 c.id,
                 c.name,
                 c.is_deleted as "isDeleted",
@@ -692,4 +708,4 @@ def get_all_clinics(_):
             """.format(hh.Clinic.TABLE_NAME),
         ).fetchall()
 
-    return jsonify(clinics)
+    return jsonify({"clinics": clinics})
