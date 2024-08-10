@@ -37,6 +37,7 @@ api = Blueprint('api-admin', __name__)
 @api.route('/auth/login', methods=['POST'])
 def login():
     inp = webhelper.assert_data_has_keys(request, { 'email', 'password' })
+    print(inp)
     u = auth.get_user_from_email(inp['email'], inp['password'])
     token = auth.create_session_token(u)
     return jsonify({ "token": token })

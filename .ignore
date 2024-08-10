@@ -93,11 +93,10 @@ celerybeat-schedule
 *.sage.py
 
 # dotenv
-.env
-.env.local
-.env.*
-!.env.example
-.env-shouldnt-run
+# .env
+# .env.local
+# .env.*
+# .env-shouldnt-run
 
 
 # virtualenv

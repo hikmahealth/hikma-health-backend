@@ -2,21 +2,21 @@ import psycopg
 from hikmahealth.server import config
 
 # print(dict(
-#         host=config.PG_HOST, 
+#         host=config.PG_HOST,
 #         port=config.PG_PORT,
-#         database=config.PG_DB, 
-#         user=config.PG_USER, 
+#         database=config.PG_DB,
+#         user=config.PG_USER,
 #         password=config.PG_PASSWORD,))
 
 
 def get_connection():
     """create a database connection instance"""
     return psycopg.connect(
-        host=config.PG_HOST, 
+        host=config.PG_HOST,
         port=config.PG_PORT,
         dbname=config.PG_DB,
-        user=config.PG_USER, 
-        password=config.PG_PASSWORD
+        user=config.PG_USER,
+        password=config.PG_PASSWORD,
     )
 
 
