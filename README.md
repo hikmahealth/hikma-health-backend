@@ -18,6 +18,17 @@ For more comprehensive documentation visit: https://docs.hikmahealth.org/
 is a complete re-write of the old branch to include core dependency upgrades, api structure updates, and a 
 refactor to reduce technical debt and improve organization. Migrating to this branch should be easy and 
 painless - file an issue if this is not the case.
+>
+> If you have a local clone, you can update it by running the following commands.
+> 
+> git branch -m next main
+> 
+> git fetch origin
+> 
+> git branch -u origin/main main
+> 
+> git remote set-head origin -a
+> 
 
 
 *If you are stuck for more thatn 10 minutes, please file an issue and our team can help you figure 
@@ -150,7 +161,7 @@ alembic revision -m "[Insert your change sentence summary here]"
 Features on the roadmap represent the vision for the admin portal over the coming versions, but none are guaranteed. If there is a feature you would love to see supported, open a feature-request / issue with more details and we can prioritize features with the most requests.
 
 - [ ]  Improve backup functionality for self-hosted options (not recommended - use a managed database service)
-- [-]  Remove all transition code from previous deployment (next version)
+- [x]  Remove all transition code from previous deployment (all old code now lives in `oldhikma` folder for reference. This will be deleted soon.)
 - [x]  Add documentation for fully hosted solutions like render.com
 - [ ]  Improve test coverage
 - [x]  Add docs to deploy button customization
