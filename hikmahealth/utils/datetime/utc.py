@@ -5,7 +5,10 @@ def now():
     return datetime.now(tz=UTC)
 
 def from_unixtimestamp(unixtimestamp: int | str):
-    return datetime.fromtimestamp(int(unixtimestamp) / 1000, tz=UTC)
+    try:
+        return datetime.fromtimestamp(int(unixtimestamp) / 1000, tz=UTC)
+    except (ValueError, TypeError, OverflowError):
+        return datetime.now(timezone.utc)
 
 def from_iso8601(dt_str: str):
     return dateutil.parser.isoparse(dt_str).astimezone(tz=UTC)

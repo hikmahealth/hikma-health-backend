@@ -52,7 +52,7 @@ def _get_authenticated_user_from_request(request: Request) -> User:
     # Split the decoded string into email and password
     email, password = decoded_username_password.split(':')
 
-    u = auth.get_user_with_email(email, password)
+    u = auth.get_user_from_email(email, password)
     return u
 
 
