@@ -1,5 +1,5 @@
 
-from flask import Blueprint, request, Request, jsonify
+from flask import Blueprint, request, Request, jsonify, abort
 
 from hikmahealth.server.helpers import web as webhelper
 
@@ -185,5 +185,9 @@ def sync_v2_push():
             conn.close()
             print(err)
             print(traceback.format_exc())
-            return jsonify({ "ok": False, "message": "failed horribly" })
+            abort(500, description="An internal error occurred")
     
+
+@api.errorhandler(500)
+def internal_error(error):
+    return jsonify({"ok": False, "message": str(error.description)}), 500
