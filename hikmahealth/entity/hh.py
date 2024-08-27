@@ -115,7 +115,7 @@ class PatientAttribute(sync.SyncableEntity):
             for row in itertools.chain(deltadata.created, deltadata.updated):
                 pattr = dict(row)
                 pattr.update(
-                    date_value=utc.from_unixtimestamp(pattr["date_value"]) if pattr["date_value"] else pattr["date_value"],
+                    date_value=utc.from_unixtimestamp(pattr["date_value"]) if pattr.get("date_value", None) else None,
                     created_at=utc.from_unixtimestamp(pattr["created_at"]),
                     updated_at=utc.from_unixtimestamp(pattr["updated_at"]),
                     metadata=pattr["metadata"],

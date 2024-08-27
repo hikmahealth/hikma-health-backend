@@ -29,3 +29,4 @@ def authenticated_admin(f):
     return func
                 
 
+### If needed - add different auth methods such as for super_admin only.

@@ -8,7 +8,7 @@ Reads:
 """
 from datetime import datetime, timezone
 import json
-from typing import Callable, Any, Optional
+from typing import Callable, Any
 from operator import xor
 
 class _BLANK:

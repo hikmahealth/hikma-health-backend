@@ -7,6 +7,7 @@ from hikmahealth.utils.errors import WebError
 
 app = Flask(__name__)
 CORS(app)
+# CORS(app, resources={r"/*": {"origins": "*"}})
 app.url_map.strict_slashes = False
 
 
