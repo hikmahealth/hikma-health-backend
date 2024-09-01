@@ -346,9 +346,9 @@ class Appointment(sync.SyncableEntity):
                 cur.execute(
                     """
                     INSERT INTO appointments
-                        (id, appointment_timestamp, duration, reason, notes, provider_id, clinic_id, patient_id, user_id, status, current_visit_id, fufilled_visit_id, metadata, created_at, updated_at)
+                        (id, appointment_timestamp, duration, reason, notes, provider_id, clinic_id, patient_id, user_id, status, current_visit_id, fufilled_visit_id, metadata, created_at, updated_at, last_modified)
                     VALUES
-                        (%(id)s, %(appointment_timestamp)s, %(duration)s, %(reason)s, %(notes)s, %(provider_id)s, %(clinic_id)s, %(patient_id)s, %(user_id)s, %(status)s, %(current_visit_id)s, %(fufilled_visit_id)s, %(metadata)s, %(created_at)s, %(updated_at)s)   
+                        (%(id)s, %(appointment_timestamp)s, %(duration)s, %(reason)s, %(notes)s, %(provider_id)s, %(clinic_id)s, %(patient_id)s, %(user_id)s, %(status)s, %(current_visit_id)s, %(fufilled_visit_id)s, %(metadata)s, %(created_at)s, %(updated_at)s, %(last_modified)s)   
                     ON CONFLICT (id) DO UPDATE
                     SET
                         appointment_timestamp=EXCLUDED.appointment_timestamp
@@ -365,6 +365,7 @@ class Appointment(sync.SyncableEntity):
                         metadata=EXCLUDED.metadata
                         created_at=EXCLUDED.created_at
                         updated_at=EXCLUDED.updated_at 
+                        last_modified=EXCLUDED.last_modified
                     """,
                     appointment
                 )
