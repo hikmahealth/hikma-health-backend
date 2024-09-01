@@ -304,3 +304,73 @@ class StringId(sync.SyncToClientEntity):
 class StringContent(sync.SyncToClientEntity):
     TABLE_NAME = "string_content"
 
+# I am pretty unsure of how to write this section. Since these values will be updated in the mobile app I assume I just put the updates in the class method?
+@core.dataentity
+class Appointment(sync.SyncableEntity):
+    TABLE_NAME = "appointments"
+
+    # If its supposed to be the variables here it is:
+    appointment_timestamp: fields.UTCDateTime 
+    duration: int | None = None
+    reason: str | None = None
+    notes: str | None = None
+    provider_id: str 
+    clinic_id: str 
+    patient_id: str 
+    user_id: str 
+
+    status: int
+    current_visit_id: str
+    fufilled_visit_id: str
+    metadata: str
+
+    created_at: fields.UTCDateTime 
+    updated_at: fields.UTCDateTime 
+    is_deleted: bool
+    deleted_at: fields.UTCDateTime
+
+    # Here is the function which I obtained by modifying the visit dataentity function
+    @classmethod
+    def apply_delta_changes(cls, deltadata, last_pushed_at, conn):
+        with conn.cursor() as cur:
+            # `cur.executemany` can be used instead
+            for appointment in itertools.chain(deltadata.created, deltadata.updated):
+                appointment = dict(appointment)
+                appointment.update(
+                    created_at=utc.from_unixtimestamp(appointment['created_at']),
+                    updated_at=utc.from_unixtimestamp(appointment['updated_at']),
+                    metadata=json.dumps(appointment["metadata"]),
+                    last_modified=utc.now()
+                )
+
+                cur.execute(
+                    """
+                    INSERT INTO appointments
+                        (id, appointment_timestamp, duration, reason, notes, provider_id, clinic_id, patient_id, user_id, status, current_visit_id, fufilled_visit_id, metadata, created_at, updated_at)
+                    VALUES
+                        (%(id)s, %(appointment_timestamp)s, %(duration)s, %(reason)s, %(notes)s, %(provider_id)s, %(clinic_id)s, %(patient_id)s, %(user_id)s, %(status)s, %(current_visit_id)s, %(fufilled_visit_id)s, %(metadata)s, %(created_at)s, %(updated_at)s)   
+                    ON CONFLICT (id) DO UPDATE
+                    SET
+                        appointment_timestamp=EXCLUDED.appointment_timestamp
+                        duration=EXCLUDED.duration,  
+                        reason=EXCLUDED.reason, 
+                        notes=EXCLUDED.notes, 
+                        provider_id=EXCLUDED.provider_id, 
+                        clinic_id=EXCLUDED.clinic_id, 
+                        patient_id=EXCLUDED.patient_id, 
+                        user_id=EXCLUDED.user_id,
+                        status=EXCLUDED.status, 
+                        current_visit_id=EXCLUDED.current_visit_id
+                        fufilled_visit_id=EXCLUDED.fufilled_visit_id
+                        metadata=EXCLUDED.metadata
+                        created_at=EXCLUDED.created_at
+                        updated_at=EXCLUDED.updated_at 
+                    """,
+                    appointment
+                )
+
+            for id in deltadata.deleted:
+                cur.execute(
+                    """UPDATE visits SET is_deleted=true, deleted_at=%s WHERE id=%s;""",
+                        (last_pushed_at, id)
+                )
