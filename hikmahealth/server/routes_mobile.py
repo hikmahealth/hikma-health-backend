@@ -94,7 +94,8 @@ ENTITIES_TO_PUSH_TO_MOBILE: dict[str, sync.SyncToClientEntity] = {
     "string_ids": hh.StringId,
     "string_content": hh.StringContent,
     "event_forms": hh.EventForm,
-    "registration_forms": hh.PatientRegistrationForm
+    "registration_forms": hh.PatientRegistrationForm,
+    "appointments": hh.Appointment
 }
 
 @backcompatapi.route('/v2/sync', methods=['GET'])
@@ -142,6 +143,7 @@ ENTITIES_TO_APPLY_TO_SERVER_IN_ORDER: Iterable[tuple[str, sync.ISyncToServer]] =
     ("patient_additional_attributes", hh.PatientAttribute),
     ("visits", hh.Visit),
     ("events", hh.Event),
+    ("appointments", hh.Appointment)
 )
 
 @backcompatapi.route('/v2/sync', methods=['POST'])
