@@ -64,7 +64,7 @@ def getNthTimeSyncData(timestamp):
         (event_forms_new, event_forms_updated, event_forms_deleted),
         (patient_registration_forms_new, patient_registration_forms_updated,
          patient_registration_forms_deleted),
-         (appointments_new, appointments_updated, appointments_deleted),
+        (appointments_new, appointments_updated, appointments_deleted),
     )
 
    
