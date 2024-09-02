@@ -687,7 +687,7 @@ def _get_event_form_data(id: str):
                                   patients.*
                                   FROM events
                                   JOIN patients ON events.patient_id = patients.id
-                                  WHERE events.form_id = %s AND events.is_deleted = false AND events.created_at >= %s AND events.created_at <= %s
+                                  WHERE events.form_id = %s AND events.is_deleted = false AND events.created_at >= %s AND events.created_at <= %s AND patients.is_deleted = false
                                   """,
                     (id, start_date, end_date),
                 )
