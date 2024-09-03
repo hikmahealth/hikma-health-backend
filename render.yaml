@@ -16,7 +16,7 @@ services:
     # plan: free
     buildCommand: pip install -r requirements.txt
 
-    startCommand: ./run.sh
+    startCommand: ./app/run.sh
 
     envVars:
      # DATABASE_URL trumps all other env variables.
