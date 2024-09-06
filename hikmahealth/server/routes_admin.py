@@ -9,6 +9,7 @@ from hikmahealth.entity import hh
 import hikmahealth.entity.fields as f
 
 from hikmahealth.utils.errors import WebError
+from psycopg import Error as PostgresError
 
 from datetime import datetime, date
 from dataclasses import dataclass, asdict
@@ -28,7 +29,8 @@ from urllib import parse as urlparse
 from hikmahealth.utils.datetime import utc
 
 
-admin_api = Blueprint("admin_api_backcompat", __name__, url_prefix="/admin_api")
+admin_api = Blueprint("admin_api_backcompat", __name__,
+                      url_prefix="/admin_api")
 api = Blueprint("api-admin", __name__)
 
 
@@ -113,7 +115,8 @@ def create_user(_):
     except psycopg.errors.UniqueViolation:
         raise WebError("user already exists", 409)
     except BaseException:
-        raise WebError("failed to create new user. please try again later", 500)
+        raise WebError(
+            "failed to create new user. please try again later", 500)
 
     return jsonify(user.to_dict())
 
@@ -361,7 +364,8 @@ def search_patients(_):
         or_clause.append((f"p.{k} ILIKE %({k})s"))
 
     # construct the query to search
-    complete_query = " AND \n".join(or_clause) if len(or_clause) >= 1 else "1=1"
+    complete_query = " AND \n".join(
+        or_clause) if len(or_clause) >= 1 else "1=1"
 
     with db.get_connection() as conn:
         with conn.cursor(row_factory=class_row(hh.Patient)) as cur:
@@ -540,7 +544,7 @@ def OLD_get_event_form(_admin_user):
             try:
                 cur.execute(
                     f"""SELECT id, name, description, form_fields, metadata, language, is_editable, is_snapshot_form, created_at, updated_at FROM event_forms WHERE is_deleted=FALSE AND id='{
-                            event_form_id}'"""
+                        event_form_id}'"""
                 )
                 for frm in cur.fetchall():
                     event_forms.append(
@@ -588,10 +592,11 @@ def OLD_delete_event_form(_):
 
 def _perform_event_form_deletion(id: str):
     """This does the actual event form deletion"""
-    with db.get_connection().cursor() as cur:
-        cur.execute(
-            """UPDATE event_forms
-            SET
+    with db.get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE event_forms
+                SET
                 is_deleted = TRUE,
                 deleted_at = current_timestamp,
                 last_modified = current_timestamp
@@ -599,8 +604,9 @@ def _perform_event_form_deletion(id: str):
                 id = %s AND
                 is_deleted = FALSE
             """,
-            [id],
-        )
+                [id],
+            )
+        conn.commit()
 
 
 @api.patch("/event-forms/<id>")
@@ -674,7 +680,8 @@ def _get_event_form_data(id: str):
         where_clause.append("e.created_at >= %(start_date)s")
 
     if end_date is not None:
-        end_date = utc.from_datetime(datetime.fromisoformat(urlparse.unquote(end_date)))
+        end_date = utc.from_datetime(
+            datetime.fromisoformat(urlparse.unquote(end_date)))
 
         where_clause.append("e.created_at <= %(end_date)s")
 
@@ -795,9 +802,10 @@ class PatientRegistrationFormData:
 
 
 def _patient_registration_form_upsert(data: PatientRegistrationFormData):
-    with db.get_connection().cursor() as cur:
-        cur.execute(
-            """
+    with db.get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
             INSERT INTO patient_registration_forms(id, name, fields, metadata, is_deleted, created_at, updated_at, last_modified)
                 VALUES (%s, %s, %s::jsonb, %s::jsonb, false, %s, %s, current_timestamp)
                 ON CONFLICT (id)
@@ -809,29 +817,39 @@ def _patient_registration_form_upsert(data: PatientRegistrationFormData):
                     updated_at = EXCLUDED.updated_at,
                     last_modified = current_timestamp;
             """.format(hh.PatientRegistrationForm.TABLE_NAME),
-            (
-                data.id,
-                data.name,
-                data.fields,
-                data.metadata,
-                data.createdAt,
-                data.updatedAt,
-            ),
-        )
+                (
+                    data.id,
+                    data.name,
+                    data.fields,
+                    data.metadata,
+                    data.createdAt,
+                    data.updatedAt,
+                ),
+            )
+        conn.commit()
 
 
 @admin_api.route("/update_patient_registration_form", methods=["POST"])
 @api.post("/patient-form")
 @middleware.authenticated_admin
 def update_patient_registration_form(_):
-    params = webhelper.assert_data_has_keys(request, {"form"})
-    form = PatientRegistrationFormData(**params["form"])
+    try:
+        params = webhelper.assert_data_has_keys(request, {"form"})
+        form = PatientRegistrationFormData(**params["form"])
 
-    if form.id is None:
-        raise WebError("missing id in the patient registration form", 400)
+        if form.id is None:
+            raise WebError("missing id in the patient registration form", 400)
 
-    _patient_registration_form_upsert(form)
-    return jsonify({"ok": True})
+        _patient_registration_form_upsert(form)
+        return jsonify({"ok": True})
+    except WebError as we:
+        return jsonify({"error": str(we)}), we.status_code
+    except PostgresError as pe:
+        # Log the database error here
+        return jsonify({"error": "Database error occurred", "details": str(pe)}), 500
+    except Exception as e:
+        # Log the unexpected error here
+        return jsonify({"error": "An unexpected error occurred"}), 500
 
 
 @api.put("/patient-forms/<id>")
@@ -845,6 +863,37 @@ def set_patient_registration_form(_, id: str):
 
     _patient_registration_form_upsert(form)
     return jsonify({"ok": True})
+
+
+# Clinic Routes
+
+# Api endpoint to create a new clinic given the clinic name
+@api.post("/clinics")
+@middleware.authenticated_admin
+def create_clinic(_):
+    try:
+        params = webhelper.assert_data_has_keys(request, {"name"})
+        id = str(uuid.uuid1())
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                INSERT INTO clinics (id, name, is_deleted, created_at, updated_at, last_modified)
+                VALUES (%s, %s, false, current_timestamp, current_timestamp, current_timestamp)
+                RETURNING id
+                """,
+                    [id, params["name"]]
+                )
+                new_clinic_id = cur.fetchone()[0]
+            conn.commit()
+        return jsonify({"ok": True, "message": "Clinic created successfully", "id": new_clinic_id})
+    except WebError as we:
+        return jsonify({"error": str(we)}), we.status_code
+    except PostgresError as pe:
+        # Log the database error here
+        return jsonify({"error": "Database error occurred", "details": str(pe)}), 500
+    except Exception as e:
+        return jsonify({"error": "An unexpected error occurred"}), 500
 
 
 @admin_api.route("/get_clinics", methods=["GET"])
@@ -866,3 +915,36 @@ def get_all_clinics(_):
         ).fetchall()
 
     return jsonify({"clinics": clinics})
+
+
+@api.delete("/clinics/<id>")
+@middleware.authenticated_admin
+def delete_clinic(_, id: str):
+    try:
+        params = webhelper.assert_data_has_keys(request, {"id"})
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE clinics
+                    SET is_deleted = TRUE, deleted_at = current_timestamp, last_modified = current_timestamp
+                    WHERE id = %s AND is_deleted = FALSE
+                    RETURNING id
+                    """,
+                    [params["id"]],
+                )
+                deleted_clinic = cur.fetchone()
+
+                if not deleted_clinic:
+                    return jsonify({"error": "Clinic not found or already deleted"}), 404
+
+        return jsonify({"ok": True, "message": "Clinic deleted successfully"})
+
+    except WebError as we:
+        return jsonify({"error": str(we)}), we.status_code
+    except PostgresError as pe:
+        # Log the database error here
+        return jsonify({"error": "Database error occurred", "details": str(pe)}), 500
+    except Exception as e:
+        # Log the unexpected error here
+        return jsonify({"error": "An unexpected error occurred"}), 500

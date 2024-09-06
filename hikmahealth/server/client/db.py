@@ -11,13 +11,15 @@ from hikmahealth.server import config
 
 def get_connection():
     """create a database connection instance"""
-    return psycopg.connect(
+    conn = psycopg.connect(
         host=config.PG_HOST,
         port=config.PG_PORT,
         dbname=config.PG_DB,
         user=config.PG_USER,
         password=config.PG_PASSWORD,
     )
+
+    return conn
 
 
 # Running this on test only
