@@ -522,7 +522,6 @@ def OLD_update_event_form(admin_user):
                         event_form_update["is_editable"],
                         event_form_update["is_snapshot_form"],
                         utc.now(),
-                        utc.now(),
                         event_form_id,
                     ),
                 )
