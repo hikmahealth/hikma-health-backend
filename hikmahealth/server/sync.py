@@ -49,6 +49,10 @@ def getNthTimeSyncData(timestamp):
         get_connection(), "patient_registration_forms", timestamp
     )
 
+    appointments_new, appointments_updated, appointments_deleted = fetch_records(
+        get_connection(), "appointments", timestamp
+    )
+
     return (
         (events_new, events_updated, events_deleted),
         (patients_new, patients_updated, patients_deleted),
@@ -59,7 +63,8 @@ def getNthTimeSyncData(timestamp):
         (string_content_new, string_content_updated, string_content_deleted),
         (event_forms_new, event_forms_updated, event_forms_deleted),
         (patient_registration_forms_new, patient_registration_forms_updated,
-         patient_registration_forms_deleted)
+         patient_registration_forms_deleted),
+        (appointments_new, appointments_updated, appointments_deleted),
     )
 
    
@@ -127,6 +132,8 @@ def apply_edge_changes(data, lastPulledAt):
     visits = data["visits"]
     # Function ignores the patient_registration_forms because they are server made only
 
+    appointments=data["appointments"]
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             try:
@@ -160,6 +167,14 @@ def apply_edge_changes(data, lastPulledAt):
                 conn.rollback()
                 print("Error while executing SQL commands: ", e)
                 raise e
+            
+            try:
+                apply_edge_appointment_changes(appointments, cur, lastPulledAt)
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                print("Error while executing SQL commands: ", e)
+                raise e
 
 
 # Function that takes the results of getNthTimeSyncData and formats them into a JSON object to be returned to the client
@@ -173,7 +188,8 @@ def formatGETSyncResponse(syncData):
         string_ids,
         string_content,
         event_forms,
-        patient_registration_forms
+        patient_registration_forms,
+        appointments
     ) = syncData
     return jsonify(
         {
@@ -222,6 +238,11 @@ def formatGETSyncResponse(syncData):
                     "created": patient_registration_forms[0],
                     "updated": patient_registration_forms[1],
                     "deleted": patient_registration_forms[2],
+                },
+                "appointments": {
+                    "created": appointments[0],
+                    "updated": appointments[1],
+                    "deleted": appointments[2],
                 },
             },
             "timestamp": get_timestamp_now(),
@@ -537,3 +558,55 @@ def to_timestamptz(value):
             return datetime.strptime(value, "%Y-%m-%d %H:%M:%S").astimezone(pytz.UTC)
     return None
 
+
+
+def apply_edge_appointment_changes(appointments, cur, lastPulledAt):
+    # CREATED APPOINTMENTS
+    if len(appointments["created"]) > 0:
+        appointment_insert = "INSERT INTO appointments (id, appointment_timestamp, duration, reason, notes, provider_id, clinic_id, patient_id, user_id, status, current_visit_id, fufilled_visit_id, metadata, created_at, updated_at, is_deleted) VALUES "
+        appointments_sql = [
+            (
+                appointment["id"],
+                date_from_timestamp(appointment["appointment_timestamp"]),
+                appointment["duration"],
+                appointment["reason"],
+                appointment["notes"],
+                appointment["provider_id"],
+                appointment["clinic_id"],
+                appointment["patient_id"],
+                appointment["user_id"],
+                appointment["status"],
+                appointment["current_visit_id"],
+                appointment["fufilled_visit_id"],
+                appointment["metadata"],
+                date_from_timestamp(appointment["created_at"]),
+                date_from_timestamp(appointment["updated_at"]),
+                appointment["is_deleted"],
+            )
+            for appointment in appointments["created"]
+        ]
+
+        args = ",".join(
+            cur.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                        i).decode("utf-8")
+            for i in appointments_sql
+        )
+        cur.execute(appointment_insert + (args))
+
+    # UPDATED appointmentS
+    # UPDATE appointments SET name = 'new name' WHERE id = 'id'
+    for appointment in appointments["updated"]:
+        cur.execute(
+            f"""UPDATE appointments SET appointment_timestamp='{date_from_timestamp(appointment["appointment_timestamp"])}', duration='{appointment["duration"]}', reason='{appointment["reason"]}', notes='{appointment["notes"]}', provider_id='{appointment["provider_id"]}', clinic_id='{
+                appointment["clinic_id"]}', patient_id='{appointment["patient_id"]}', user_id='{appointment["user_id"]}', status='{appointment["status"]}' , current_visit_id='{appointment["current_visit_id"]}' , fufilled_visit_id='{appointment["fufilled_visit_id"]}' , metadata='{appointment["metadata"]}' ,
+                created_at='{date_from_timestamp(appointment["created_at"])}' , updated_at='{date_from_timestamp(appointment["updated_at"])}', last_modified='{datetime.now()}' WHERE id='{appointment["id"]}';"""
+        )
+
+    # DELETED appointmentS
+    for appointment in appointments["deleted"]:
+        # deleted_ids = tuple(appointments["deleted"])
+        # cur.execute(f"""DELETE FROM appointments WHERE id IN {deleted_ids};""")
+        cur.execute(
+            f"""UPDATE appointments SET is_deleted=true, deleted_at='{
+                date_from_timestamp(lastPulledAt)}' WHERE id = '{appointment}';"""
+        )

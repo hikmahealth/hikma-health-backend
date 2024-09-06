@@ -5,7 +5,7 @@ from hikmahealth.entity import core, sync, fields, helpers
 from datetime import datetime
 from hikmahealth.utils.datetime import utc
 
-from datetime import  date
+from datetime import date
 
 
 import itertools
@@ -17,13 +17,13 @@ from psycopg.rows import class_row, dict_row
 import dataclasses
 import json
 
-# might want to make it such that the syncing 
-# 1. fails properly 
+# might want to make it such that the syncing
+# 1. fails properly
 # 2. not as all or nothing?
 
 # -----
 # TO NOTE:
-# 1. include docs (with copy-pastable examples) on 
+# 1. include docs (with copy-pastable examples) on
 # how to create and 'deal' with new concept like the Nurse, when i want to sync up
 
 # When creating an entity, ask youself:
@@ -38,24 +38,26 @@ class Patient(sync.SyncableEntity, helpers.SimpleCRUD):
 
     id: str
     given_name: str | None = None
-    sex: str | None = None 
-    surname: str | None = None 
+    sex: str | None = None
+    surname: str | None = None
     date_of_birth: date | None = None
-    sex: str | None = None 
-    hometown: str | None = None 
-    phone: str | None = None 
+    sex: str | None = None
+    hometown: str | None = None
+    phone: str | None = None
     additional_data: dict | list | None = None
-    
-    government_id: str | None = None 
-    external_patient_id: str | None = None 
 
-    created_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
-    updated_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
+    government_id: str | None = None
+    external_patient_id: str | None = None
+
+    created_at: fields.UTCDateTime = fields.UTCDateTime(
+        default_factory=utc.now)
+    updated_at: fields.UTCDateTime = fields.UTCDateTime(
+        default_factory=utc.now)
 
     @classmethod
     def apply_delta_changes(cls, deltadata, last_pushed_at, conn):
         """Applies the delta changes pushed by the client to this server database.
-        
+
         NOTE: might want to have `DeltaData` as only input and add `last_pushed_at` to deleted"""
         with conn.cursor() as cur:
             # performs upserts (insert + update when existing)
@@ -66,12 +68,12 @@ class Patient(sync.SyncableEntity, helpers.SimpleCRUD):
                 patient.update(
                     created_at=utc.from_unixtimestamp(patient["created_at"]),
                     updated_at=utc.from_unixtimestamp(patient["updated_at"]),
-                    image_timestamp=utc.from_unixtimestamp(patient["image_timestamp"]) if "image_timestamp" in patient else None,
+                    image_timestamp=utc.from_unixtimestamp(
+                        patient["image_timestamp"]) if "image_timestamp" in patient else None,
                     additional_data=patient["additional_data"],
                     photo_url="https://cdn.server.fake/image/convincing-id",
                     last_modified=utc.now()
                 )
-
 
                 cur.execute(
                     """INSERT INTO patients
@@ -100,7 +102,7 @@ class Patient(sync.SyncableEntity, helpers.SimpleCRUD):
             for id in deltadata.deleted:
                 cur.execute(
                     """UPDATE patients SET is_deleted=true, deleted_at=%s WHERE id = %s::uuid;""",
-                        (last_pushed_at, id)
+                    (last_pushed_at, id)
                 )
 
 
@@ -115,7 +117,8 @@ class PatientAttribute(sync.SyncableEntity):
             for row in itertools.chain(deltadata.created, deltadata.updated):
                 pattr = dict(row)
                 pattr.update(
-                    date_value=utc.from_unixtimestamp(pattr["date_value"]) if pattr.get("date_value", None) else None,
+                    date_value=utc.from_unixtimestamp(
+                        pattr["date_value"]) if pattr.get("date_value", None) else None,
                     created_at=utc.from_unixtimestamp(pattr["created_at"]),
                     updated_at=utc.from_unixtimestamp(pattr["updated_at"]),
                     metadata=pattr["metadata"],
@@ -144,9 +147,8 @@ class PatientAttribute(sync.SyncableEntity):
             for id in deltadata.deleted:
                 cur.execute(
                     """UPDATE patient_additional_attributes SET is_deleted=true, deleted_at=%s WHERE id = %s::uuid;""",
-                        (last_pushed_at, id)
+                    (last_pushed_at, id)
                 )
-
 
 
 @core.dataentity
@@ -159,7 +161,7 @@ class Event(sync.SyncableEntity):
     event_type: str
     form_data: str
     metadata: dict
-    
+
     @classmethod
     def apply_delta_changes(cls, deltadata, last_pushed_at, conn):
         with conn.cursor() as cur:
@@ -195,7 +197,7 @@ class Event(sync.SyncableEntity):
             for id in deltadata.deleted:
                 cur.execute(
                     """UPDATE events SET is_deleted=true, deleted_at=%s WHERE id = %s;""",
-                        (last_pushed_at, id)
+                    (last_pushed_at, id)
                 )
 
 
@@ -210,7 +212,8 @@ class Visit(sync.SyncableEntity):
             for visit in itertools.chain(deltadata.created, deltadata.updated):
                 visit = dict(visit)
                 visit.update(
-                    check_in_timestamp=utc.from_unixtimestamp(visit['check_in_timestamp']),
+                    check_in_timestamp=utc.from_unixtimestamp(
+                        visit['check_in_timestamp']),
                     created_at=utc.from_unixtimestamp(visit['created_at']),
                     updated_at=utc.from_unixtimestamp(visit['updated_at']),
                     metadata=json.dumps(visit["metadata"]),
@@ -241,7 +244,7 @@ class Visit(sync.SyncableEntity):
             for id in deltadata.deleted:
                 cur.execute(
                     """UPDATE visits SET is_deleted=true, deleted_at=%s WHERE id=%s;""",
-                        (last_pushed_at, id)
+                    (last_pushed_at, id)
                 )
 
 
@@ -251,8 +254,11 @@ class Clinic(sync.SyncToClientEntity):
 
     id: str
     name: str
-    created_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
-    updated_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
+    created_at: fields.UTCDateTime = fields.UTCDateTime(
+        default_factory=utc.now)
+    updated_at: fields.UTCDateTime = fields.UTCDateTime(
+        default_factory=utc.now)
+
 
 @core.dataentity
 class PatientRegistrationForm(sync.SyncToClientEntity, helpers.SimpleCRUD):
@@ -262,8 +268,11 @@ class PatientRegistrationForm(sync.SyncToClientEntity, helpers.SimpleCRUD):
     name: str
     fields: str
     metadata: str
-    created_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
-    updated_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
+    created_at: fields.UTCDateTime = fields.UTCDateTime(
+        default_factory=utc.now)
+    updated_at: fields.UTCDateTime = fields.UTCDateTime(
+        default_factory=utc.now)
+
 
 @core.dataentity
 class EventForm(sync.SyncToClientEntity, helpers.SimpleCRUD):
@@ -279,8 +288,10 @@ class EventForm(sync.SyncToClientEntity, helpers.SimpleCRUD):
 
     is_editable: bool | None = None
     is_snapshot_form:  bool | None = None
-    created_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
-    updated_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
+    created_at: fields.UTCDateTime = fields.UTCDateTime(
+        default_factory=utc.now)
+    updated_at: fields.UTCDateTime = fields.UTCDateTime(
+        default_factory=utc.now)
 
     @classmethod
     def from_id(cls, id: str) -> EventForm:
@@ -293,14 +304,112 @@ class EventForm(sync.SyncToClientEntity, helpers.SimpleCRUD):
                 """,
                 (id,)
             ).fetchone()
-        
+
         return cls(**data)
+
 
 @core.dataentity
 class StringId(sync.SyncToClientEntity):
     TABLE_NAME = "string_ids"
 
+
 @core.dataentity
 class StringContent(sync.SyncToClientEntity):
     TABLE_NAME = "string_content"
 
+
+@core.dataentity
+class Appointment(sync.SyncableEntity):
+    TABLE_NAME = "appointments"
+
+    id: str
+    timestamp: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
+    duration: int | None = None  # in minutes
+    reason: str | None = None
+    notes: str | None = None
+    provider_id: str | None = None
+    clinic_id: str | None = None
+    patient_id: str | None = None
+    user_id: str | None = None
+    status: str | None = None  # pending, fulfilled, cancelled
+    current_visit_id: str | None = None
+    fulfilled_visit_id: str | None = None
+    metadata: dict | None = None
+    created_at: fields.UTCDateTime = fields.UTCDateTime(
+        default_factory=utc.now)
+    updated_at: fields.UTCDateTime = fields.UTCDateTime(
+        default_factory=utc.now)
+    is_deleted: bool | None = None
+    deleted_at: fields.UTCDateTime | None = None
+    last_modified: fields.UTCDateTime = fields.UTCDateTime(
+        default_factory=utc.now)
+    server_created_at: fields.UTCDateTime = fields.UTCDateTime(
+        default_factory=utc.now)
+
+    # id - uuid
+    # timestamp - datetime_tz
+    # duration - integer(minutes) - nullable
+    # reason - string - nullable but default to empty string
+    # notes - string-  - nullable but default to empty string
+    # provider_id - uuid {healthcare provider with whome the appointment is with} - nullable
+    # clinic_id - uuid(foriegn_id)
+    # patient_id - uuid(foriegn_id)
+    # user_id - uuid(foriegn_id)
+    # status - string - defaults to pending
+    # current_visit_id - uuid(foriegn_id)
+    # fulfilled_visit_id - uuid(foriegn_id) - nullable
+    # metadata - json - defaults to empty json
+    # created_at - datetime_tz - defaults to utc now
+    # updated_at - datetime_tz - defaults to utc now
+    # is_deleted - boolean - defaults to false
+    # deleted_at - datetime_tz - defaults to null
+    # last_modified - datetime_tz - set in server with utc now
+    # server_created_at - datetime_tz - set in server with utc now
+
+    @classmethod
+    def apply_delta_changes(cls, deltadata, last_pushed_at, conn):
+        with conn.cursor() as cur:
+            # TODO: `cur.executemany` can be used instead
+            for appointment in itertools.chain(deltadata.created, deltadata.updated):
+                appointment = dict(appointment)
+                appointment.update(
+                    created_at=utc.from_unixtimestamp(
+                        appointment['created_at']),
+                    updated_at=utc.from_unixtimestamp(
+                        appointment['updated_at']),
+                    metadata=json.dumps(appointment["metadata"]),
+                    last_modified=utc.now()
+                )
+
+                cur.execute(
+                    """
+                    INSERT INTO appointments
+                        (id, timestamp, duration, reason, notes, provider_id, clinic_id, patient_id, user_id, status, current_visit_id, fufilled_visit_id, metadata, created_at, updated_at, last_modified)
+                    VALUES
+                        (%(id)s, %(timestamp)s, %(duration)s, %(reason)s, %(notes)s, %(provider_id)s, %(clinic_id)s, %(patient_id)s, %(user_id)s, %(status)s, %(current_visit_id)s, %(fufilled_visit_id)s, %(metadata)s, %(created_at)s, %(updated_at)s, %(last_modified)s)   
+                    ON CONFLICT (id) DO UPDATE
+                    SET
+                        timestamp=EXCLUDED.appointment_timestamp
+                        duration=EXCLUDED.duration,  
+                        reason=EXCLUDED.reason, 
+                        notes=EXCLUDED.notes, 
+                        provider_id=EXCLUDED.provider_id, 
+                        clinic_id=EXCLUDED.clinic_id, 
+                        patient_id=EXCLUDED.patient_id, 
+                        user_id=EXCLUDED.user_id,
+                        status=EXCLUDED.status, 
+                        current_visit_id=EXCLUDED.current_visit_id
+                        fufilled_visit_id=EXCLUDED.fufilled_visit_id
+                        metadata=EXCLUDED.metadata
+                        created_at=EXCLUDED.created_at
+                        updated_at=EXCLUDED.updated_at 
+                        last_modified=EXCLUDED.last_modified
+                    """,
+                    appointment
+                )
+
+            for id in deltadata.deleted:
+                cur.execute(
+                    """UPDATE appointments SET status = 'cancelled', is_deleted=true, deleted_at=%s WHERE id=%s;""",
+                    (last_pushed_at, id)
+                )

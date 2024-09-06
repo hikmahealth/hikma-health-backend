@@ -104,6 +104,7 @@ celerybeat-schedule
 .venv
 venv/
 ENV/
+hikma_backend_venv/
 
 # Spyder project settings
 .spyderproject
