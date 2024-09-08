@@ -271,6 +271,16 @@ def register_patient(_):
 
     attribute_fields = patient_data["attributeFields"]
 
+    optional_fields_nullable = ['government_id', 'external_patient_id']
+    for field in optional_fields_nullable:
+        if field not in base_fields:
+            base_fields[field] = None
+
+    optional_fields_empty_string = ['hometown', 'phone', 'camp', 'photo_url']
+    for field in optional_fields_empty_string:
+        if field not in base_fields:
+            base_fields[field] = None
+
     with db.get_connection() as conn:
         with conn.cursor() as cur:
             try:
