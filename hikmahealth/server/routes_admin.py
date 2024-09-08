@@ -279,7 +279,7 @@ def register_patient(_):
                         INSERT INTO PATIENTS
                           (id, given_name, surname, date_of_birth, citizenship, hometown, sex, phone, camp, additional_data, image_timestamp, photo_url, government_id, external_patient_id, created_at, updated_at, last_modified)
                         VALUES
-                          (%(id)s, %(given_name)s, %(surname)s, %(date_of_birth)s, %(citizenship)s, %(hometown)s, %(sex)s, %(phone)s, %(camp)s, %(additional_data)s, %(image_timestamp)s, %(photo_url)s, %(government_id)s, %(external_patient_id)s, %(created_at)s, %(updated_at)s, %(last_modified)s)
+                          (%(id)s, %(given_name)s, %(surname)s, %(date_of_birth)s, %(citizenship)s, COALESCE(%(hometown)s, ''), %(sex)s, COALESCE(%(phone)s, ''), COALESCE(%(camp)s, ''), %(additional_data)s, %(image_timestamp)s, COALESCE(%(photo_url)s, ''), COALESCE(%(government_id)s, NULL), COALESCE(%(external_patient_id)s, NULL), %(created_at)s, %(updated_at)s, %(last_modified)s)
                     """,
                     base_fields,
                 )

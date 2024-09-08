@@ -181,15 +181,15 @@ class Event(sync.SyncableEntity):
                     VALUES
                     (%(id)s, %(patient_id)s, %(form_id)s, %(visit_id)s, %(event_type)s, %(form_data)s, %(metadata)s, false, %(created_at)s, %(updated_at)s, current_timestamp)   
                     ON CONFLICT (id) DO UPDATE
-                    SET patient_id=EXCLUDED.patient_id',  
-                        form_id=EXCLUDED.form_id', 
-                        visit_id=EXCLUDED.visit_id', 
-                        event_type=EXCLUDED.event_type', 
-                        form_data=EXCLUDED.form_data', 
-                        metadata=EXCLUDED.metadata', 
-                        created_at=EXCLUDED.created_at', 
-                        updated_at=EXCLUDED.updated_at', 
-                        last_modified=EXCLUDED.last_modified';
+                    SET patient_id=EXCLUDED.patient_id,  
+                        form_id=EXCLUDED.form_id, 
+                        visit_id=EXCLUDED.visit_id, 
+                        event_type=EXCLUDED.event_type, 
+                        form_data=EXCLUDED.form_data, 
+                        metadata=EXCLUDED.metadata, 
+                        created_at=EXCLUDED.created_at, 
+                        updated_at=EXCLUDED.updated_at, 
+                        last_modified=EXCLUDED.last_modified;
                     """,
                     event
                 )
