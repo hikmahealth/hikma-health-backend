@@ -17,6 +17,8 @@ from psycopg.rows import class_row, dict_row
 import dataclasses
 import json
 
+from hikmahealth.utils.misc import is_valid_uuid
+
 # might want to make it such that the syncing
 # 1. fails properly
 # 2. not as all or nothing?
@@ -331,7 +333,7 @@ class Appointment(sync.SyncableEntity):
     clinic_id: str | None = None
     patient_id: str | None = None
     user_id: str | None = None
-    status: str | None = None  # pending, fulfilled, cancelled
+    status: str | None = None  # pending, completed, cancelled, confirmed
     current_visit_id: str | None = None
     fulfilled_visit_id: str | None = None
     metadata: dict | None = None
@@ -373,23 +375,30 @@ class Appointment(sync.SyncableEntity):
             for appointment in itertools.chain(deltadata.created, deltadata.updated):
                 appointment = dict(appointment)
                 appointment.update(
+                    timestamp=utc.from_unixtimestamp(
+                        appointment['timestamp']),
                     created_at=utc.from_unixtimestamp(
                         appointment['created_at']),
                     updated_at=utc.from_unixtimestamp(
                         appointment['updated_at']),
+                    server_created_at=utc.now(),
                     metadata=json.dumps(appointment["metadata"]),
                     last_modified=utc.now()
                 )
 
+                # Set provider_id to None if it's not present, empty, or an invalid UUID
+                if 'provider_id' not in appointment or not appointment['provider_id'] or not is_valid_uuid(appointment['provider_id']):
+                    appointment['provider_id'] = None
+
                 cur.execute(
                     """
                     INSERT INTO appointments
-                        (id, timestamp, duration, reason, notes, provider_id, clinic_id, patient_id, user_id, status, current_visit_id, fufilled_visit_id, metadata, created_at, updated_at, last_modified)
+                        (id, timestamp, duration, reason, notes, provider_id, clinic_id, patient_id, user_id, status, current_visit_id, fulfilled_visit_id, metadata, created_at, updated_at, last_modified, is_deleted, server_created_at)
                     VALUES
-                        (%(id)s, %(timestamp)s, %(duration)s, %(reason)s, %(notes)s, %(provider_id)s, %(clinic_id)s, %(patient_id)s, %(user_id)s, %(status)s, %(current_visit_id)s, %(fufilled_visit_id)s, %(metadata)s, %(created_at)s, %(updated_at)s, %(last_modified)s)   
+                        (%(id)s, %(timestamp)s, %(duration)s, %(reason)s, %(notes)s, %(provider_id)s, %(clinic_id)s, %(patient_id)s, %(user_id)s, %(status)s, %(current_visit_id)s, %(fulfilled_visit_id)s, %(metadata)s, %(created_at)s, %(updated_at)s, %(last_modified)s, %(is_deleted)s, %(server_created_at)s)
                     ON CONFLICT (id) DO UPDATE
                     SET
-                        timestamp=EXCLUDED.appointment_timestamp
+                        timestamp=EXCLUDED.timestamp,
                         duration=EXCLUDED.duration,  
                         reason=EXCLUDED.reason, 
                         notes=EXCLUDED.notes, 
@@ -398,18 +407,72 @@ class Appointment(sync.SyncableEntity):
                         patient_id=EXCLUDED.patient_id, 
                         user_id=EXCLUDED.user_id,
                         status=EXCLUDED.status, 
-                        current_visit_id=EXCLUDED.current_visit_id
-                        fufilled_visit_id=EXCLUDED.fufilled_visit_id
-                        metadata=EXCLUDED.metadata
-                        created_at=EXCLUDED.created_at
-                        updated_at=EXCLUDED.updated_at 
-                        last_modified=EXCLUDED.last_modified
+                        current_visit_id=EXCLUDED.current_visit_id,
+                        fulfilled_visit_id=EXCLUDED.fulfilled_visit_id,
+                        metadata=EXCLUDED.metadata,
+                        created_at=EXCLUDED.created_at,
+                        updated_at=EXCLUDED.updated_at,
+                        last_modified=EXCLUDED.last_modified,
+                        is_deleted=EXCLUDED.is_deleted
                     """,
                     appointment
                 )
 
             for id in deltadata.deleted:
+                # Not making 'cancelled' appointments 'deleted' on purpose. we need to sync them
                 cur.execute(
-                    """UPDATE appointments SET status = 'cancelled', is_deleted=true, deleted_at=%s WHERE id=%s;""",
+                    """UPDATE appointments SET is_deleted=true, deleted_at=%s WHERE id=%s;""",
                     (last_pushed_at, id)
                 )
+
+    @classmethod
+    def search(cls, filters):
+        with db.get_connection().cursor(row_factory=dict_row) as cur:
+            query = """
+            SELECT 
+                a.*,
+                json_build_object(
+                    'given_name', p.given_name,
+                    'surname', p.surname,
+                    'date_of_birth', p.date_of_birth,
+                    'sex', p.sex,
+                    'phone', p.phone
+                ) AS patient,
+                json_build_object(
+                    'name', u.name
+                ) AS user,
+                json_build_object(
+                    'name', c.name
+                ) AS clinic
+            FROM appointments a
+            LEFT JOIN patients p ON a.patient_id = p.id
+            LEFT JOIN users u ON a.user_id = u.id
+            LEFT JOIN clinics c ON a.clinic_id = c.id
+            WHERE a.is_deleted = false
+              AND a.timestamp >= %(start_date)s
+              AND a.timestamp <= %(end_date)s
+            """
+            params = {
+                'start_date': filters['start_date'],
+                'end_date': filters['end_date'],
+            }
+
+            # Status could either be pending, fulfilled or cancelled or all or checked_in
+            if 'status' in filters and filters['status'] != 'all':
+                query += " AND a.status = %(status)s"
+                params['status'] = filters['status']
+
+            if 'patient_id' in filters:
+                query += " AND a.patient_id = %(patient_id)s"
+                params['patient_id'] = filters['patient_id']
+
+            if 'provider_id' in filters:
+                query += " AND a.provider_id = %(provider_id)s"
+                params['provider_id'] = filters['provider_id']
+
+            if 'clinic_id' in filters:
+                query += " AND a.clinic_id = %(clinic_id)s"
+                params['clinic_id'] = filters['clinic_id']
+
+            cur.execute(query, params)
+            return cur.fetchall()

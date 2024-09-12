@@ -8,6 +8,7 @@ from hikmahealth.server.helpers import web as webhelper
 from hikmahealth.entity import hh
 import hikmahealth.entity.fields as f
 
+from hikmahealth.utils.misc import convert_dict_keys_to_snake_case
 from hikmahealth.utils.errors import WebError
 from psycopg import Error as PostgresError
 
@@ -363,19 +364,17 @@ def get_patient_events(_, id: str):
 @api.route("/search/patients", methods=["GET"])
 @middleware.authenticated_admin
 def search_patients(_):
-    searchparams = webhelper.pluck_optional_data_keys(
-        request, {"given_name", "surname", "hometown"}
-    )
+    query = ""
+    if request.method == "GET":
+        query = request.args.get("query")
+    else:  # POST
+        searchparams = webhelper.pluck_optional_data_keys(request, {"query"})
+        query = searchparams.get("query")
 
-    # TODO: aggregate the search params to sql query
-    or_clause = []
+    if not query:
+        return jsonify({"patients": []})
 
-    for k, v in searchparams.items():
-        or_clause.append((f"p.{k} ILIKE %({k})s"))
-
-    # construct the query to search
-    complete_query = " AND \n".join(
-        or_clause) if len(or_clause) >= 1 else "1=1"
+    search_query = f"%{query}%"
 
     with db.get_connection() as conn:
         with conn.cursor(row_factory=class_row(hh.Patient)) as cur:
@@ -384,9 +383,9 @@ def search_patients(_):
                 SELECT *
                 FROM patients as p
                 WHERE is_deleted = false
-                AND {}
-                """.format(complete_query),
-                {k: v.upper() for k, v in searchparams.items()},
+                AND (p.given_name ILIKE %(query)s OR p.surname ILIKE %(query)s)
+                """,
+                {"query": search_query},
             ).fetchall()
 
     return jsonify({"patients": patients})
@@ -948,6 +947,58 @@ def delete_clinic(_, id: str):
                     return jsonify({"error": "Clinic not found or already deleted"}), 404
 
         return jsonify({"ok": True, "message": "Clinic deleted successfully"})
+
+    except WebError as we:
+        return jsonify({"error": str(we)}), we.status_code
+    except PostgresError as pe:
+        # Log the database error here
+        return jsonify({"error": "Database error occurred", "details": str(pe)}), 500
+    except Exception as e:
+        # Log the unexpected error here
+        return jsonify({"error": "An unexpected error occurred"}), 500
+
+
+@api.get("/appointments/search")
+@middleware.authenticated_admin
+def get_appointments(_):
+    """Get all appointments matching the filters"""
+    # filters include start date, end date, patient id, provider id, clinic id
+    filters = request.args.to_dict()
+    filters = convert_dict_keys_to_snake_case(filters)
+    appointments = hh.Appointment.search(filters)
+
+    return jsonify({"appointments": appointments})
+
+
+@api.put("/appointments/<id>")
+@middleware.authenticated_admin
+def update_appointment_status(_, id: str):
+    try:
+        params = webhelper.assert_data_has_keys(request, {"status"})
+        new_status = params["status"]
+
+        # Validate the status
+        valid_statuses = ["pending", "completed", "cancelled", "confirmed"]
+        if new_status not in valid_statuses:
+            return jsonify({"error": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"}), 400
+
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE appointments
+                    SET status = %s, updated_at = %s, last_modified = current_timestamp
+                    WHERE id = %s AND is_deleted = FALSE
+                    RETURNING id
+                    """,
+                    (new_status, utc.now(), id)
+                )
+                updated_appointment = cur.fetchone()
+
+                if not updated_appointment:
+                    return jsonify({"error": "Appointment not found or already deleted"}), 404
+
+        return jsonify({"ok": True, "message": "Appointment status updated successfully"})
 
     except WebError as we:
         return jsonify({"error": str(we)}), we.status_code
