@@ -402,11 +402,11 @@ def get_summary_stats(_):
                 stats = cur.execute(
                     """
                     SELECT
-                        (SELECT count(*) FROM patients) as patient_count,
-                        (SELECT count(*) FROM events) as event_count,
-                        (SELECT count(*) FROM users) as user_count,
-                        (SELECT count(*) FROM event_forms) as form_count,
-                        (SELECT count(*) FROM visits) as visit_count
+                        (SELECT count(*) FROM patients WHERE is_deleted = FALSE) as patient_count,
+                        (SELECT count(*) FROM events WHERE is_deleted = FALSE) as event_count,
+                        (SELECT count(*) FROM users WHERE is_deleted = FALSE) as user_count,
+                        (SELECT count(*) FROM event_forms WHERE is_deleted = FALSE) as form_count,
+                        (SELECT count(*) FROM visits WHERE is_deleted = FALSE) as visit_count
                     """
                 ).fetchone()
 
