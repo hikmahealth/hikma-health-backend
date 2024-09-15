@@ -1,3 +1,4 @@
+import logging
 from flask import Blueprint, request, jsonify
 
 
@@ -230,7 +231,7 @@ def change_user_password(_, uid: str):
 
 @admin_api.route("/all_patients", methods=["GET"])
 @api.route("/patients", methods=["GET"])
-@middleware.authenticated_admin
+@middleware.authenticated_with_role(["admin", "provider", "super_admin"])
 def get_patients(_):
     with db.get_connection() as conn:
         with conn.cursor(row_factory=class_row(hh.Patient)) as cur:
@@ -325,7 +326,7 @@ def register_patient(_):
                 print("Error updating event form: ", e)
                 raise e
 
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "patient_id": str(patient_id)})
 
 
 @api.route("/patients/<id>", methods=["GET"])
@@ -782,7 +783,7 @@ def OLD_set_event_form_snapshot_toggle(_):
 
 @admin_api.route("/get_patient_registration_forms", methods=["GET"])
 @api.get("/patient-forms")
-@middleware.authenticated_admin
+@middleware.authenticated_with_role(["provider", "admin", "super_admin"])
 def get_patient_registration_forms(_):
     """Gets the patient registraion forms"""
     forms = hh.PatientRegistrationForm.get_all()
@@ -861,7 +862,7 @@ def update_patient_registration_form(_):
 
 
 @api.put("/patient-forms/<id>")
-@middleware.authenticated_admin
+@middleware.authenticated_with_role(["provider", "admin", "super_admin"])
 def set_patient_registration_form(_, id: str):
     """This performs an upsert on the patient registration form"""
     form = PatientRegistrationFormData(**request.json())
@@ -898,8 +899,8 @@ def create_clinic(_):
     except WebError as we:
         return jsonify({"error": str(we)}), we.status_code
     except PostgresError as pe:
-        # Log the database error here
-        return jsonify({"error": "Database error occurred", "details": str(pe)}), 500
+        logging.error(f"PostgresError: {pe}")
+        return jsonify({"error": "Database error occurred"}), 500
     except Exception as e:
         return jsonify({"error": "An unexpected error occurred"}), 500
 
@@ -949,12 +950,13 @@ def delete_clinic(_, id: str):
         return jsonify({"ok": True, "message": "Clinic deleted successfully"})
 
     except WebError as we:
+        logging.error(f"WebError: {we}")
         return jsonify({"error": str(we)}), we.status_code
     except PostgresError as pe:
-        # Log the database error here
-        return jsonify({"error": "Database error occurred", "details": str(pe)}), 500
+        logging.error(f"PostgresError: {pe}")
+        return jsonify({"error": "Database error occurred"}), 500
     except Exception as e:
-        # Log the unexpected error here
+        logging.error(f"Exception: {e}")
         return jsonify({"error": "An unexpected error occurred"}), 500
 
 
@@ -1001,10 +1003,96 @@ def update_appointment_status(_, id: str):
         return jsonify({"ok": True, "message": "Appointment status updated successfully"})
 
     except WebError as we:
+        logging.error(f"WebError: {we}")
         return jsonify({"error": str(we)}), we.status_code
     except PostgresError as pe:
         # Log the database error here
-        return jsonify({"error": "Database error occurred", "details": str(pe)}), 500
+        logging.error(f"PostgresError: {pe}")
+        return jsonify({"error": "Database error occurred"}), 500
     except Exception as e:
         # Log the unexpected error here
+        logging.error(f"Exception: {e}")
+        return jsonify({"error": "An unexpected error occurred"}), 500
+
+
+@api.post("/appointments")
+@middleware.authenticated_with_role(["provider", "admin", "super_admin"])
+def create_appointment(_):
+    try:
+        # Convert camelCase keys to snake_case
+        snake_case_params = convert_dict_keys_to_snake_case(request.json)
+
+        required_fields = {"patient_id", "clinic_id", "provider_id", "user_id", "timestamp",
+                           "duration", "reason", "notes", "status"}
+
+        missing_fields = required_fields - set(snake_case_params.keys())
+        if missing_fields:
+            raise WebError(f"Required data not supplied: {
+                           ', '.join(missing_fields)}", 400)
+
+        params = snake_case_params
+
+        # Check if patient_id is valid
+        patient = hh.Patient.from_id(params["patient_id"])
+        if patient is None:
+            return jsonify({"error": "Patient not found"}), 404
+
+        appointment_id = str(uuid.uuid1())
+        visit_id = str(uuid.uuid1())
+
+        token = request.headers.get('Authorization', None)
+
+        if token is None:
+            logging.error("missing authentication header")
+            raise WebError("missing authentication header", 401)
+
+        user = auth.get_user_from_token(token)
+
+        with db.get_connection() as conn:
+            try:
+                with conn.cursor() as cur:
+                    # Create visit
+                    cur.execute(
+                        """
+                        INSERT INTO visits (id, patient_id, clinic_id, provider_id, check_in_timestamp, is_deleted, created_at, updated_at, last_modified)
+                        VALUES (%s, %s, %s, %s, %s, false, current_timestamp, current_timestamp, current_timestamp)
+                        RETURNING id
+                        """,
+                        [visit_id, params["patient_id"], params["clinic_id"],
+                         user.id, params["timestamp"]]
+                    )
+
+                    # Create appointment
+                    cur.execute(
+                        """
+                        INSERT INTO appointments (id, patient_id, clinic_id, provider_id, user_id, current_visit_id, timestamp, duration, reason, notes, status, is_deleted, created_at, updated_at, last_modified, server_created_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, COALESCE(%s, 0), COALESCE(%s, 'other'), COALESCE(%s, ''), %s, false, current_timestamp, current_timestamp, current_timestamp, current_timestamp)
+                        RETURNING id
+                        """,
+                        [appointment_id, params["patient_id"], params["clinic_id"],
+                         params.get("provider_id") or None, user.id,
+                         visit_id, params["timestamp"], params.get("duration"),
+                         params.get("reason"), params.get("notes"), params["status"]]
+                    )
+
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                raise e
+
+        return jsonify({
+            "ok": True,
+            "message": "Appointment and visit created successfully",
+            "appointment_id": appointment_id,
+            "visit_id": visit_id
+        })
+    except WebError as we:
+        return jsonify({"error": str(we)}), we.status_code
+    except PostgresError as pe:
+        # Log the database error here
+        logging.error(f"Database error occurred: {pe}")
+        return jsonify({"error": "Database error occurred"}), 500
+    except Exception as e:
+        # Log the unexpected error here
+        logging.error(f"An unexpected error occurred: {e}")
         return jsonify({"error": "An unexpected error occurred"}), 500

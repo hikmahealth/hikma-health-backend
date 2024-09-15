@@ -44,6 +44,8 @@ class Patient(sync.SyncableEntity, helpers.SimpleCRUD):
     surname: str | None = None
     date_of_birth: date | None = None
     sex: str | None = None
+    camp: str | None = None
+    citizenship: str | None = None
     hometown: str | None = None
     phone: str | None = None
     additional_data: dict | list | None = None

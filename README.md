@@ -150,6 +150,9 @@ This variable holds a link to the backend (server) which connects to the databas
 - **Alembic (v1.13.1):** https://pypi.org/project/alembic/
 
 
+**NOTE:** If you are using python 3.11, please comment out the typing @override operator inside the `hikmahealth/entity.py` file. Please use python 3.12 to meet the requirements of this repository.
+
+
 ## Extras
 To create a migration (after activating your virtual environment):
 

@@ -1,5 +1,6 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
+import logging
 
 from hikmahealth.server import routes_mobile, routes_admin
 
@@ -26,7 +27,8 @@ def hello_world():
 
 
 @app.errorhandler(WebError)
-def handle_web_error(error):    
+def handle_web_error(error):
+    logging.error(f"WebError: {error}")
     return jsonify(error.to_dict()), error.status_code
 
 
@@ -34,15 +36,19 @@ def handle_web_error(error):
 def page_not_found(_err):
     response = jsonify({"message": "Endpoint not found."})
     response.status_code = 404
+    logging.error(f"Endpoint not found: {_err}")
     return response
 
 
 @app.errorhandler(405)
 def method_not_found(_err):
-    return jsonify({"message": "Method not found."}), 405
+    response = jsonify({"message": "Method not found."})
+    response.status_code = 405
+    logging.error(f"Method not found: {_err}")
+    return response
 
 
 @app.errorhandler(500)
 def internal_server_error(_err):
+    logging.error(f"Internal Server Error: {_err}")
     return jsonify({"message": "Internal Server Error"}), 500
-
