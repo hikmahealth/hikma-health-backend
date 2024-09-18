@@ -66,7 +66,11 @@ def get_all_users(_):
     with db.get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             rows = cur.execute(
-                "SELECT * FROM users WHERE is_deleted = FALSE"
+                """
+                SELECT clinic_id, email, id, name, role, created_at
+                FROM users
+                WHERE is_deleted = FALSE
+                """
             ).fetchall()
 
             return jsonify({"users": rows})
@@ -227,6 +231,55 @@ def change_user_password(_, uid: str):
             "message": "updated user password",
         }
     )
+
+
+@api.route("/users/<uid>/manage", methods=["PUT"])
+@middleware.authenticated_admin
+def update_user_info(_, uid: str):
+    try:
+        # Get the updated user information from the request
+        user_data = webhelper.assert_data_has_keys(
+            request, {"name", "email", "role", "clinic_id"})
+
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                # Update user information
+                cur.execute(
+                    """
+                    UPDATE users 
+                    SET name = %s, email = %s, role = %s, clinic_id = %s, 
+                        updated_at = current_timestamp, last_modified = current_timestamp
+                    WHERE id = %s AND is_deleted = FALSE
+                    RETURNING id
+                    """,
+                    [user_data["name"], user_data["email"],
+                        user_data["role"], user_data["clinic_id"], uid]
+                )
+                updated_user = cur.fetchone()
+
+                if not updated_user:
+                    return jsonify({"error": "User not found or already deleted"}), 404
+
+                # Invalidate user tokens
+                auth.invalidate_tokens(auth.User(id=uid, **user_data))
+
+            conn.commit()
+
+        return jsonify({
+            "ok": True,
+            "message": "User information updated successfully",
+            "id": updated_user[0]
+        })
+
+    except WebError as we:
+        logging.error(f"WebError: {we}")
+        return jsonify({"error": str(we)}), we.status_code
+    except PostgresError as pe:
+        logging.error(f"PostgresError: {pe}")
+        return jsonify({"error": "Database error occurred"}), 500
+    except Exception as e:
+        logging.error(f"Unexpected error: {e}")
+        return jsonify({"error": "An unexpected error occurred"}), 500
 
 
 @admin_api.route("/all_patients", methods=["GET"])
@@ -902,6 +955,72 @@ def create_clinic(_):
         logging.error(f"PostgresError: {pe}")
         return jsonify({"error": "Database error occurred"}), 500
     except Exception as e:
+        return jsonify({"error": "An unexpected error occurred"}), 500
+
+
+@api.put("/clinics/<id>")
+@middleware.authenticated_admin
+def update_clinic(_, id: str):
+    try:
+        params = webhelper.assert_data_has_keys(request, {"name"})
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE clinics
+                    SET name = %s, updated_at = current_timestamp, last_modified = current_timestamp
+                    WHERE id = %s AND is_deleted = FALSE
+                    RETURNING id
+                    """,
+                    [params["name"], id]
+                )
+                updated_clinic = cur.fetchone()
+
+                if not updated_clinic:
+                    return jsonify({"error": "Clinic not found or already deleted"}), 404
+
+            conn.commit()
+        return jsonify({"ok": True, "message": "Clinic updated successfully", "id": updated_clinic[0]})
+    except WebError as we:
+        logging.error(f"WebError: {we}")
+        return jsonify({"error": "Clinic not found or already deleted"}), 404
+    except PostgresError as pe:
+        logging.error(f"PostgresError: {pe}")
+        return jsonify({"error": "Database error occurred"}), 500
+    except Exception as e:
+        logging.error(f"Unexpected error: {e}")
+        return jsonify({"error": "An unexpected error occurred"}), 500
+
+
+@api.get("/clinics/<id>")
+@middleware.authenticated_admin
+def get_single_clinic(_, id: str):
+    try:
+        with db.get_connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                clinic = cur.execute(
+                    """
+                    SELECT
+                        id,
+                        name,
+                        is_deleted as "isDeleted",
+                        created_at as "createdAt",
+                        updated_at as "updatedAt"
+                    FROM clinics
+                    WHERE id = %s AND is_deleted = FALSE
+                    """,
+                    [id]
+                ).fetchone()
+
+                if not clinic:
+                    return jsonify({"error": "Clinic not found"}), 404
+
+        return jsonify({"clinic": clinic})
+    except PostgresError as pe:
+        logging.error(f"PostgresError: {pe}")
+        return jsonify({"error": "Database error occurred"}), 500
+    except Exception as e:
+        logging.error(f"Unexpected error: {e}")
         return jsonify({"error": "An unexpected error occurred"}), 500
 
 
