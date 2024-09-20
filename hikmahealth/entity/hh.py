@@ -67,14 +67,24 @@ class Patient(sync.SyncableEntity, helpers.SimpleCRUD):
             # performs upserts (insert + update when existing)
             for row in itertools.chain(deltadata.created, deltadata.updated):
                 patient = dict(row)
-                # print(patient)
+
+                # Handle empty string for additional_data
+                if patient["additional_data"] == '':
+                    patient["additional_data"] = None
+                elif isinstance(patient["additional_data"], str):
+                    # If it's a string, try to parse it as JSON
+                    try:
+                        patient["additional_data"] = json.loads(
+                            patient["additional_data"])
+                    except json.JSONDecodeError:
+                        # If parsing fails, set it to None
+                        patient["additional_data"] = None
 
                 patient.update(
                     created_at=utc.from_unixtimestamp(patient["created_at"]),
                     updated_at=utc.from_unixtimestamp(patient["updated_at"]),
                     image_timestamp=utc.from_unixtimestamp(
                         patient["image_timestamp"]) if "image_timestamp" in patient else None,
-                    additional_data=patient["additional_data"],
                     photo_url="https://cdn.server.fake/image/convincing-id",
                     last_modified=utc.now()
                 )
