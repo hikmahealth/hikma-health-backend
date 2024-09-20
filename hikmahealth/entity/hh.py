@@ -71,11 +71,14 @@ class Patient(sync.SyncableEntity, helpers.SimpleCRUD):
                 # Handle empty string for additional_data
                 if patient["additional_data"] == '':
                     patient["additional_data"] = None
+                elif isinstance(patient["additional_data"], (dict, list)):
+                    # If it's already a dict or list, convert it to JSON string
+                    patient["additional_data"] = json.dumps(
+                        patient["additional_data"])
                 elif isinstance(patient["additional_data"], str):
                     # If it's a string, try to parse it as JSON
                     try:
-                        patient["additional_data"] = json.loads(
-                            patient["additional_data"])
+                        json.loads(patient["additional_data"])
                     except json.JSONDecodeError:
                         # If parsing fails, set it to None
                         patient["additional_data"] = None
