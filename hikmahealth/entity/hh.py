@@ -40,7 +40,6 @@ class Patient(sync.SyncableEntity, helpers.SimpleCRUD):
 
     id: str
     given_name: str | None = None
-    sex: str | None = None
     surname: str | None = None
     date_of_birth: date | None = None
     sex: str | None = None
