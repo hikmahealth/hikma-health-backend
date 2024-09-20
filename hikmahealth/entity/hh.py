@@ -68,20 +68,18 @@ class Patient(sync.SyncableEntity, helpers.SimpleCRUD):
             for row in itertools.chain(deltadata.created, deltadata.updated):
                 patient = dict(row)
 
-                # Handle empty string for additional_data
-                if patient["additional_data"] == '':
-                    patient["additional_data"] = None
+                # Handle additional_data
+                if patient["additional_data"] is None or patient["additional_data"] == '':
+                    patient["additional_data"] = '{}'  # Empty JSON object
                 elif isinstance(patient["additional_data"], (dict, list)):
-                    # If it's already a dict or list, convert it to JSON string
                     patient["additional_data"] = json.dumps(
                         patient["additional_data"])
                 elif isinstance(patient["additional_data"], str):
-                    # If it's a string, try to parse it as JSON
                     try:
                         json.loads(patient["additional_data"])
                     except json.JSONDecodeError:
-                        # If parsing fails, set it to None
-                        patient["additional_data"] = None
+                        # Empty JSON object if invalid
+                        patient["additional_data"] = '{}'
 
                 patient.update(
                     created_at=utc.from_unixtimestamp(patient["created_at"]),
