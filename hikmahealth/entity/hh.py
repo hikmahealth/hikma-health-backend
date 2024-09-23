@@ -115,8 +115,17 @@ class Patient(sync.SyncableEntity, helpers.SimpleCRUD):
 
             for id in deltadata.deleted:
                 cur.execute(
-                    """UPDATE patients SET is_deleted=true, deleted_at=%s WHERE id = %s::uuid;""",
-                    (last_pushed_at, id)
+                    """INSERT INTO patients
+                          (id, is_deleted, given_name, surname, date_of_birth, citizenship, hometown, sex, phone, camp, additional_data, image_timestamp, photo_url, government_id, external_patient_id, created_at, updated_at, last_modified, deleted_at)
+                        VALUES 
+                          (%s::uuid, true, '', '', NULL, '', '', '', '', '', '{}', NULL, '', NULL, NULL, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO UPDATE
+                        SET is_deleted = true,
+                            deleted_at = EXCLUDED.deleted_at,
+                            updated_at = EXCLUDED.updated_at,
+                            last_modified = EXCLUDED.last_modified;
+                    """,
+                    (id, utc.now(), utc.now(), utc.now(), utc.now())
                 )
 
 
