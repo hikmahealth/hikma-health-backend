@@ -242,94 +242,131 @@ class Event(sync.SyncableEntity):
     @classmethod
     def apply_delta_changes(cls, deltadata, last_pushed_at, conn):
         with conn.cursor() as cur:
-            # `cur.executemany` can be used instead
-            for row in itertools.chain(deltadata.created, deltadata.updated):
-                event = dict(row)
-                event.update(
-                    created_at=utc.from_unixtimestamp(event["created_at"]),
-                    updated_at=utc.from_unixtimestamp(event["updated_at"]),
-                    metadata=json.dumps(event["metadata"]),
-                )
-
-                # Check if patient exists
-                cur.execute(
-                    "SELECT EXISTS(SELECT 1 FROM patients WHERE id = %s)", (event['patient_id'],))
-                patient_exists = cur.fetchone()[0]
-
-                if not patient_exists:
-                    # Log out that there is no patient with and event_id. warn reviewer
-                    logging.warning(f"Event {event['id']} references non-existent patient {
-                                    event['patient_id']}. Creating placeholder patient, marked as artificially created and deleted.")
-                    print(f"REVIEWER WARNING: Event {event['id']} references non-existent patient {
-                          event['patient_id']}. A placeholder patient will be created.")
-
-                    # We are choosing to create patients dynamically here if they don't exist.
-                    # We can also choose to skip events for non-existent patients.
-                    placeholder_metadata = json.dumps({
-                        "artificially_created": True,
-                        "created_from": "server_event_creation",
-                        "original_event_id": event['id']
-                    })
-                    cur.execute("""
-                        INSERT INTO patients (id, given_name, surname, is_deleted, deleted_at, created_at, updated_at, metadata)
-                        VALUES (%s, '', '', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, %s)
-                        ON CONFLICT (id) DO NOTHING
-                    """, (event['patient_id'], placeholder_metadata)
+            try:
+                # `cur.executemany` can be used instead
+                for row in itertools.chain(deltadata.created, deltadata.updated):
+                    event = dict(row)
+                    event.update(
+                        created_at=utc.from_unixtimestamp(event["created_at"]),
+                        updated_at=utc.from_unixtimestamp(event["updated_at"]),
+                        metadata=json.dumps(event["metadata"]),
                     )
 
-                cur.execute(
-                    """
-                    INSERT INTO events
-                    (id, patient_id, form_id, visit_id, event_type, form_data, metadata, is_deleted, created_at, updated_at, last_modified)   
-                    VALUES
-                    (%(id)s, %(patient_id)s, %(form_id)s, %(visit_id)s, %(event_type)s, %(form_data)s, %(metadata)s, false, %(created_at)s, %(updated_at)s, current_timestamp)   
-                    ON CONFLICT (id) DO UPDATE
-                    SET patient_id=EXCLUDED.patient_id,  
-                        form_id=EXCLUDED.form_id, 
-                        visit_id=EXCLUDED.visit_id, 
-                        event_type=EXCLUDED.event_type, 
-                        form_data=EXCLUDED.form_data, 
-                        metadata=EXCLUDED.metadata, 
-                        created_at=EXCLUDED.created_at, 
-                        updated_at=EXCLUDED.updated_at, 
-                        last_modified=EXCLUDED.last_modified;
-                    """,
-                    event
-                )
-            for id in deltadata.deleted:
-                # We soft delete events while maintaining referential integrity. This makes sure that
-                # if we ever have a state where the visit does not exist while the event does, we can
-                # still perform the sync while applying soft deletes to events and visits
-                cur.execute(
-                    """
-                    WITH event_data AS (
+                    # Check if patient exists
+                    cur.execute(
+                        "SELECT EXISTS(SELECT 1 FROM patients WHERE id = %s)", (event['patient_id'],))
+                    patient_exists = cur.fetchone()[0]
+
+                    if not patient_exists:
+                        # Log out that there is no patient with and event_id. warn reviewer
+                        logging.warning(f"Event {event['id']} references non-existent patient {
+                                        event['patient_id']}. Creating placeholder patient, marked as artificially created and deleted.")
+                        print(f"REVIEWER WARNING: Event {event['id']} references non-existent patient {
+                            event['patient_id']}. A placeholder patient will be created.")
+
+                        # We are choosing to create patients dynamically here if they don't exist.
+                        # We can also choose to skip events for non-existent patients.
+                        placeholder_metadata = json.dumps({
+                            "artificially_created": True,
+                            "created_from": "server_event_creation",
+                            "original_event_id": event['id']
+                        })
+                        cur.execute("""
+                            INSERT INTO patients (id, given_name, surname, is_deleted, deleted_at, created_at, updated_at, metadata)
+                            VALUES (%s, '', '', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, %s)
+                            ON CONFLICT (id) DO NOTHING
+                        """, (event['patient_id'], placeholder_metadata)
+                        )
+
+                    cur.execute(
+                        """
+                        INSERT INTO events
+                        (id, patient_id, form_id, visit_id, event_type, form_data, metadata, is_deleted, created_at, updated_at, last_modified)   
+                        VALUES
+                        (%(id)s, %(patient_id)s, %(form_id)s, %(visit_id)s, %(event_type)s, %(form_data)s, %(metadata)s, false, %(created_at)s, %(updated_at)s, current_timestamp)   
+                        ON CONFLICT (id) DO UPDATE
+                        SET patient_id=EXCLUDED.patient_id,  
+                            form_id=EXCLUDED.form_id, 
+                            visit_id=EXCLUDED.visit_id, 
+                            event_type=EXCLUDED.event_type, 
+                            form_data=EXCLUDED.form_data, 
+                            metadata=EXCLUDED.metadata, 
+                            created_at=EXCLUDED.created_at, 
+                            updated_at=EXCLUDED.updated_at, 
+                            last_modified=EXCLUDED.last_modified;
+                        """,
+                        event
+                    )
+                for id in deltadata.deleted:
+                    # First, get the event data
+                    cur.execute(
+                        """
                         SELECT id, patient_id, visit_id, form_id, event_type, form_data, metadata, created_at
                         FROM events
                         WHERE id = %s
+                        """,
+                        (id,)
                     )
-                    INSERT INTO visits (id, patient_id, clinic_id, provider_id, is_deleted, deleted_at, check_in_timestamp, metadata)
-                    SELECT ed.visit_id, ed.patient_id, NULL, NULL, true, %s, ed.created_at, 
-                           jsonb_build_object(
-                               'artificially_created', true,
-                               'created_from', 'server_event_deletion',
-                               'original_event_id', ed.id
-                           )
-                    FROM event_data ed
-                    LEFT JOIN visits v ON v.id = ed.visit_id
-                    WHERE v.id IS NULL AND ed.visit_id IS NOT NULL
-                    ON CONFLICT (id) DO NOTHING;
-                    
-                    UPDATE events 
-                    SET is_deleted = true, deleted_at = %s 
-                    WHERE id = %s;
-                    """,
-                    (id, last_pushed_at, last_pushed_at, id)
-                )
-            # for id in deltadata.deleted:
-            #     cur.execute(
-            #         """UPDATE events SET is_deleted=true, deleted_at=%s WHERE id = %s;""",
-            #         (last_pushed_at, id)
-            #     )
+                    event_data = cur.fetchone()
+
+                    if event_data and event_data['visit_id']:
+                        # Check if the visit exists
+                        cur.execute(
+                            """
+                            SELECT id FROM visits WHERE id = %s
+                            """,
+                            (event_data['visit_id'],)
+                        )
+                        visit_exists = cur.fetchone()
+
+                        if not visit_exists:
+                            # If the visit doesn't exist, create an artificial one
+                            logging.warning(f"Event {event_data['id']} references non-existent visit {
+                                            event_data['visit_id']}. Creating placeholder visit, marked as artificially created and deleted.")
+                            print(f"REVIEWER WARNING: Event {event_data['id']} references non-existent visit {
+                                event_data['visit_id']}. A placeholder visit will be created.")
+
+                            # NOTE: We are not creating an artificial visit here, since we don't have a clinic_id and provider_id. It will just throw an error.
+                            # cur.execute(
+                            #     """
+                            #     INSERT INTO visits (id, patient_id, clinic_id, provider_id, is_deleted, deleted_at, check_in_timestamp, metadata)
+                            #     VALUES (%s, %s, NULL, NULL, true, %s, %s, %s)
+                            #     ON CONFLICT (id) DO NOTHING
+                            #     """,
+                            #     (
+                            #         event_data['visit_id'],
+                            #         event_data['patient_id'],
+                            #         last_pushed_at,
+                            #         event_data['created_at'],
+                            #         json.dumps({
+                            #             'artificially_created': True,
+                            #             'created_from': 'server_event_deletion',
+                            #             'original_event_id': event_data['id']
+                            #         })
+                            #     )
+                            # )
+
+                    # Finally, soft delete the event
+                    cur.execute(
+                        """
+                        UPDATE events 
+                        SET is_deleted = true, deleted_at = %s 
+                        WHERE id = %s
+                        """,
+                        (last_pushed_at, id)
+                    )
+                # for id in deltadata.deleted:
+                #     cur.execute(
+                #         """UPDATE events SET is_deleted=true, deleted_at=%s WHERE id = %s;""",
+                #         (last_pushed_at, id)
+                #     )
+
+                # Commit changes
+                conn.commit()
+            except Exception as e:
+                print(f"Event Errors: {str(e)}")
+                conn.rollback()
+                raise e
 
 
 @core.dataentity
@@ -339,120 +376,129 @@ class Visit(sync.SyncableEntity):
     @classmethod
     def apply_delta_changes(cls, deltadata, last_pushed_at, conn):
         with conn.cursor() as cur:
-            # `cur.executemany` can be used instead
-            for visit in itertools.chain(deltadata.created, deltadata.updated):
-                visit = dict(visit)
-                visit.update(
-                    check_in_timestamp=utc.from_unixtimestamp(
-                        visit['check_in_timestamp']),
-                    created_at=utc.from_unixtimestamp(visit['created_at']),
-                    updated_at=utc.from_unixtimestamp(visit['updated_at']),
-                    metadata=json.dumps(visit["metadata"]),
-                    last_modified=utc.now()
-                )
+            try:
+                # `cur.executemany` can be used instead
+                for visit in itertools.chain(deltadata.created, deltadata.updated):
+                    visit = dict(visit)
+                    visit.update(
+                        check_in_timestamp=utc.from_unixtimestamp(
+                            visit['check_in_timestamp']),
+                        created_at=utc.from_unixtimestamp(visit['created_at']),
+                        updated_at=utc.from_unixtimestamp(visit['updated_at']),
+                        metadata=json.dumps(visit["metadata"]),
+                        last_modified=utc.now()
+                    )
 
-                cur.execute(
-                    """
-                    INSERT INTO visits
-                        (id, patient_id, clinic_id, provider_id, provider_name, check_in_timestamp, metadata, created_at, updated_at, last_modified)
-                    VALUES
-                        (%(id)s, %(patient_id)s, %(clinic_id)s, %(provider_id)s, %(provider_name)s, %(check_in_timestamp)s, %(metadata)s, %(created_at)s, %(updated_at)s, %(last_modified)s)   
-                    ON CONFLICT (id) DO UPDATE
-                    SET
-                        patient_id=EXCLUDED.patient_id,  
-                        clinic_id=EXCLUDED.clinic_id, 
-                        provider_id=EXCLUDED.provider_id, 
-                        provider_name=EXCLUDED.provider_name, 
-                        check_in_timestamp=EXCLUDED.check_in_timestamp, 
-                        metadata=EXCLUDED.metadata, 
-                        created_at=EXCLUDED.created_at,
-                        updated_at=EXCLUDED.updated_at, 
-                        last_modified=EXCLUDED.last_modified
-                    """,
-                    visit
-                )
-
-            for id in deltadata.deleted:
-                # Soft delete visit and related records
-                try:
                     cur.execute(
                         """
-                        WITH visit_update AS (
-                            UPDATE visits
+                        INSERT INTO visits
+                            (id, patient_id, clinic_id, provider_id, provider_name, check_in_timestamp, metadata, created_at, updated_at, last_modified)
+                        VALUES
+                            (%(id)s, %(patient_id)s, %(clinic_id)s, %(provider_id)s, %(provider_name)s, %(check_in_timestamp)s, %(metadata)s, %(created_at)s, %(updated_at)s, %(last_modified)s)   
+                        ON CONFLICT (id) DO UPDATE
+                        SET
+                            patient_id=EXCLUDED.patient_id,  
+                            clinic_id=EXCLUDED.clinic_id, 
+                            provider_id=EXCLUDED.provider_id, 
+                            provider_name=EXCLUDED.provider_name, 
+                            check_in_timestamp=EXCLUDED.check_in_timestamp, 
+                            metadata=EXCLUDED.metadata, 
+                            created_at=EXCLUDED.created_at,
+                            updated_at=EXCLUDED.updated_at, 
+                            last_modified=EXCLUDED.last_modified
+                        """,
+                        visit
+                    )
+
+                for id in deltadata.deleted:
+                    # Soft delete visit and related records
+                    cur.execute(
+                        """
+                        UPDATE visits
+                        SET is_deleted = true,
+                            deleted_at = %s,
+                            updated_at = %s,
+                            last_modified = %s
+                        WHERE id = %s::uuid
+                        RETURNING id;
+                        """,
+                        (utc.now(), utc.now(), utc.now(), id)
+                    )
+                    updated_visit_ids = [row[0] for row in cur.fetchall()]
+
+                    if updated_visit_ids:
+                        cur.execute(
+                            """
+                            UPDATE events
                             SET is_deleted = true,
                                 deleted_at = %s,
                                 updated_at = %s,
                                 last_modified = %s
-                            WHERE id = %s::uuid
-                            RETURNING id
+                            WHERE visit_id = ANY(%s);
+                            """,
+                            (utc.now(), utc.now(), utc.now(), updated_visit_ids)
                         )
-                        UPDATE events
-                        SET is_deleted = true,
-                            deleted_at = %s,
-                            updated_at = %s,
-                            last_modified = %s
-                        WHERE visit_id IN (SELECT id FROM visit_update);
 
-                        UPDATE appointments
-                        SET is_deleted = true,
-                            deleted_at = %s,
-                            updated_at = %s,
-                            last_modified = %s
-                        WHERE visit_id IN (SELECT id FROM visit_update);
-                    """,
-                        (utc.now(), utc.now(), utc.now(), id,
-                         utc.now(), utc.now(), utc.now(),
-                         utc.now(), utc.now(), utc.now())
-                    )
-                except Exception as e:
-                    print(f"Error deleting visit {id}: {str(e)}")
-                    conn.rollback()
-                    # Still throw error so we can review
-                    raise e
-                else:
-                    conn.commit()
-            # for id in deltadata.deleted:
-            #     # Upsert soft delete visit record
-            #     cur.execute(
-            #         """
-            #         INSERT INTO visits
-            #             (id, is_deleted, patient_id, clinic_id, provider_id, provider_name, check_in_timestamp, metadata, created_at, updated_at, last_modified, deleted_at)
-            #         VALUES
-            #             (%s::uuid, true, '', '', '', '', NULL, '{}', %s, %s, %s, %s)
-            #         ON CONFLICT (id) DO UPDATE
-            #         SET is_deleted = true,
-            #             deleted_at = EXCLUDED.deleted_at,
-            #             updated_at = EXCLUDED.updated_at,
-            #             last_modified = EXCLUDED.last_modified;
-            #         """,
-            #         (id, utc.now(), utc.now(), utc.now(), utc.now())
-            #     )
+                        cur.execute(
+                            """
+                            UPDATE appointments
+                            SET is_deleted = true,
+                                deleted_at = %s,
+                                updated_at = %s,
+                                last_modified = %s
+                            WHERE visit_id = ANY(%s);
+                            """,
+                            (utc.now(), utc.now(), utc.now(), updated_visit_ids)
+                        )
+                # Commit changes
+                conn.commit()
+            except Exception as e:
+                print(f"Error deleting visit {id}: {str(e)}")
+                conn.rollback()
+                # Still throw error so we can review
+                raise e
+        # for id in deltadata.deleted:
+        #     # Upsert soft delete visit record
+        #     cur.execute(
+        #         """
+        #         INSERT INTO visits
+        #             (id, is_deleted, patient_id, clinic_id, provider_id, provider_name, check_in_timestamp, metadata, created_at, updated_at, last_modified, deleted_at)
+        #         VALUES
+        #             (%s::uuid, true, '', '', '', '', NULL, '{}', %s, %s, %s, %s)
+        #         ON CONFLICT (id) DO UPDATE
+        #         SET is_deleted = true,
+        #             deleted_at = EXCLUDED.deleted_at,
+        #             updated_at = EXCLUDED.updated_at,
+        #             last_modified = EXCLUDED.last_modified;
+        #         """,
+        #         (id, utc.now(), utc.now(), utc.now(), utc.now())
+        #     )
 
-            #     # Soft delete events for deleted visits
-            #     cur.execute(
-            #         """
-            #         UPDATE events
-            #         SET is_deleted = true,
-            #             deleted_at = %s,
-            #             updated_at = %s,
-            #             last_modified = %s
-            #         WHERE visit_id = %s::uuid;
-            #         """,
-            #         (utc.now(), utc.now(), utc.now(), id)
-            #     )
+        #     # Soft delete events for deleted visits
+        #     cur.execute(
+        #         """
+        #         UPDATE events
+        #         SET is_deleted = true,
+        #             deleted_at = %s,
+        #             updated_at = %s,
+        #             last_modified = %s
+        #         WHERE visit_id = %s::uuid;
+        #         """,
+        #         (utc.now(), utc.now(), utc.now(), id)
+        #     )
 
-            #     # Soft delete appointments for deleted visits
-            #     cur.execute(
-            #         """
-            #         UPDATE appointments
-            #         SET is_deleted = true,
-            #             deleted_at = %s,
-            #             updated_at = %s,
-            #             last_modified = %s
-            #         WHERE visit_id = %s::uuid;
-            #         """,
-            #         (utc.now(), utc.now(), utc.now(), id)
-            #     )
+        #     # Soft delete appointments for deleted visits
+        #     cur.execute(
+        #         """
+        #         UPDATE appointments
+        #         SET is_deleted = true,
+        #             deleted_at = %s,
+        #             updated_at = %s,
+        #             last_modified = %s
+        #         WHERE visit_id = %s::uuid;
+        #         """,
+        #         (utc.now(), utc.now(), utc.now(), id)
+        #     )
 
 
 @core.dataentity
@@ -576,92 +622,110 @@ class Appointment(sync.SyncableEntity):
     @classmethod
     def apply_delta_changes(cls, deltadata, last_pushed_at, conn):
         with conn.cursor() as cur:
-            # TODO: `cur.executemany` can be used instead
-            for appointment in itertools.chain(deltadata.created, deltadata.updated):
-                appointment = dict(appointment)
-                appointment.update(
-                    timestamp=utc.from_unixtimestamp(
-                        appointment['timestamp']),
-                    created_at=utc.from_unixtimestamp(
-                        appointment['created_at']),
-                    updated_at=utc.from_unixtimestamp(
-                        appointment['updated_at']),
-                    server_created_at=utc.now(),
-                    metadata=json.dumps(appointment["metadata"]),
-                    last_modified=utc.now()
-                )
+            try:
+                # TODO: `cur.executemany` can be used instead
+                for appointment in itertools.chain(deltadata.created, deltadata.updated):
+                    appointment = dict(appointment)
+                    appointment.update(
+                        timestamp=utc.from_unixtimestamp(
+                            appointment['timestamp']),
+                        created_at=utc.from_unixtimestamp(
+                            appointment['created_at']),
+                        updated_at=utc.from_unixtimestamp(
+                            appointment['updated_at']),
+                        server_created_at=utc.now(),
+                        metadata=json.dumps(appointment["metadata"]),
+                        last_modified=utc.now()
+                    )
 
-                # Set provider_id to None if it's not present, empty, or an invalid UUID
-                if 'provider_id' not in appointment or not appointment['provider_id'] or not is_valid_uuid(appointment['provider_id']):
-                    appointment['provider_id'] = None
+                    # Set provider_id to None if it's not present, empty, or an invalid UUID
+                    if 'provider_id' not in appointment or not appointment['provider_id'] or not is_valid_uuid(appointment['provider_id']):
+                        appointment['provider_id'] = None
 
-                cur.execute(
-                    """
-                    INSERT INTO appointments
-                        (id, timestamp, duration, reason, notes, provider_id, clinic_id, patient_id, user_id, status, current_visit_id, fulfilled_visit_id, metadata, created_at, updated_at, last_modified, is_deleted, server_created_at)
-                    VALUES
-                        (%(id)s, %(timestamp)s, %(duration)s, %(reason)s, %(notes)s, %(provider_id)s, %(clinic_id)s, %(patient_id)s, %(user_id)s, %(status)s, %(current_visit_id)s, %(fulfilled_visit_id)s, %(metadata)s, %(created_at)s, %(updated_at)s, %(last_modified)s, %(is_deleted)s, %(server_created_at)s)
-                    ON CONFLICT (id) DO UPDATE
-                    SET
-                        timestamp=EXCLUDED.timestamp,
-                        duration=EXCLUDED.duration,  
-                        reason=EXCLUDED.reason, 
-                        notes=EXCLUDED.notes, 
-                        provider_id=EXCLUDED.provider_id, 
-                        clinic_id=EXCLUDED.clinic_id, 
-                        patient_id=EXCLUDED.patient_id, 
-                        user_id=EXCLUDED.user_id,
-                        status=EXCLUDED.status, 
-                        current_visit_id=EXCLUDED.current_visit_id,
-                        fulfilled_visit_id=EXCLUDED.fulfilled_visit_id,
-                        metadata=EXCLUDED.metadata,
-                        created_at=EXCLUDED.created_at,
-                        updated_at=EXCLUDED.updated_at,
-                        last_modified=EXCLUDED.last_modified,
-                        is_deleted=EXCLUDED.is_deleted
-                    """,
-                    appointment
-                )
+                    cur.execute(
+                        """
+                        INSERT INTO appointments
+                            (id, timestamp, duration, reason, notes, provider_id, clinic_id, patient_id, user_id, status, current_visit_id, fulfilled_visit_id, metadata, created_at, updated_at, last_modified, is_deleted, server_created_at)
+                        VALUES
+                            (%(id)s, %(timestamp)s, %(duration)s, %(reason)s, %(notes)s, %(provider_id)s, %(clinic_id)s, %(patient_id)s, %(user_id)s, %(status)s, %(current_visit_id)s, %(fulfilled_visit_id)s, %(metadata)s, %(created_at)s, %(updated_at)s, %(last_modified)s, %(is_deleted)s, %(server_created_at)s)
+                        ON CONFLICT (id) DO UPDATE
+                        SET
+                            timestamp=EXCLUDED.timestamp,
+                            duration=EXCLUDED.duration,  
+                            reason=EXCLUDED.reason, 
+                            notes=EXCLUDED.notes, 
+                            provider_id=EXCLUDED.provider_id, 
+                            clinic_id=EXCLUDED.clinic_id, 
+                            patient_id=EXCLUDED.patient_id, 
+                            user_id=EXCLUDED.user_id,
+                            status=EXCLUDED.status, 
+                            current_visit_id=EXCLUDED.current_visit_id,
+                            fulfilled_visit_id=EXCLUDED.fulfilled_visit_id,
+                            metadata=EXCLUDED.metadata,
+                            created_at=EXCLUDED.created_at,
+                            updated_at=EXCLUDED.updated_at,
+                            last_modified=EXCLUDED.last_modified,
+                            is_deleted=EXCLUDED.is_deleted
+                        """,
+                        appointment
+                    )
 
-            for id in deltadata.deleted:
-                # Not making 'cancelled' appointments 'deleted' on purpose. we need to sync them
-                cur.execute(
-                    """
-                    WITH appointment_data AS (
+                for id in deltadata.deleted:
+                    # Not making 'cancelled' appointments 'deleted' on purpose. we need to sync them
+                    cur.execute(
+                        """
                         SELECT id, current_visit_id, fulfilled_visit_id, created_at, 
-                               patient_id, clinic_id, user_id
+                            patient_id, clinic_id, user_id
                         FROM appointments
                         WHERE id = %s
+                        """,
+                        (id,)
                     )
-                    INSERT INTO visits (id, patient_id, clinic_id, provider_id, is_deleted, deleted_at, check_in_timestamp, metadata)
-                    SELECT v.id, ad.patient_id, ad.clinic_id, ad.user_id, true, %s, ad.created_at, 
-                           jsonb_build_object(
-                               'artificially_created', true,
-                               'created_from', 'server_appointment_deletion',
-                               'original_appointment_id', ad.id
-                           )
-                    FROM (
-                        SELECT current_visit_id AS id FROM appointment_data
-                        UNION
-                        SELECT fulfilled_visit_id FROM appointment_data
-                    ) v
-                    CROSS JOIN appointment_data ad
-                    LEFT JOIN visits ON visits.id = v.id
-                    WHERE visits.id IS NULL AND v.id IS NOT NULL
-                    ON CONFLICT (id) DO NOTHING;
-                    
-                    UPDATE appointments 
-                    SET is_deleted = true, deleted_at = COALESCE(%s, CURRENT_TIMESTAMP) 
-                    WHERE id = %s;
-                    """,
-                    (id, last_pushed_at, last_pushed_at, id)
-                )
-            # for id in deltadata.deleted:
-            #     # Not making 'cancelled' appointments 'deleted' on purpose. we need to sync them
-            #     cur.execute(
-            #         """UPDATE appointments SET is_deleted=true, deleted_at=%s WHERE id=%s;""",
-            #         (last_pushed_at, id)
-            #     )
+                    appointment = cur.fetchone()
+
+                    if appointment:
+                        # Insert artificial visits for current_visit_id and fulfilled_visit_id if they don't exist
+                        for visit_id in [appointment['current_visit_id'], appointment['fulfilled_visit_id']]:
+                            if visit_id:
+                                cur.execute(
+                                    """
+                                    INSERT INTO visits (id, patient_id, clinic_id, provider_id, is_deleted, deleted_at, check_in_timestamp, metadata)
+                                    SELECT %s, %s, %s, %s, true, %s, %s, 
+                                        jsonb_build_object(
+                                            'artificially_created', true,
+                                            'created_from', 'server_appointment_deletion',
+                                            'original_appointment_id', %s
+                                        )
+                                    WHERE NOT EXISTS (SELECT 1 FROM visits WHERE id = %s)
+                                    """,
+                                    (visit_id, appointment['patient_id'], appointment['clinic_id'],
+                                     appointment['user_id'], last_pushed_at, appointment['created_at'],
+                                     appointment['id'], visit_id)
+                                )
+
+                        # Update the appointment to mark it as deleted
+                        cur.execute(
+                            """
+                            UPDATE appointments 
+                            SET is_deleted = true, deleted_at = COALESCE(%s, CURRENT_TIMESTAMP) 
+                            WHERE id = %s
+                            """,
+                            (last_pushed_at, id)
+                        )
+                    else:
+                        print(f"Warning: Appointment with id {
+                              id} not found for deletion.")
+                # for id in deltadata.deleted:
+                #     # Not making 'cancelled' appointments 'deleted' on purpose. we need to sync them
+                #     cur.execute(
+                #         """UPDATE appointments SET is_deleted=true, deleted_at=%s WHERE id=%s;""",
+                #         (last_pushed_at, id)
+                #     )
+                conn.commit()
+            except Exception as e:
+                print(f"Appointment Errors {id}: {str(e)}")
+                conn.rollback()
+                raise e
 
     @classmethod
     def search(cls, filters):
