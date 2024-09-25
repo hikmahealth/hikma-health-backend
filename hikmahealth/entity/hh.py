@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 
 from hikmahealth.entity import core, sync, fields, helpers
 
@@ -249,6 +250,32 @@ class Event(sync.SyncableEntity):
                     updated_at=utc.from_unixtimestamp(event["updated_at"]),
                     metadata=json.dumps(event["metadata"]),
                 )
+
+                # Check if patient exists
+                cur.execute(
+                    "SELECT EXISTS(SELECT 1 FROM patients WHERE id = %s)", (event['patient_id'],))
+                patient_exists = cur.fetchone()[0]
+
+                if not patient_exists:
+                    # Log out that there is no patient with and event_id. warn reviewer
+                    logging.warning(f"Event {event['id']} references non-existent patient {
+                                    event['patient_id']}. Creating placeholder patient, marked as artificially created and deleted.")
+                    print(f"REVIEWER WARNING: Event {event['id']} references non-existent patient {
+                          event['patient_id']}. A placeholder patient will be created.")
+
+                    # We are choosing to create patients dynamically here if they don't exist.
+                    # We can also choose to skip events for non-existent patients.
+                    placeholder_metadata = json.dumps({
+                        "artificially_created": True,
+                        "created_from": "server_event_creation",
+                        "original_event_id": event['id']
+                    })
+                    cur.execute("""
+                        INSERT INTO patients (id, given_name, surname, is_deleted, deleted_at, created_at, updated_at, metadata)
+                        VALUES (%s, '', '', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, %s)
+                        ON CONFLICT (id) DO NOTHING
+                    """, (event['patient_id'], placeholder_metadata)
+                    )
 
                 cur.execute(
                     """
