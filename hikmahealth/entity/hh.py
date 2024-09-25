@@ -533,9 +533,37 @@ class Appointment(sync.SyncableEntity):
             for id in deltadata.deleted:
                 # Not making 'cancelled' appointments 'deleted' on purpose. we need to sync them
                 cur.execute(
-                    """UPDATE appointments SET is_deleted=true, deleted_at=%s WHERE id=%s;""",
-                    (last_pushed_at, id)
+                    """
+                    WITH appointment_data AS (
+                        SELECT id, current_visit_id, fulfilled_visit_id, created_at
+                        FROM appointments
+                        WHERE id = %s
+                    )
+                    INSERT INTO visits (id, patient_id, clinic_id, provider_id, check_in_timestamp, metadata)
+                    SELECT v.id, 'unknown', 'unknown', 'unknown', ad.created_at, 
+                           '{"artificially_created": true, "created_from": "server_appointment_deletion"}'::jsonb
+                    FROM (
+                        SELECT current_visit_id AS id FROM appointment_data
+                        UNION
+                        SELECT fulfilled_visit_id FROM appointment_data
+                    ) v
+                    CROSS JOIN appointment_data ad
+                    LEFT JOIN visits ON visits.id = v.id
+                    WHERE visits.id IS NULL AND v.id IS NOT NULL
+                    ON CONFLICT (id) DO NOTHING;
+                    
+                    UPDATE appointments 
+                    SET is_deleted = true, deleted_at = %s 
+                    WHERE id = %s;
+                    """,
+                    (id, last_pushed_at, id)
                 )
+            # for id in deltadata.deleted:
+            #     # Not making 'cancelled' appointments 'deleted' on purpose. we need to sync them
+            #     cur.execute(
+            #         """UPDATE appointments SET is_deleted=true, deleted_at=%s WHERE id=%s;""",
+            #         (last_pushed_at, id)
+            #     )
 
     @classmethod
     def search(cls, filters):

@@ -399,6 +399,58 @@ def get_single_patient(_, id: str):
     return jsonify({"patient": patient})
 
 
+@api.route("/patients/<id>", methods=["DELETE"])
+@middleware.authenticated_admin
+def delete_patient(_, id: str):
+    with db.get_connection() as conn:
+        try:
+            with conn.cursor() as cur:
+                # Start a transaction
+                cur.execute("BEGIN")
+
+                # Check if patient exists
+                cur.execute(
+                    "SELECT id FROM patients WHERE id = %s AND is_deleted = false", [id])
+                if cur.fetchone() is None:
+                    return jsonify({"ok": False, "message": "Patient not found"}), 404
+
+                # Soft delete the patient and related data
+                tables = ["patients", "visits", "events",
+                          "appointments", "patient_additional_attributes"]
+                deleted_counts = {}
+
+                for table in tables:
+                    cur.execute(f"""
+                        UPDATE {table}
+                        SET is_deleted = true, deleted_at = current_timestamp
+                        WHERE {"id" if table == "patients" else "patient_id"} = %s
+                        RETURNING id
+                    """, [id])
+                    deleted_counts[table] = cur.rowcount
+
+                # Commit the transaction
+                cur.execute("COMMIT")
+
+            logging.info(f"Patient {id} and related data soft deleted successfully: {
+                         deleted_counts}")
+            return jsonify({
+                "ok": True,
+                "message": "Patient and related data soft deleted successfully",
+                "deleted_counts": deleted_counts
+            })
+
+        except psycopg.Error as e:
+            conn.rollback()
+            logging.error(
+                f"Database error while deleting patient {id}: {str(e)}")
+            return jsonify({"ok": False, "message": "A database error occurred while deleting the patient"}), 500
+        except Exception as e:
+            conn.rollback()
+            logging.error(
+                f"Unexpected error while deleting patient {id}: {str(e)}")
+            return jsonify({"ok": False, "message": "An unexpected error occurred while deleting the patient"}), 500
+
+
 @api.get("/patients/<id>/events")
 @middleware.authenticated_admin
 def get_patient_events(_, id: str):
