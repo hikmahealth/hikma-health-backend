@@ -407,6 +407,8 @@ class Visit(sync.SyncableEntity):
                 except Exception as e:
                     print(f"Error deleting visit {id}: {str(e)}")
                     conn.rollback()
+                    # Still throw error so we can review
+                    raise e
                 else:
                     conn.commit()
             # for id in deltadata.deleted:
