@@ -345,49 +345,79 @@ class Visit(sync.SyncableEntity):
                     visit
                 )
 
-            # FIXME: verify this
             for id in deltadata.deleted:
-                # Upsert soft delete visit record
+                # Soft delete visit and related records
                 cur.execute(
                     """
-                    INSERT INTO visits
-                        (id, is_deleted, patient_id, clinic_id, provider_id, provider_name, check_in_timestamp, metadata, created_at, updated_at, last_modified, deleted_at)
-                    VALUES 
-                        (%s::uuid, true, '', '', '', '', NULL, '{}', %s, %s, %s, %s)
-                    ON CONFLICT (id) DO UPDATE
-                    SET is_deleted = true,
-                        deleted_at = EXCLUDED.deleted_at,
-                        updated_at = EXCLUDED.updated_at,
-                        last_modified = EXCLUDED.last_modified;
-                    """,
-                    (id, utc.now(), utc.now(), utc.now(), utc.now())
-                )
-
-                # Soft delete events for deleted visits
-                cur.execute(
-                    """
+                    WITH visit_update AS (
+                        UPDATE visits
+                        SET is_deleted = true,
+                            deleted_at = %s,
+                            updated_at = %s,
+                            last_modified = %s
+                        WHERE id = %s::uuid
+                        RETURNING id
+                    )
                     UPDATE events
                     SET is_deleted = true,
                         deleted_at = %s,
                         updated_at = %s,
                         last_modified = %s
-                    WHERE visit_id = %s::uuid;
-                    """,
-                    (utc.now(), utc.now(), utc.now(), id)
-                )
+                    WHERE visit_id IN (SELECT id FROM visit_update);
 
-                # Soft delete appointments for deleted visits
-                cur.execute(
-                    """
                     UPDATE appointments
                     SET is_deleted = true,
                         deleted_at = %s,
                         updated_at = %s,
                         last_modified = %s
-                    WHERE visit_id = %s::uuid;
+                    WHERE visit_id IN (SELECT id FROM visit_update);
                     """,
-                    (utc.now(), utc.now(), utc.now(), id)
+                    (utc.now(), utc.now(), utc.now(), id,
+                     utc.now(), utc.now(), utc.now(),
+                     utc.now(), utc.now(), utc.now())
                 )
+            # for id in deltadata.deleted:
+            #     # Upsert soft delete visit record
+            #     cur.execute(
+            #         """
+            #         INSERT INTO visits
+            #             (id, is_deleted, patient_id, clinic_id, provider_id, provider_name, check_in_timestamp, metadata, created_at, updated_at, last_modified, deleted_at)
+            #         VALUES
+            #             (%s::uuid, true, '', '', '', '', NULL, '{}', %s, %s, %s, %s)
+            #         ON CONFLICT (id) DO UPDATE
+            #         SET is_deleted = true,
+            #             deleted_at = EXCLUDED.deleted_at,
+            #             updated_at = EXCLUDED.updated_at,
+            #             last_modified = EXCLUDED.last_modified;
+            #         """,
+            #         (id, utc.now(), utc.now(), utc.now(), utc.now())
+            #     )
+
+            #     # Soft delete events for deleted visits
+            #     cur.execute(
+            #         """
+            #         UPDATE events
+            #         SET is_deleted = true,
+            #             deleted_at = %s,
+            #             updated_at = %s,
+            #             last_modified = %s
+            #         WHERE visit_id = %s::uuid;
+            #         """,
+            #         (utc.now(), utc.now(), utc.now(), id)
+            #     )
+
+            #     # Soft delete appointments for deleted visits
+            #     cur.execute(
+            #         """
+            #         UPDATE appointments
+            #         SET is_deleted = true,
+            #             deleted_at = %s,
+            #             updated_at = %s,
+            #             last_modified = %s
+            #         WHERE visit_id = %s::uuid;
+            #         """,
+            #         (utc.now(), utc.now(), utc.now(), id)
+            #     )
 
 
 @core.dataentity
