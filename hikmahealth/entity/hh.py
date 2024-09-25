@@ -453,7 +453,7 @@ class Visit(sync.SyncableEntity):
                 # Commit changes
                 conn.commit()
             except Exception as e:
-                print(f"Error deleting visit {id}: {str(e)}")
+                print(f"Vist Errors: {str(e)}")
                 conn.rollback()
                 # Still throw error so we can review
                 raise e
@@ -723,7 +723,7 @@ class Appointment(sync.SyncableEntity):
                 #     )
                 conn.commit()
             except Exception as e:
-                print(f"Appointment Errors {id}: {str(e)}")
+                print(f"Appointment Errors: {str(e)}")
                 conn.rollback()
                 raise e
 
