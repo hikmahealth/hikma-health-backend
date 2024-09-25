@@ -269,12 +269,40 @@ class Event(sync.SyncableEntity):
                     """,
                     event
                 )
-
             for id in deltadata.deleted:
+                # We soft delete events while maintaining referential integrity. This makes sure that
+                # if we ever have a state where the visit does not exist while the event does, we can
+                # still perform the sync while applying soft deletes to events and visits
                 cur.execute(
-                    """UPDATE events SET is_deleted=true, deleted_at=%s WHERE id = %s;""",
-                    (last_pushed_at, id)
+                    """
+                    WITH event_data AS (
+                        SELECT id, patient_id, visit_id, form_id, event_type, form_data, metadata, created_at
+                        FROM events
+                        WHERE id = %s
+                    )
+                    INSERT INTO visits (id, patient_id, clinic_id, provider_id, is_deleted, deleted_at, check_in_timestamp, metadata)
+                    SELECT ed.visit_id, ed.patient_id, NULL, NULL, true, %s, ed.created_at, 
+                           jsonb_build_object(
+                               'artificially_created', true,
+                               'created_from', 'server_event_deletion',
+                               'original_event_id', ed.id
+                           )
+                    FROM event_data ed
+                    LEFT JOIN visits v ON v.id = ed.visit_id
+                    WHERE v.id IS NULL AND ed.visit_id IS NOT NULL
+                    ON CONFLICT (id) DO NOTHING;
+                    
+                    UPDATE events 
+                    SET is_deleted = true, deleted_at = %s 
+                    WHERE id = %s;
+                    """,
+                    (id, last_pushed_at, last_pushed_at, id)
                 )
+            # for id in deltadata.deleted:
+            #     cur.execute(
+            #         """UPDATE events SET is_deleted=true, deleted_at=%s WHERE id = %s;""",
+            #         (last_pushed_at, id)
+            #     )
 
 
 @core.dataentity
@@ -535,13 +563,18 @@ class Appointment(sync.SyncableEntity):
                 cur.execute(
                     """
                     WITH appointment_data AS (
-                        SELECT id, current_visit_id, fulfilled_visit_id, created_at
+                        SELECT id, current_visit_id, fulfilled_visit_id, created_at, 
+                               patient_id, clinic_id, user_id
                         FROM appointments
                         WHERE id = %s
                     )
-                    INSERT INTO visits (id, patient_id, clinic_id, provider_id, check_in_timestamp, metadata)
-                    SELECT v.id, 'unknown', 'unknown', 'unknown', ad.created_at, 
-                           '{"artificially_created": true, "created_from": "server_appointment_deletion"}'::jsonb
+                    INSERT INTO visits (id, patient_id, clinic_id, provider_id, is_deleted, deleted_at, check_in_timestamp, metadata)
+                    SELECT v.id, ad.patient_id, ad.clinic_id, ad.user_id, true, %s, ad.created_at, 
+                           jsonb_build_object(
+                               'artificially_created', true,
+                               'created_from', 'server_appointment_deletion',
+                               'original_appointment_id', ad.id
+                           )
                     FROM (
                         SELECT current_visit_id AS id FROM appointment_data
                         UNION
@@ -553,10 +586,10 @@ class Appointment(sync.SyncableEntity):
                     ON CONFLICT (id) DO NOTHING;
                     
                     UPDATE appointments 
-                    SET is_deleted = true, deleted_at = %s 
+                    SET is_deleted = true, deleted_at = COALESCE(%s, CURRENT_TIMESTAMP) 
                     WHERE id = %s;
                     """,
-                    (id, last_pushed_at, id)
+                    (id, last_pushed_at, last_pushed_at, id)
                 )
             # for id in deltadata.deleted:
             #     # Not making 'cancelled' appointments 'deleted' on purpose. we need to sync them
