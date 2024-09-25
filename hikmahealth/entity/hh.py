@@ -347,35 +347,41 @@ class Visit(sync.SyncableEntity):
 
             for id in deltadata.deleted:
                 # Soft delete visit and related records
-                cur.execute(
-                    """
-                    WITH visit_update AS (
-                        UPDATE visits
+                try:
+                    cur.execute(
+                        """
+                        WITH visit_update AS (
+                            UPDATE visits
+                            SET is_deleted = true,
+                                deleted_at = %s,
+                                updated_at = %s,
+                                last_modified = %s
+                            WHERE id = %s::uuid
+                            RETURNING id
+                        )
+                        UPDATE events
                         SET is_deleted = true,
                             deleted_at = %s,
                             updated_at = %s,
                             last_modified = %s
-                        WHERE id = %s::uuid
-                        RETURNING id
-                    )
-                    UPDATE events
-                    SET is_deleted = true,
-                        deleted_at = %s,
-                        updated_at = %s,
-                        last_modified = %s
-                    WHERE visit_id IN (SELECT id FROM visit_update);
+                        WHERE visit_id IN (SELECT id FROM visit_update);
 
-                    UPDATE appointments
-                    SET is_deleted = true,
-                        deleted_at = %s,
-                        updated_at = %s,
-                        last_modified = %s
-                    WHERE visit_id IN (SELECT id FROM visit_update);
+                        UPDATE appointments
+                        SET is_deleted = true,
+                            deleted_at = %s,
+                            updated_at = %s,
+                            last_modified = %s
+                        WHERE visit_id IN (SELECT id FROM visit_update);
                     """,
-                    (utc.now(), utc.now(), utc.now(), id,
-                     utc.now(), utc.now(), utc.now(),
-                     utc.now(), utc.now(), utc.now())
-                )
+                        (utc.now(), utc.now(), utc.now(), id,
+                         utc.now(), utc.now(), utc.now(),
+                         utc.now(), utc.now(), utc.now())
+                    )
+                except Exception as e:
+                    print(f"Error deleting visit {id}: {str(e)}")
+                    conn.rollback()
+                else:
+                    conn.commit()
             # for id in deltadata.deleted:
             #     # Upsert soft delete visit record
             #     cur.execute(
