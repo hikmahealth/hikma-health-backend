@@ -19,6 +19,8 @@ import dataclasses
 import json
 
 from hikmahealth.utils.misc import is_valid_uuid
+import uuid
+
 
 # might want to make it such that the syncing
 # 1. fails properly
@@ -278,6 +280,51 @@ class Event(sync.SyncableEntity):
                         """, (event['patient_id'], placeholder_metadata)
                         )
 
+                    # Verify that the visit exists
+                    if event['visit_id'] and is_valid_uuid(event['visit_id']):
+                        # If the visit_id is not valid, set it to None
+                        cur.execute(
+                            """
+                            SELECT EXISTS(SELECT 1 FROM visits WHERE id = %s)
+                            """,
+                            (event['visit_id'],)
+                        )
+                        form_exists = cur.fetchone()[0]
+
+                        if not form_exists:
+                            logging.warning(f"Event {event['id']} references non-existent visit {
+                                            event['visit_id']}. Setting visit_id to None.")
+                            print(f"REVIEWER WARNING: Event {event['id']} references non-existent visit {
+                                  event['visit_id']}. visit_id will be set to None.")
+                            event['visit_id'] = None
+                    else:
+                        # If the visit_id is not valid, set it to None
+                        event['visit_id'] = None
+
+                    # Verify that a form exists
+                    if event['form_id'] and is_valid_uuid(event['form_id']):
+                        # If the visit_id is not valid, set it to None
+                        cur.execute(
+                            """
+                            SELECT EXISTS(SELECT 1 FROM event_forms WHERE id = %s)
+                            """,
+                            (event['form_id'],)
+                        )
+                        form_exists = cur.fetchone()[0]
+
+                        if not form_exists:
+                            logging.warning(f"Event {event['id']} references non-existent form {
+                                            event['form_id']}. Setting form_id to None.")
+                            print(f"REVIEWER WARNING: Event {
+                                  event['id']} references non-existent form {event['form_id']}. form_id will be set to None.")
+                            event['form_id'] = None
+                    else:
+                        # If the visit_id is not valid, set it to None
+                        event['form_id'] = None
+
+                    # AT THIS POINT: We know that the patient must exist.
+                    # AT THIS POINT: We know that the visit must exist or is None.
+                    # AT THIS POINT: We know that the form must exist or is None.
                     cur.execute(
                         """
                         INSERT INTO events
@@ -317,34 +364,14 @@ class Event(sync.SyncableEntity):
                             """,
                             (event_data['visit_id'],)
                         )
-                        visit_exists = cur.fetchone()
+                        form_exists = cur.fetchone()
 
-                        if not visit_exists:
-                            # If the visit doesn't exist, create an artificial one
+                        if not form_exists:
+                            # If the visit doesn't exist, warn the user
                             logging.warning(f"Event {event_data['id']} references non-existent visit {
                                             event_data['visit_id']}. Creating placeholder visit, marked as artificially created and deleted.")
                             print(f"REVIEWER WARNING: Event {event_data['id']} references non-existent visit {
                                 event_data['visit_id']}. A placeholder visit will be created.")
-
-                            # NOTE: We are not creating an artificial visit here, since we don't have a clinic_id and provider_id. It will just throw an error.
-                            # cur.execute(
-                            #     """
-                            #     INSERT INTO visits (id, patient_id, clinic_id, provider_id, is_deleted, deleted_at, check_in_timestamp, metadata)
-                            #     VALUES (%s, %s, NULL, NULL, true, %s, %s, %s)
-                            #     ON CONFLICT (id) DO NOTHING
-                            #     """,
-                            #     (
-                            #         event_data['visit_id'],
-                            #         event_data['patient_id'],
-                            #         last_pushed_at,
-                            #         event_data['created_at'],
-                            #         json.dumps({
-                            #             'artificially_created': True,
-                            #             'created_from': 'server_event_deletion',
-                            #             'original_event_id': event_data['id']
-                            #         })
-                            #     )
-                            # )
 
                     # Finally, soft delete the event
                     cur.execute(
@@ -642,6 +669,51 @@ class Appointment(sync.SyncableEntity):
                     if 'provider_id' not in appointment or not appointment['provider_id'] or not is_valid_uuid(appointment['provider_id']):
                         appointment['provider_id'] = None
 
+                    if appointment['patient_id'] and not is_valid_uuid(appointment['patient_id']):
+                        # Patient id is not valid. Ignore the appointment.
+                        # Choosing not to upsert patients.
+                        continue
+
+                    server_created_metadata = {
+                        'artificially_created': True,
+                        'created_from': 'server_appointment_creation',
+                        'original_appointment_id': appointment['id']
+                    }
+                    if appointment['current_visit_id'] and is_valid_uuid(appointment['current_visit_id']):
+                        current_visit_id = upsert_visit(
+                            appointment['current_visit_id'],
+                            appointment['patient_id'],
+                            appointment['clinic_id'],
+                            appointment['user_id'],
+                            appointment['provider_name'],
+                            appointment['check_in_timestamp'],
+                            {**appointment['metadata'], **
+                                server_created_metadata}
+                        )
+                        appointment['current_visit_id'] = current_visit_id
+                    else:
+                        # If there is no valid current_visit_id uuid, then the visit never existed. Ignore it.
+                        # When ignored the visit turns to vapor.
+                        continue
+
+                    if appointment['fulfilled_visit_id'] and is_valid_uuid(appointment['fulfilled_visit_id']):
+                        fulfilled_visit_id = upsert_visit(
+                            appointment['fulfilled_visit_id'],
+                            appointment['patient_id'],
+                            appointment['clinic_id'],
+                            appointment['provider_id'],
+                            appointment['provider_name'],
+                            appointment['check_in_timestamp'],
+                            {**appointment['metadata'], **
+                                server_created_metadata}
+                        )
+                        appointment['fulfilled_visit_id'] = fulfilled_visit_id
+                    else:
+                        # If there is no valid fulfilled_visit_id uuid, force it to be null
+                        appointment['fulfilled_visit_id'] = None
+
+                    # AT THIS POINT: The visits are verified to exist. we can safely use them.
+                    # AT THIS POINT: We assume the patient, providers and clinic exit. if not, crashing is the right action.
                     cur.execute(
                         """
                         INSERT INTO appointments
@@ -672,49 +744,15 @@ class Appointment(sync.SyncableEntity):
 
                 for id in deltadata.deleted:
                     # Not making 'cancelled' appointments 'deleted' on purpose. we need to sync them
+                    # Update the appointment to mark it as deleted
                     cur.execute(
                         """
-                        SELECT id, current_visit_id, fulfilled_visit_id, created_at, 
-                            patient_id, clinic_id, user_id
-                        FROM appointments
+                        UPDATE appointments 
+                        SET is_deleted = true, deleted_at = COALESCE(%s, CURRENT_TIMESTAMP) 
                         WHERE id = %s
                         """,
-                        (id,)
+                        (last_pushed_at, id)
                     )
-                    appointment = cur.fetchone()
-
-                    if appointment:
-                        # Insert artificial visits for current_visit_id and fulfilled_visit_id if they don't exist
-                        for visit_id in [appointment['current_visit_id'], appointment['fulfilled_visit_id']]:
-                            if visit_id:
-                                cur.execute(
-                                    """
-                                    INSERT INTO visits (id, patient_id, clinic_id, provider_id, is_deleted, deleted_at, check_in_timestamp, metadata)
-                                    SELECT %s, %s, %s, %s, true, %s, %s, 
-                                        jsonb_build_object(
-                                            'artificially_created', true,
-                                            'created_from', 'server_appointment_deletion',
-                                            'original_appointment_id', %s
-                                        )
-                                    WHERE NOT EXISTS (SELECT 1 FROM visits WHERE id = %s)
-                                    """,
-                                    (visit_id, appointment['patient_id'], appointment['clinic_id'],
-                                     appointment['user_id'], last_pushed_at, appointment['created_at'],
-                                     appointment['id'], visit_id)
-                                )
-
-                        # Update the appointment to mark it as deleted
-                        cur.execute(
-                            """
-                            UPDATE appointments 
-                            SET is_deleted = true, deleted_at = COALESCE(%s, CURRENT_TIMESTAMP) 
-                            WHERE id = %s
-                            """,
-                            (last_pushed_at, id)
-                        )
-                    else:
-                        print(f"Warning: Appointment with id {
-                              id} not found for deletion.")
                 # for id in deltadata.deleted:
                 #     # Not making 'cancelled' appointments 'deleted' on purpose. we need to sync them
                 #     cur.execute(
@@ -724,6 +762,7 @@ class Appointment(sync.SyncableEntity):
                 conn.commit()
             except Exception as e:
                 print(f"Appointment Errors: {str(e)}")
+                logging.error(f"Appointment Errors: {str(e)}")
                 conn.rollback()
                 raise e
 
@@ -778,3 +817,60 @@ class Appointment(sync.SyncableEntity):
 
             cur.execute(query, params)
             return cur.fetchall()
+
+
+######### HELPER DB METHODS #########
+
+# Upsert a patient visit into the table
+def upsert_visit(
+    visit_id: str | None,
+    patient_id: str,
+    clinic_id: str,
+    provider_id: str,
+    provider_name: str,
+    check_in_timestamp: datetime,
+    metadata: dict = None,
+    is_deleted: bool = False
+):
+    """
+    Upsert a visit into the table.
+    This makes sure a visit exists and handles conflicts of primary keys (visit_id)
+    """
+    if visit_id is None:
+        visit_id = str(uuid.uuid4())
+
+    current_time = utc.now()
+
+    with db.get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO visits (
+                    id, patient_id, clinic_id, provider_id, provider_name,
+                    check_in_timestamp, is_deleted, metadata,
+                    created_at, updated_at, last_modified
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                )
+                ON CONFLICT (id) DO UPDATE SET
+                    patient_id = EXCLUDED.patient_id,
+                    clinic_id = EXCLUDED.clinic_id,
+                    provider_id = EXCLUDED.provider_id,
+                    provider_name = EXCLUDED.provider_name,
+                    check_in_timestamp = EXCLUDED.check_in_timestamp,
+                    is_deleted = EXCLUDED.is_deleted,
+                    metadata = EXCLUDED.metadata,
+                    updated_at = EXCLUDED.updated_at,
+                    last_modified = EXCLUDED.last_modified
+                RETURNING id;
+                """,
+                (
+                    visit_id, patient_id, clinic_id, provider_id, provider_name,
+                    check_in_timestamp, is_deleted, metadata or {},
+                    current_time, current_time, current_time
+                )
+            )
+
+            result = cur.fetchone()
+            conn.commit()
+            return result[0]  # Return the visit_id

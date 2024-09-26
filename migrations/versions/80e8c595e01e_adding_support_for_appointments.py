@@ -20,9 +20,11 @@ def upgrade():
     op.create_table(
         "appointments",
         sa.Column('id', sa.UUID(), nullable=False),
+        # Provider ID is the user that the appointment is set for or the user that provided care when the appointment was fulfilled.
         sa.Column('provider_id', sa.UUID(), nullable=True),
         sa.Column('clinic_id', sa.UUID(), nullable=False),
         sa.Column('patient_id', sa.UUID(), nullable=False),
+        # User ID is the user that created the current_visit_id
         sa.Column('user_id', sa.UUID(), nullable=False),
         sa.Column('current_visit_id', sa.UUID(), nullable=False),
         sa.Column('fulfilled_visit_id', sa.UUID(), nullable=True),
