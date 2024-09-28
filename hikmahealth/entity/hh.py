@@ -819,6 +819,109 @@ class Appointment(sync.SyncableEntity):
             return cur.fetchall()
 
 
+@core.dataentity
+class Prescription(sync.SyncableEntity):
+    TABLE_NAME = "prescriptions"
+
+    id: str
+    patient_id: str
+    provider_id: str
+    filled_by: str | None = None
+    pickup_clinic_id: str
+    visit_id: str | None = None
+    priority: str = "normal"
+    expiration_date: fields.UTCDateTime | None = None
+    prescribed_at: fields.UTCDateTime = fields.UTCDateTime(
+        default_factory=utc.now)
+    filled_at: fields.UTCDateTime | None = None
+    status: str = "pending"
+    items: list = dataclasses.field(default_factory=list)
+    notes: str = ""
+    metadata: dict = dataclasses.field(default_factory=dict)
+    is_deleted: bool = False
+    created_at: fields.UTCDateTime = fields.UTCDateTime(
+        default_factory=utc.now)
+    updated_at: fields.UTCDateTime = fields.UTCDateTime(
+        default_factory=utc.now)
+    deleted_at: fields.UTCDateTime | None = None
+    last_modified: fields.UTCDateTime = fields.UTCDateTime(
+        default_factory=utc.now)
+    server_created_at: fields.UTCDateTime = fields.UTCDateTime(
+        default_factory=utc.now)
+
+    @classmethod
+    def apply_delta_changes(cls, deltadata, last_pushed_at, conn):
+        with conn.cursor() as cur:
+            try:
+                for prescription in itertools.chain(deltadata.created, deltadata.updated):
+                    prescription = dict(prescription)
+                    prescription.update(
+                        prescribed_at=utc.from_unixtimestamp(
+                            prescription['prescribed_at']),
+                        expiration_date=utc.from_unixtimestamp(
+                            prescription['expiration_date']) if prescription['expiration_date'] else None,
+                        filled_at=utc.from_unixtimestamp(
+                            prescription['filled_at']) if prescription['filled_at'] else None,
+                        created_at=utc.from_unixtimestamp(
+                            prescription['created_at']),
+                        updated_at=utc.from_unixtimestamp(
+                            prescription['updated_at']),
+                        deleted_at=utc.from_unixtimestamp(
+                            prescription['deleted_at']) if prescription['deleted_at'] else None,
+                        last_modified=utc.now(),
+                        server_created_at=utc.now(),
+                        items=json.dumps(prescription['items']),
+                        metadata=json.dumps(prescription['metadata'])
+                    )
+
+                    cur.execute(
+                        """
+                        INSERT INTO prescriptions
+                            (id, patient_id, provider_id, filled_by, pickup_clinic_id, visit_id, priority, expiration_date, prescribed_at, filled_at, status, items, notes, metadata, is_deleted, created_at, updated_at, deleted_at, last_modified, server_created_at)
+                        VALUES
+                            (%(id)s, %(patient_id)s, %(provider_id)s, %(filled_by)s, %(pickup_clinic_id)s, %(visit_id)s, %(priority)s, %(expiration_date)s, %(prescribed_at)s, %(filled_at)s, %(status)s, %(items)s, %(notes)s, %(metadata)s, %(is_deleted)s, %(created_at)s, %(updated_at)s, %(deleted_at)s, %(last_modified)s, %(server_created_at)s)
+                        ON CONFLICT (id) DO UPDATE
+                        SET
+                            patient_id=EXCLUDED.patient_id,
+                            provider_id=EXCLUDED.provider_id,
+                            filled_by=EXCLUDED.filled_by,
+                            pickup_clinic_id=EXCLUDED.pickup_clinic_id,
+                            visit_id=EXCLUDED.visit_id,
+                            priority=EXCLUDED.priority,
+                            expiration_date=EXCLUDED.expiration_date,
+                            prescribed_at=EXCLUDED.prescribed_at,
+                            filled_at=EXCLUDED.filled_at,
+                            status=EXCLUDED.status,
+                            items=EXCLUDED.items,
+                            notes=EXCLUDED.notes,
+                            metadata=EXCLUDED.metadata,
+                            is_deleted=EXCLUDED.is_deleted,
+                            created_at=EXCLUDED.created_at,
+                            updated_at=EXCLUDED.updated_at,
+                            deleted_at=EXCLUDED.deleted_at,
+                            last_modified=EXCLUDED.last_modified
+                        """,
+                        prescription
+                    )
+
+                for id in deltadata.deleted:
+                    cur.execute(
+                        """
+                        UPDATE prescriptions 
+                        SET is_deleted = true, deleted_at = COALESCE(%s, CURRENT_TIMESTAMP) 
+                        WHERE id = %s
+                        """,
+                        (last_pushed_at, id)
+                    )
+
+                conn.commit()
+            except Exception as e:
+                print(f"Prescription Errors: {str(e)}")
+                logging.error(f"Prescription Errors: {str(e)}")
+                conn.rollback()
+                raise e
+
+
 ######### HELPER DB METHODS #########
 
 # Upsert a patient visit into the table

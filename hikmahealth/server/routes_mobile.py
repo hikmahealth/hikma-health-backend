@@ -14,7 +14,7 @@ from hikmahealth.utils.datetime import utc
 from hikmahealth.server.client import db
 
 from hikmahealth.entity import hh, sync
-from datetime import  datetime
+from datetime import datetime
 
 from typing import Iterable
 from collections import defaultdict
@@ -36,10 +36,11 @@ def login():
 @backcompatapi.route('/user/reset_password', methods=['POST'])
 @api.route('/user/reset_password', methods=['POST'])
 def reset_password():
-    params = webhelper.assert_data_has_keys(request, {"email", "password", "new_password"})
-    u = auth.get_user_from_email(params["email"], params["password"])    
+    params = webhelper.assert_data_has_keys(
+        request, {"email", "password", "new_password"})
+    u = auth.get_user_from_email(params["email"], params["password"])
     auth.reset_password(u, params['new_password'])
-    return jsonify({ 'ok': True, 'message': "password updated", })
+    return jsonify({'ok': True, 'message': "password updated", })
 
 
 def _get_authenticated_user_from_request(request: Request) -> User:
@@ -63,15 +64,14 @@ def _get_last_pulled_at_from(request: Request) -> datetime | None:
 
     if last_pull_in_unix_time is None:
         return None
-        
-    if type(last_pull_in_unix_time) == str:    
+
+    if type(last_pull_in_unix_time) == str:
         if str(last_pull_in_unix_time).isnumeric():
-            # the from timestamp precision is in seconds as opposed to milliseconds (like in Js) 
+            # the from timestamp precision is in seconds as opposed to milliseconds (like in Js)
             # thus, you need to divide with 1000
             #
             # See this: https://stackoverflow.com/questions/10286224/javascript-timestamp-to-python-datetime-conversion
             return utc.from_unixtimestamp(last_pull_in_unix_time)
-        
 
         try:
             # attempts to deal the date input as if it's a
@@ -95,8 +95,10 @@ ENTITIES_TO_PUSH_TO_MOBILE: dict[str, sync.SyncToClientEntity] = {
     "string_content": hh.StringContent,
     "event_forms": hh.EventForm,
     "registration_forms": hh.PatientRegistrationForm,
-    "appointments": hh.Appointment
+    "appointments": hh.Appointment,
+    "prescriptions": hh.Prescription
 }
+
 
 @backcompatapi.route('/v2/sync', methods=['GET'])
 @api.route('/sync', methods=['GET'])
@@ -104,15 +106,12 @@ def sync_v2_pull():
     _get_authenticated_user_from_request(request)
     last_synced_at = _get_last_pulled_at_from(request)
     schemaVersion = request.args.get("schemaVersion", None)
-    migration = request.args.get("migration", None)    
-
+    migration = request.args.get("migration", None)
 
     if last_synced_at is None:
         raise WebError("missing last_pulled_at from request query", 400)
 
-
     changes_to_push_to_client = dict()
-
 
     with db.get_connection() as conn:
         for changekey, c in ENTITIES_TO_PUSH_TO_MOBILE.items():
@@ -124,7 +123,7 @@ def sync_v2_pull():
             # formatGETSyncResponse
             # --------
             changes_to_push_to_client[changekey] = deltadata.to_dict()
-        
+
     # server generated timestamp for the current data changes
     timestamp = _get_timestamp_now()
 
@@ -133,8 +132,10 @@ def sync_v2_pull():
         "timestamp": timestamp
     })
 
+
 def _get_timestamp_now():
     return time.mktime(datetime.now().timetuple()) * 1000
+
 
 # using tuple to make sure the we observe order
 # of the entities to be syncronized
@@ -143,8 +144,10 @@ ENTITIES_TO_APPLY_TO_SERVER_IN_ORDER: Iterable[tuple[str, sync.ISyncToServer]] =
     ("patient_additional_attributes", hh.PatientAttribute),
     ("visits", hh.Visit),
     ("events", hh.Event),
-    ("appointments", hh.Appointment)
+    ("appointments", hh.Appointment),
+    ("prescriptions", hh.Prescription)
 )
+
 
 @backcompatapi.route('/v2/sync', methods=['POST'])
 @api.route('/sync', methods=['POST'])
@@ -157,7 +160,6 @@ def sync_v2_push():
     if last_synced_at is None:
         raise WebError("missing last_pulled_at from request query", 400)
 
-
     # expected body structure
     # { [s in 'events' | 'patients' | ....]: { "created": Array<dict[str, any]>, "updated": Array<dict[str, any]>, deleted: []str }}
     body = dict(request.get_json())
@@ -167,7 +169,6 @@ def sync_v2_push():
             for entitykey, e in ENTITIES_TO_APPLY_TO_SERVER_IN_ORDER:
                 if entitykey not in body:
                     continue
-
 
                 # get the entity delta values
                 deltadata = defaultdict(None, body[entitykey])
@@ -180,15 +181,16 @@ def sync_v2_push():
                     deleted=deltadata.get("deleted")
                 )
 
-                e.apply_delta_changes(deltadata, last_pushed_at=last_synced_at, conn=conn)
+                e.apply_delta_changes(
+                    deltadata, last_pushed_at=last_synced_at, conn=conn)
 
-            return jsonify({ "ok": True })
+            return jsonify({"ok": True})
         except Exception as err:
             conn.close()
             print(err)
             print(traceback.format_exc())
             abort(500, description="An internal error occurred")
-    
+
 
 @api.errorhandler(500)
 def internal_error(error):
