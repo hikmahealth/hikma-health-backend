@@ -679,7 +679,7 @@ class Appointment(sync.SyncableEntity):
                         appointment['provider_id'] = None
 
                     # and not is_valid_uuid(appointment['patient_id']):
-                    if appointment['patient_id']:
+                    if not appointment['patient_id']:
                         # Patient id is not valid. Ignore the appointment.
                         # Choosing not to upsert patients.
                         logging.warning(f"Invalid patient_id for appointment: {
