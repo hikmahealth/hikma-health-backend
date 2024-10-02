@@ -699,7 +699,8 @@ class Appointment(sync.SyncableEntity):
                         # When ignored the visit turns to vapor.
                         continue
 
-                    if appointment['fulfilled_visit_id'] and is_valid_uuid(appointment['fulfilled_visit_id']):
+                    # and is_valid_uuid(appointment['fulfilled_visit_id']):
+                    if appointment['fulfilled_visit_id']:
                         fulfilled_visit_id = upsert_visit(
                             appointment['fulfilled_visit_id'],
                             appointment['patient_id'],
