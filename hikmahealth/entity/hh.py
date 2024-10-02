@@ -714,23 +714,23 @@ class Appointment(sync.SyncableEntity):
                         continue
 
                     # and is_valid_uuid(appointment['fulfilled_visit_id']):
-                    if appointment['fulfilled_visit_id']:
-                        logging.debug(f"Upserting fulfilled visit for appointment: {
-                                      appointment['id']}")
-                        fulfilled_visit_id = upsert_visit(
-                            appointment['fulfilled_visit_id'],
-                            appointment['patient_id'],
-                            appointment['clinic_id'],
-                            appointment['provider_id'],
-                            appointment['provider_name'],
-                            appointment['check_in_timestamp'],
-                            {**appointment['metadata'], **
-                                server_created_metadata}
-                        )
-                        appointment['fulfilled_visit_id'] = fulfilled_visit_id
-                    else:
-                        # If there is no valid fulfilled_visit_id uuid, force it to be null
-                        appointment['fulfilled_visit_id'] = None
+                    # if appointment['fulfilled_visit_id']:
+                    #     logging.debug(f"Upserting fulfilled visit for appointment: {
+                    #                   appointment['id']}")
+                    #     fulfilled_visit_id = upsert_visit(
+                    #         appointment['fulfilled_visit_id'],
+                    #         appointment['patient_id'],
+                    #         appointment['clinic_id'],
+                    #         appointment['provider_id'],
+                    #         appointment['provider_name'],
+                    #         appointment['check_in_timestamp'],
+                    #         {**appointment['metadata'], **
+                    #             server_created_metadata}
+                    #     )
+                    #     appointment['fulfilled_visit_id'] = fulfilled_visit_id
+                    # else:
+                    #     # If there is no valid fulfilled_visit_id uuid, force it to be null
+                    #     appointment['fulfilled_visit_id'] = None
 
                     # AT THIS POINT: The visits are verified to exist. we can safely use them.
                     # AT THIS POINT: We assume the patient, providers and clinic exit. if not, crashing is the right action.
