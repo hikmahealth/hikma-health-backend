@@ -650,8 +650,12 @@ class Appointment(sync.SyncableEntity):
     def apply_delta_changes(cls, deltadata, last_pushed_at, conn):
         with conn.cursor() as cur:
             try:
+                logging.info(
+                    "Starting to apply delta changes for appointments")
                 # TODO: `cur.executemany` can be used instead
                 for appointment in itertools.chain(deltadata.created, deltadata.updated):
+                    logging.debug(f"Processing appointment: {
+                                  appointment['id']}")
                     appointment = dict(appointment)
                     appointment.update(
                         timestamp=utc.from_unixtimestamp(
@@ -668,12 +672,16 @@ class Appointment(sync.SyncableEntity):
                     # Set provider_id to None if it's not present, empty, or an invalid UUID
                     # or not is_valid_uuid(appointment['provider_id']):
                     if 'provider_id' not in appointment or not appointment['provider_id']:
+                        logging.warning(f"Invalid provider_id for appointment: {
+                                        appointment['id']}")
                         appointment['provider_id'] = None
 
                     # and not is_valid_uuid(appointment['patient_id']):
                     if appointment['patient_id']:
                         # Patient id is not valid. Ignore the appointment.
                         # Choosing not to upsert patients.
+                        logging.warning(f"Invalid patient_id for appointment: {
+                                        appointment['id']}. Skipping.")
                         continue
 
                     server_created_metadata = {
@@ -683,13 +691,16 @@ class Appointment(sync.SyncableEntity):
                     }
                     # and is_valid_uuid(appointment['current_visit_id']):
                     if appointment['current_visit_id']:
+                        logging.debug(f"Upserting current visit for appointment: {
+                                      appointment['id']}")
                         current_visit_id = upsert_visit(
                             appointment['current_visit_id'],
                             appointment['patient_id'],
                             appointment['clinic_id'],
                             appointment['user_id'],
                             appointment['provider_name'],
-                            appointment['check_in_timestamp'],
+                            appointment['check_in_timestamp'] if appointment['check_in_timestamp'] else utc.now(
+                            ),
                             {**appointment['metadata'], **
                                 server_created_metadata}
                         )
@@ -697,10 +708,14 @@ class Appointment(sync.SyncableEntity):
                     else:
                         # If there is no valid current_visit_id uuid, then the visit never existed. Ignore it.
                         # When ignored the visit turns to vapor.
+                        logging.warning(f"No valid current_visit_id for appointment: {
+                                        appointment['id']}. Skipping.")
                         continue
 
                     # and is_valid_uuid(appointment['fulfilled_visit_id']):
                     if appointment['fulfilled_visit_id']:
+                        logging.debug(f"Upserting fulfilled visit for appointment: {
+                                      appointment['id']}")
                         fulfilled_visit_id = upsert_visit(
                             appointment['fulfilled_visit_id'],
                             appointment['patient_id'],
@@ -718,6 +733,8 @@ class Appointment(sync.SyncableEntity):
 
                     # AT THIS POINT: The visits are verified to exist. we can safely use them.
                     # AT THIS POINT: We assume the patient, providers and clinic exit. if not, crashing is the right action.
+                    logging.debug(f"Inserting or updating appointment: {
+                                  appointment['id']}")
                     cur.execute(
                         """
                         INSERT INTO appointments
@@ -746,9 +763,12 @@ class Appointment(sync.SyncableEntity):
                         appointment
                     )
 
+                logging.info(
+                    f"Processing {len(deltadata.deleted)} deleted appointments")
                 for id in deltadata.deleted:
                     # Not making 'cancelled' appointments 'deleted' on purpose. we need to sync them
                     # Update the appointment to mark it as deleted
+                    logging.debug(f"Marking appointment as deleted: {id}")
                     cur.execute(
                         """
                         UPDATE appointments 
@@ -764,9 +784,13 @@ class Appointment(sync.SyncableEntity):
                 #         (last_pushed_at, id)
                 #     )
                 conn.commit()
+                logging.info(
+                    "Successfully applied all delta changes for appointments")
             except Exception as e:
-                print(f"Appointment Errors: {str(e)}")
-                logging.error(f"Appointment Errors: {str(e)}")
+                error_message = f"Appointment Errors: {str(e)}"
+                print(error_message)
+                logging.error(error_message)
+                logging.exception("Full traceback:")
                 conn.rollback()
                 raise e
 
