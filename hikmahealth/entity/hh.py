@@ -669,6 +669,8 @@ class Appointment(sync.SyncableEntity):
                         last_modified=utc.now()
                     )
 
+                    logging.debug(f"Appointment: {appointment}")
+
                     # Set provider_id to None if it's not present, empty, or an invalid UUID
                     # or not is_valid_uuid(appointment['provider_id']):
                     if 'provider_id' not in appointment or not appointment['provider_id']:
