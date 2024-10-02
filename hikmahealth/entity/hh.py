@@ -701,7 +701,7 @@ class Appointment(sync.SyncableEntity):
                             appointment['clinic_id'],
                             appointment['user_id'],
                             appointment.get('provider_name', ''),
-                            appointment.get('timestamp', utc.now()),
+                            utc.now(),
                             {**appointment['metadata'], **
                                 server_created_metadata}
                         )
