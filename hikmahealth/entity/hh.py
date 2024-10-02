@@ -666,10 +666,12 @@ class Appointment(sync.SyncableEntity):
                     )
 
                     # Set provider_id to None if it's not present, empty, or an invalid UUID
-                    if 'provider_id' not in appointment or not appointment['provider_id'] or not is_valid_uuid(appointment['provider_id']):
+                    # or not is_valid_uuid(appointment['provider_id']):
+                    if 'provider_id' not in appointment or not appointment['provider_id']:
                         appointment['provider_id'] = None
 
-                    if appointment['patient_id'] and not is_valid_uuid(appointment['patient_id']):
+                    # and not is_valid_uuid(appointment['patient_id']):
+                    if appointment['patient_id']:
                         # Patient id is not valid. Ignore the appointment.
                         # Choosing not to upsert patients.
                         continue
@@ -679,7 +681,8 @@ class Appointment(sync.SyncableEntity):
                         'created_from': 'server_appointment_creation',
                         'original_appointment_id': appointment['id']
                     }
-                    if appointment['current_visit_id'] and is_valid_uuid(appointment['current_visit_id']):
+                    # and is_valid_uuid(appointment['current_visit_id']):
+                    if appointment['current_visit_id']:
                         current_visit_id = upsert_visit(
                             appointment['current_visit_id'],
                             appointment['patient_id'],
