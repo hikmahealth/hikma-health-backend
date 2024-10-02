@@ -705,7 +705,7 @@ class Appointment(sync.SyncableEntity):
                         #     {**appointment['metadata'], **
                         #         server_created_metadata}
                         # )
-                        appointment['current_visit_id'] = current_visit_id
+                        # appointment['current_visit_id'] = current_visit_id
                     else:
                         # If there is no valid current_visit_id uuid, then the visit never existed. Ignore it.
                         # When ignored the visit turns to vapor.
