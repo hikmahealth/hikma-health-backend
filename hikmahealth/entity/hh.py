@@ -695,16 +695,16 @@ class Appointment(sync.SyncableEntity):
                     if appointment['current_visit_id']:
                         logging.debug(f"Upserting current visit for appointment: {
                                       appointment['id']}")
-                        current_visit_id = upsert_visit(
-                            appointment['current_visit_id'],
-                            appointment['patient_id'],
-                            appointment['clinic_id'],
-                            appointment['user_id'],
-                            appointment.get('provider_name', ''),
-                            utc.now(),
-                            {**appointment['metadata'], **
-                                server_created_metadata}
-                        )
+                        # current_visit_id = upsert_visit(
+                        #     appointment['current_visit_id'],
+                        #     appointment['patient_id'],
+                        #     appointment['clinic_id'],
+                        #     appointment['user_id'],
+                        #     appointment.get('provider_name', ''),
+                        #     utc.now(),
+                        #     {**appointment['metadata'], **
+                        #         server_created_metadata}
+                        # )
                         appointment['current_visit_id'] = current_visit_id
                     else:
                         # If there is no valid current_visit_id uuid, then the visit never existed. Ignore it.
