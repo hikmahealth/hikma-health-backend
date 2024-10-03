@@ -1,4 +1,5 @@
 
+import logging
 from flask import Blueprint, request, Request, jsonify, abort
 
 from hikmahealth.server.helpers import web as webhelper
@@ -167,6 +168,7 @@ def sync_v2_push():
     with db.get_connection() as conn:
         try:
             for entitykey, e in ENTITIES_TO_APPLY_TO_SERVER_IN_ORDER:
+                print(f"Applying delta changes for {entitykey}")
                 if entitykey not in body:
                     continue
 

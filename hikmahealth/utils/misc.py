@@ -1,5 +1,7 @@
 import re
 from uuid import UUID
+import json
+import logging
 
 
 def to_snake_case(string):
@@ -82,3 +84,24 @@ def is_valid_uuid(uuid_to_test, version=4):
     except ValueError:
         return False
     return str(uuid_obj) == uuid_to_test
+
+
+def safe_json_dumps(data, default=None):
+    """
+    Safely convert data to JSON string.
+
+    Args:
+    data: The data to convert to JSON.
+    default: The default value to return if conversion fails (default is '{}').
+
+    Returns:
+    str: JSON string representation of the data, or the default value if conversion fails.
+    """
+    if default is None:
+        default = '{}'
+
+    try:
+        return json.dumps(data)
+    except (TypeError, ValueError, OverflowError) as e:
+        logging.warning(f"Failed to serialize to JSON. Using default value.")
+        return default
