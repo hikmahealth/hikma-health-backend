@@ -17,6 +17,7 @@ from typing import Any
 from psycopg.rows import class_row, dict_row
 import dataclasses
 import json
+from urllib import parse as urlparse
 
 from hikmahealth.utils.misc import is_valid_uuid, safe_json_dumps
 import uuid
@@ -183,6 +184,50 @@ class Patient(sync.SyncableEntity, helpers.SimpleCRUD):
                     """,
                     (utc.now(), utc.now(), utc.now(), id)
                 )
+
+    @classmethod
+    def get_all_with_attributes(cls, count=None):
+        with db.get_connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                query = """
+                SELECT 
+                    p.*,
+                    COALESCE(json_object_agg(
+                        pa.attribute_id, 
+                        json_build_object(
+                            'attribute', pa.attribute,
+                            'number_value', pa.number_value,
+                            'string_value', pa.string_value,
+                            'date_value', pa.date_value,
+                            'boolean_value', pa.boolean_value
+                        )
+                    ) FILTER (WHERE pa.attribute_id IS NOT NULL), '{}') AS additional_attributes
+                FROM patients p
+                LEFT JOIN patient_additional_attributes pa ON p.id = pa.patient_id
+                WHERE p.is_deleted = false
+                GROUP BY p.id
+                ORDER BY p.updated_at DESC
+                """
+                if count is not None:
+                    query += f" LIMIT {count}"
+                cur.execute(query)
+                patients = cur.fetchall()
+
+                for patient in patients:
+                    # Convert additional_attributes from JSON string to dict
+                    # patient['additional_attributes'] = json.loads(
+                    #     patient['additional_attributes'])
+
+                    # Convert datetime objects to ISO format strings
+                    for key in ['created_at', 'updated_at', 'last_modified', 'deleted_at']:
+                        if patient[key]:
+                            patient[key] = patient[key].isoformat()
+
+                    # Convert date objects to ISO format strings
+                    if patient['date_of_birth']:
+                        patient['date_of_birth'] = patient['date_of_birth'].isoformat()
+
+                return patients
 
 
 @core.dataentity
@@ -397,6 +442,103 @@ class Event(sync.SyncableEntity):
                 print(f"Event Errors: {str(e)}")
                 conn.rollback()
                 raise e
+
+    @classmethod
+    def get_events_by_form_id(cls, form_id: str, start_date: str, end_date: str):
+        """Returns all the formated events as a single table that can be easily rendered"""
+
+        where_clause = []
+        if start_date is not None:
+            start_date = utc.from_datetime(
+                datetime.fromisoformat(urlparse.unquote(start_date))
+            )
+
+            where_clause.append("e.created_at >= %(start_date)s")
+
+        if end_date is not None:
+            end_date = utc.from_datetime(
+                datetime.fromisoformat(urlparse.unquote(end_date)))
+
+            where_clause.append("e.created_at <= %(end_date)s")
+
+        events = []
+        query = """
+        SELECT 
+            events.id, 
+            events.patient_id, 
+            events.visit_id, 
+            events.form_id, 
+            events.event_type, 
+            events.form_data, 
+            events.metadata, 
+            events.is_deleted, 
+            events.created_at, 
+            events.updated_at,
+            jsonb_build_object(
+                'id', p.id,
+                'given_name', p.given_name,
+                'surname', p.surname,
+                'date_of_birth', p.date_of_birth,
+                'sex', p.sex,
+                'camp', p.camp,
+                'citizenship', p.citizenship,
+                'hometown', p.hometown,
+                'phone', p.phone,
+                'additional_data', p.additional_data,
+                'government_id', p.government_id,
+                'external_patient_id', p.external_patient_id,
+                'created_at', p.created_at,
+                'updated_at', p.updated_at,
+                'additional_attributes', COALESCE(json_object_agg(
+                    pa.attribute_id, 
+                    json_build_object(
+                        'attribute', pa.attribute,
+                        'number_value', pa.number_value,
+                        'string_value', pa.string_value,
+                        'date_value', pa.date_value,
+                        'boolean_value', pa.boolean_value
+                    )
+                ) FILTER (WHERE pa.attribute_id IS NOT NULL), '{}'::json)
+            ) AS patient 
+        FROM events
+        JOIN patients p ON events.patient_id = p.id
+        LEFT JOIN patient_additional_attributes pa ON p.id = pa.patient_id
+        WHERE events.form_id = %s 
+        AND events.is_deleted = false 
+        AND events.created_at >= %s 
+        AND events.created_at <= %s 
+        AND p.is_deleted = false
+        GROUP BY events.id, events.patient_id, events.visit_id, events.form_id, events.event_type, events.form_data, events.metadata, events.is_deleted, events.created_at, events.updated_at, p.id
+        """
+
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                try:
+                    cur.execute(query, (form_id, start_date, end_date))
+
+                    for entry in cur.fetchall():
+                        patient = entry[10]
+
+                        events.append(
+                            {
+                                "id": entry[0],
+                                "patientId": entry[1],
+                                "visitId": entry[2],
+                                "formId": entry[3],
+                                "eventType": entry[4],
+                                "formData": entry[5],
+                                "metadata": entry[6],
+                                "isDeleted": entry[7],
+                                "createdAt": entry[8],
+                                "updatedAt": entry[9],
+                                "patient": patient,
+                            }
+                        )
+                except Exception as e:
+                    print("Error while updating the patient registration form: ", e)
+                    raise e
+
+            return events
 
 
 @core.dataentity

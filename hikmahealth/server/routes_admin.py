@@ -1,3 +1,4 @@
+from datetime import datetime
 import logging
 from flask import Blueprint, request, jsonify
 
@@ -239,7 +240,8 @@ def update_user_info(_, uid: str):
     try:
         # Get the updated user information from the request
         user_data = webhelper.assert_data_has_keys(
-            request, {"name", "email", "role", "clinic_id"})
+            request, {"name", "email", "role", "clinic_id"}
+        )
 
         with db.get_connection() as conn:
             with conn.cursor() as cur:
@@ -252,8 +254,13 @@ def update_user_info(_, uid: str):
                     WHERE id = %s AND is_deleted = FALSE
                     RETURNING id
                     """,
-                    [user_data["name"], user_data["email"],
-                        user_data["role"], user_data["clinic_id"], uid]
+                    [
+                        user_data["name"],
+                        user_data["email"],
+                        user_data["role"],
+                        user_data["clinic_id"],
+                        uid,
+                    ],
                 )
                 updated_user = cur.fetchone()
 
@@ -265,11 +272,13 @@ def update_user_info(_, uid: str):
 
             conn.commit()
 
-        return jsonify({
-            "ok": True,
-            "message": "User information updated successfully",
-            "id": updated_user[0]
-        })
+        return jsonify(
+            {
+                "ok": True,
+                "message": "User information updated successfully",
+                "id": updated_user[0],
+            }
+        )
 
     except WebError as we:
         logging.error(f"WebError: {we}")
@@ -286,17 +295,25 @@ def update_user_info(_, uid: str):
 @api.route("/patients", methods=["GET"])
 @middleware.authenticated_with_role(["admin", "provider", "super_admin"])
 def get_patients(_):
-    with db.get_connection() as conn:
-        with conn.cursor(row_factory=class_row(hh.Patient)) as cur:
-            patients = cur.execute(
-                """
-                SELECT *
-                FROM patients
-                WHERE is_deleted = false
-                """
-            ).fetchall()
-
+    count = request.args.get("count")
+    patients = hh.Patient.get_all_with_attributes(count)
     return jsonify({"patients": patients})
+    # with db.get_connection() as conn:
+    #     with conn.cursor(row_factory=dict_row) as cur:
+    #         patients = cur.execute(patient_with_attrs_query).fetchall()
+    # Extract the patient_data from each row since that's where our JSON is
+    #         patients = [row['patient_data'] for row in patients]
+    #     # with conn.cursor(row_factory=class_row(hh.Patient)) as cur:
+    #         # patients = cur.execute(
+    #         #     """
+    #         #     SELECT *
+    #         #     FROM patients
+    #         #     WHERE is_deleted = false
+    #         #     """
+    # ).fetchall()
+    # patients = cur.execute(query).fetchall()
+
+    # return jsonify({"patients": patients})
 
 
 @api.post("/patients")
@@ -326,12 +343,12 @@ def register_patient(_):
 
     attribute_fields = patient_data["attributeFields"]
 
-    optional_fields_nullable = ['government_id', 'external_patient_id']
+    optional_fields_nullable = ["government_id", "external_patient_id"]
     for field in optional_fields_nullable:
         if field not in base_fields:
             base_fields[field] = None
 
-    optional_fields_empty_string = ['hometown', 'phone', 'camp', 'photo_url']
+    optional_fields_empty_string = ["hometown", "phone", "camp", "photo_url"]
     for field in optional_fields_empty_string:
         if field not in base_fields:
             base_fields[field] = None
@@ -410,45 +427,76 @@ def delete_patient(_, id: str):
 
                 # Check if patient exists
                 cur.execute(
-                    "SELECT id FROM patients WHERE id = %s AND is_deleted = false", [id])
+                    "SELECT id FROM patients WHERE id = %s AND is_deleted = false", [
+                        id]
+                )
                 if cur.fetchone() is None:
                     return jsonify({"ok": False, "message": "Patient not found"}), 404
 
                 # Soft delete the patient and related data
-                tables = ["patients", "visits", "events",
-                          "appointments", "patient_additional_attributes"]
+                tables = [
+                    "patients",
+                    "visits",
+                    "events",
+                    "appointments",
+                    "patient_additional_attributes",
+                    "prescriptions",
+                ]
                 deleted_counts = {}
 
                 for table in tables:
-                    cur.execute(f"""
+                    cur.execute(
+                        f"""
                         UPDATE {table}
                         SET is_deleted = true, deleted_at = current_timestamp
                         WHERE {"id" if table == "patients" else "patient_id"} = %s
                         RETURNING id
-                    """, [id])
+                    """,
+                        [id],
+                    )
                     deleted_counts[table] = cur.rowcount
 
                 # Commit the transaction
                 cur.execute("COMMIT")
 
-            logging.info(f"Patient {id} and related data soft deleted successfully: {
-                         deleted_counts}")
-            return jsonify({
-                "ok": True,
-                "message": "Patient and related data soft deleted successfully",
-                "deleted_counts": deleted_counts
-            })
+            logging.info(
+                f"Patient {id} and related data soft deleted successfully: {
+                    deleted_counts}"
+            )
+            return jsonify(
+                {
+                    "ok": True,
+                    "message": "Patient and related data soft deleted successfully",
+                    "deleted_counts": deleted_counts,
+                }
+            )
 
         except psycopg.Error as e:
             conn.rollback()
             logging.error(
                 f"Database error while deleting patient {id}: {str(e)}")
-            return jsonify({"ok": False, "message": "A database error occurred while deleting the patient"}), 500
+            return (
+                jsonify(
+                    {
+                        "ok": False,
+                        "message": "A database error occurred while deleting the patient",
+                    }
+                ),
+                500,
+            )
         except Exception as e:
             conn.rollback()
             logging.error(
                 f"Unexpected error while deleting patient {id}: {str(e)}")
-            return jsonify({"ok": False, "message": "An unexpected error occurred while deleting the patient"}), 500
+            return (
+                jsonify(
+                    {
+                        "ok": False,
+                        "message": "An unexpected error occurred while deleting the patient",
+                    }
+                ),
+                500,
+            )
 
 
 @api.get("/patients/<id>/events")
@@ -785,63 +833,11 @@ def _get_event_form_data(id: str):
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
 
-    where_clause = []
-    if start_date is not None:
-        start_date = utc.from_datetime(
-            datetime.fromisoformat(urlparse.unquote(start_date))
-        )
-
-        where_clause.append("e.created_at >= %(start_date)s")
-
-    if end_date is not None:
-        end_date = utc.from_datetime(
-            datetime.fromisoformat(urlparse.unquote(end_date)))
-
-        where_clause.append("e.created_at <= %(end_date)s")
-
-    events = []
-    with db.get_connection() as conn:
-        with conn.cursor() as cur:
-            try:
-                cur.execute(
-                    """SELECT events.id, events.patient_id, events.visit_id, events.form_id, events.event_type, events.form_data, events.metadata, events.is_deleted, events.created_at, events.updated_at,
-                                  patients.*
-                                  FROM events
-                                  JOIN patients ON events.patient_id = patients.id
-                                  WHERE events.form_id = %s AND events.is_deleted = false AND events.created_at >= %s AND events.created_at <= %s AND patients.is_deleted = false
-                                  """,
-                    (id, start_date, end_date),
-                )
-
-                # Get column names from the cursor description
-                column_names = [desc[0] for desc in cur.description]
-
-                for entry in cur.fetchall():
-                    # Slice the relevant columns for the patient data
-                    patient_data = entry[10:]
-                    # Create the patient object using 'zip' for pairing
-                    patient = dict(zip(column_names[10:], patient_data))
-
-                    events.append(
-                        {
-                            "id": entry[0],
-                            "patientId": entry[1],
-                            "visitId": entry[2],
-                            "formId": entry[3],
-                            "eventType": entry[4],
-                            "formData": entry[5],
-                            "metadata": entry[6],
-                            "isDeleted": entry[7],
-                            "createdAt": entry[8],
-                            "updatedAt": entry[9],
-                            "patient": patient,
-                        }
-                    )
-            except Exception as e:
-                print("Error while updating the patient registration form: ", e)
-                raise e
-
-        return events
+    print("start_date", start_date)
+    print("end_date", end_date)
+    test_events = hh.Event.get_events_by_form_id(id, start_date, end_date)
+    # print(test_events)
+    return test_events
 
 
 @admin_api.route("/set_event_form_editable", methods=["POST"])
@@ -981,6 +977,7 @@ def set_patient_registration_form(_, id: str):
 
 # Clinic Routes
 
+
 # Api endpoint to create a new clinic given the clinic name
 @api.post("/clinics")
 @middleware.authenticated_admin
@@ -996,11 +993,13 @@ def create_clinic(_):
                 VALUES (%s, %s, false, current_timestamp, current_timestamp, current_timestamp)
                 RETURNING id
                 """,
-                    [id, params["name"]]
+                    [id, params["name"]],
                 )
                 new_clinic_id = cur.fetchone()[0]
             conn.commit()
-        return jsonify({"ok": True, "message": "Clinic created successfully", "id": new_clinic_id})
+        return jsonify(
+            {"ok": True, "message": "Clinic created successfully", "id": new_clinic_id}
+        )
     except WebError as we:
         return jsonify({"error": str(we)}), we.status_code
     except PostgresError as pe:
@@ -1024,15 +1023,25 @@ def update_clinic(_, id: str):
                     WHERE id = %s AND is_deleted = FALSE
                     RETURNING id
                     """,
-                    [params["name"], id]
+                    [params["name"], id],
                 )
                 updated_clinic = cur.fetchone()
 
                 if not updated_clinic:
-                    return jsonify({"error": "Clinic not found or already deleted"}), 404
+                    return (
+                        jsonify(
+                            {"error": "Clinic not found or already deleted"}),
+                        404,
+                    )
 
             conn.commit()
-        return jsonify({"ok": True, "message": "Clinic updated successfully", "id": updated_clinic[0]})
+        return jsonify(
+            {
+                "ok": True,
+                "message": "Clinic updated successfully",
+                "id": updated_clinic[0],
+            }
+        )
     except WebError as we:
         logging.error(f"WebError: {we}")
         return jsonify({"error": "Clinic not found or already deleted"}), 404
@@ -1061,7 +1070,7 @@ def get_single_clinic(_, id: str):
                     FROM clinics
                     WHERE id = %s AND is_deleted = FALSE
                     """,
-                    [id]
+                    [id],
                 ).fetchone()
 
                 if not clinic:
@@ -1116,7 +1125,11 @@ def delete_clinic(_, id: str):
                 deleted_clinic = cur.fetchone()
 
                 if not deleted_clinic:
-                    return jsonify({"error": "Clinic not found or already deleted"}), 404
+                    return (
+                        jsonify(
+                            {"error": "Clinic not found or already deleted"}),
+                        404,
+                    )
 
         return jsonify({"ok": True, "message": "Clinic deleted successfully"})
 
@@ -1153,7 +1166,14 @@ def update_appointment_status(_, id: str):
         # Validate the status
         valid_statuses = ["pending", "completed", "cancelled", "confirmed"]
         if new_status not in valid_statuses:
-            return jsonify({"error": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"}), 400
+            return (
+                jsonify(
+                    {
+                        "error": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+                    }
+                ),
+                400,
+            )
 
         with db.get_connection() as conn:
             with conn.cursor() as cur:
@@ -1164,14 +1184,20 @@ def update_appointment_status(_, id: str):
                     WHERE id = %s AND is_deleted = FALSE
                     RETURNING id
                     """,
-                    (new_status, utc.now(), id)
+                    (new_status, utc.now(), id),
                 )
                 updated_appointment = cur.fetchone()
 
                 if not updated_appointment:
-                    return jsonify({"error": "Appointment not found or already deleted"}), 404
+                    return (
+                        jsonify(
+                            {"error": "Appointment not found or already deleted"}),
+                        404,
+                    )
 
-        return jsonify({"ok": True, "message": "Appointment status updated successfully"})
+        return jsonify(
+            {"ok": True, "message": "Appointment status updated successfully"}
+        )
 
     except WebError as we:
         logging.error(f"WebError: {we}")
@@ -1193,13 +1219,25 @@ def create_appointment(_):
         # Convert camelCase keys to snake_case
         snake_case_params = convert_dict_keys_to_snake_case(request.json)
 
-        required_fields = {"patient_id", "clinic_id", "provider_id", "user_id", "timestamp",
-                           "duration", "reason", "notes", "status"}
+        required_fields = {
+            "patient_id",
+            "clinic_id",
+            "provider_id",
+            "user_id",
+            "timestamp",
+            "duration",
+            "reason",
+            "notes",
+            "status",
+        }
 
         missing_fields = required_fields - set(snake_case_params.keys())
         if missing_fields:
-            raise WebError(f"Required data not supplied: {
-                           ', '.join(missing_fields)}", 400)
+            raise WebError(
+                f"Required data not supplied: {
+                    ', '.join(missing_fields)}",
+                400,
+            )
 
         params = snake_case_params
 
@@ -1211,7 +1249,7 @@ def create_appointment(_):
         appointment_id = str(uuid.uuid1())
         visit_id = str(uuid.uuid1())
 
-        token = request.headers.get('Authorization', None)
+        token = request.headers.get("Authorization", None)
 
         if token is None:
             logging.error("missing authentication header")
@@ -1229,8 +1267,13 @@ def create_appointment(_):
                         VALUES (%s, %s, %s, %s, %s, false, current_timestamp, current_timestamp, current_timestamp)
                         RETURNING id
                         """,
-                        [visit_id, params["patient_id"], params["clinic_id"],
-                         user.id, params["timestamp"]]
+                        [
+                            visit_id,
+                            params["patient_id"],
+                            params["clinic_id"],
+                            user.id,
+                            params["timestamp"],
+                        ],
                     )
 
                     # Create appointment
@@ -1240,10 +1283,19 @@ def create_appointment(_):
                         VALUES (%s, %s, %s, %s, %s, %s, %s, COALESCE(%s, 0), COALESCE(%s, 'other'), COALESCE(%s, ''), %s, false, current_timestamp, current_timestamp, current_timestamp, current_timestamp)
                         RETURNING id
                         """,
-                        [appointment_id, params["patient_id"], params["clinic_id"],
-                         params.get("provider_id") or None, user.id,
-                         visit_id, params["timestamp"], params.get("duration"),
-                         params.get("reason"), params.get("notes"), params["status"]]
+                        [
+                            appointment_id,
+                            params["patient_id"],
+                            params["clinic_id"],
+                            params.get("provider_id") or None,
+                            user.id,
+                            visit_id,
+                            params["timestamp"],
+                            params.get("duration"),
+                            params.get("reason"),
+                            params.get("notes"),
+                            params["status"],
+                        ],
                     )
 
                 conn.commit()
@@ -1251,12 +1303,14 @@ def create_appointment(_):
                 conn.rollback()
                 raise e
 
-        return jsonify({
-            "ok": True,
-            "message": "Appointment and visit created successfully",
-            "appointment_id": appointment_id,
-            "visit_id": visit_id
-        })
+        return jsonify(
+            {
+                "ok": True,
+                "message": "Appointment and visit created successfully",
+                "appointment_id": appointment_id,
+                "visit_id": visit_id,
+            }
+        )
     except WebError as we:
         return jsonify({"error": str(we)}), we.status_code
     except PostgresError as pe:
@@ -1265,5 +1319,352 @@ def create_appointment(_):
         return jsonify({"error": "Database error occurred"}), 500
     except Exception as e:
         # Log the unexpected error here
+        logging.error(f"An unexpected error occurred: {e}")
+        return jsonify({"error": "An unexpected error occurred"}), 500
+
+
+# AHR Specific Analysis Routes - used for experimenting with analysis endpoints
+# Required outputs:
+# 1. Patients breakdown by sex and age (age uses the date_of_birth field combined with the "age" dynamic field in patient_additional_attributes table)
+# 2. Appointments breakdown by clinic
+# 3. Events breakdown by event form
+# 4. Event breakdown by clinic - Show the number of events for each clinic
+# 5. Breakdown by the number of assigned diagnoses by each provider. This data can be present in any created form / event, it could either be a field called "diagnosis" or "patient diagnosis", etc. a list will be provided.
+# 6. Breakdown prescriptions by the medication name.
+
+
+@api.get("/ahr/patients_breakdown")
+@middleware.authenticated_admin
+def get_ahrs_patients_breakdown(_):
+    """Get the patients breakdown by sex and age"""
+    count = request.args.get("count")
+    patients = hh.Patient.get_all_with_attributes(count)
+    return jsonify({"patients": patients})
+
+
+@api.get("/ahr/events_by_clinic")
+@middleware.authenticated_admin
+def get_events_by_clinic(_):
+    """Get the breakdown of events by clinic with optional date range"""
+    try:
+        start_date = request.args.get("start_date")
+        end_date = request.args.get("end_date")
+        count = request.args.get("count")
+
+        query = """
+            SELECT c.name AS clinic_name, COUNT(e.id) AS event_count
+            FROM clinics c
+            LEFT JOIN visits v ON c.id = v.clinic_id
+            LEFT JOIN events e ON v.id = e.visit_id
+            WHERE c.is_deleted = FALSE 
+              AND (v.is_deleted = FALSE OR v.is_deleted IS NULL)
+              AND (e.is_deleted = FALSE OR e.is_deleted IS NULL)
+        """
+        params = []
+
+        if start_date:
+            query += " AND e.created_at >= %s"
+            params.append(datetime.fromisoformat(start_date))
+        if end_date:
+            query += " AND e.created_at <= %s"
+            params.append(datetime.fromisoformat(end_date))
+
+        query += """
+            GROUP BY c.id, c.name
+            ORDER BY event_count DESC
+        """
+
+        if count:
+            query += " LIMIT %s"
+            params.append(int(count))
+
+        with db.get_connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(query, params)
+                results = cur.fetchall()
+
+        events_by_clinic = {row["clinic_name"]: row["event_count"] for row in results}
+        return jsonify(
+            {
+                "events_by_clinic": events_by_clinic,
+                "start_date": start_date,
+                "end_date": end_date,
+            }
+        )
+    except ValueError as ve:
+        logging.error(f"Invalid date format: {ve}")
+        return (
+            jsonify({"error": "Invalid date format. Use ISO format (YYYY-MM-DD)"}),
+            400,
+        )
+    except PostgresError as pe:
+        logging.error(f"Database error occurred: {pe}")
+        return jsonify({"error": "Database error occurred"}), 500
+    except Exception as e:
+        logging.error(f"An unexpected error occurred: {e}")
+        return jsonify({"error": "An unexpected error occurred"}), 500
+
+
+@api.get("/ahr/events_by_clinic_through_appointments")
+@middleware.authenticated_admin
+def get_events_by_clinic_through_appointments(_):
+    """
+    Get the breakdown of events by clinic through the appointments table.
+
+    Appointments table has a field called "clinic_id" which is the clinic the appointment is for.
+    """
+    try:
+        start_date = request.args.get("start_date")
+        end_date = request.args.get("end_date")
+        count = request.args.get("count")
+
+        query = """
+            SELECT c.name AS clinic_name, COUNT(a.id) AS appointment_count
+            FROM clinics c
+            LEFT JOIN appointments a ON c.id = a.clinic_id
+            WHERE c.is_deleted = FALSE 
+              AND (a.is_deleted = FALSE OR a.is_deleted IS NULL)
+              AND a.status NOT IN ('pending', 'cancelled')
+        """
+        params = []
+
+        if start_date:
+            query += " AND a.timestamp >= %s"
+            params.append(datetime.fromisoformat(start_date))
+        if end_date:
+            query += " AND a.timestamp <= %s"
+            params.append(datetime.fromisoformat(end_date))
+
+        query += """
+            GROUP BY c.id, c.name
+            ORDER BY appointment_count DESC
+        """
+
+        if count:
+            query += " LIMIT %s"
+            params.append(int(count))
+
+        with db.get_connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(query, params)
+                results = cur.fetchall()
+
+        events_by_clinic = {
+            row["clinic_name"]: row["appointment_count"] for row in results
+        }
+        return jsonify(
+            {
+                "events_by_clinic": events_by_clinic,
+                "start_date": start_date,
+                "end_date": end_date,
+            }
+        )
+    except ValueError as ve:
+        logging.error(f"Invalid date format: {ve}")
+        return (
+            jsonify({"error": "Invalid date format. Use ISO format (YYYY-MM-DD)"}),
+            400,
+        )
+    except PostgresError as pe:
+        logging.error(f"Database error occurred: {pe}")
+        return jsonify({"error": "Database error occurred"}), 500
+    except Exception as e:
+        logging.error(f"An unexpected error occurred: {e}")
+        return jsonify({"error": "An unexpected error occurred"}), 500
+
+
+@api.get("/ahr/diagnoses_counts")
+@middleware.authenticated_admin
+def get_diagnoses_counts(_):
+    """Get the breakdown of diagnoses"""
+    event_form_diagnosis_columns = [
+        "diagnosis",
+        "Diagnosis",
+        "Diagnosis ",
+        "patient_diagnosis",
+        "Patient Diagnosis",
+        "diagnoses",
+    ]
+    try:
+        start_date = request.args.get("start_date")
+        end_date = request.args.get("end_date")
+        count = request.args.get("count")
+
+        diagnoses_tally = {}
+
+        with db.get_connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                # Get all event forms
+                cur.execute(
+                    "SELECT id FROM event_forms WHERE is_deleted = FALSE")
+                event_forms = cur.fetchall()
+
+                for form in event_forms:
+                    # Get events for this form
+                    query = """
+                    SELECT form_data
+                    FROM events
+                    WHERE form_id = %s AND is_deleted = FALSE
+                    """
+                    params = [form["id"]]
+
+                    if start_date:
+                        query += " AND created_at >= %s"
+                        params.append(datetime.fromisoformat(start_date))
+                    if end_date:
+                        query += " AND created_at <= %s"
+                        params.append(datetime.fromisoformat(end_date))
+
+                    cur.execute(query, params)
+                    events = cur.fetchall()
+
+                    for event in events:
+                        # print(event)
+                        # form_data = json.loads(event['form_data'])
+                        form_data = event["form_data"]
+                        # form_data_fields = form_data.get("fields", [])
+                        for field in form_data:
+                            if (
+                                field["name"] in event_form_diagnosis_columns
+                                and field["value"]
+                            ):
+                                if isinstance(field["value"], str):
+                                    diagnoses = [
+                                        d.strip()
+                                        for d in field["value"].split(";")
+                                        if d.strip()
+                                    ]
+                                    for diagnosis in diagnoses:
+                                        diagnoses_tally[diagnosis] = (
+                                            diagnoses_tally.get(
+                                                diagnosis, 0) + 1
+                                        )
+
+                                elif isinstance(field["value"], list):
+                                    for item in field["value"]:
+                                        if (
+                                            isinstance(item, dict)
+                                            and "value" in item
+                                            and isinstance(item["value"], list)
+                                        ):
+                                            for diagnosis in item["value"]:
+                                                if (
+                                                    isinstance(diagnosis, dict)
+                                                    and "desc" in diagnosis
+                                                ):
+                                                    diagnosis_name = diagnosis[
+                                                        "desc"
+                                                    ].strip()
+                                                    if diagnosis_name:
+                                                        diagnoses_tally[
+                                                            diagnosis_name
+                                                        ] = (
+                                                            diagnoses_tally.get(
+                                                                diagnosis_name, 0
+                                                            )
+                                                            + 1
+                                                        )
+                                else:
+                                    continue
+                                diagnoses_tally[diagnosis] = (
+                                    diagnoses_tally.get(diagnosis, 0) + 1
+                                )
+
+        # Sort the tally by count in descending order
+        sorted_tally = sorted(diagnoses_tally.items(),
+                              key=lambda x: x[1], reverse=True)
+
+        # Limit the results if count is specified
+        if count:
+            sorted_tally = sorted_tally[: int(count)]
+
+        return jsonify(
+            {
+                "diagnoses_counts": dict(sorted_tally),
+                "start_date": start_date,
+                "end_date": end_date,
+            }
+        )
+
+    except ValueError as ve:
+        logging.error(f"Invalid date format: {ve}")
+        return (
+            jsonify({"error": "Invalid date format. Use ISO format (YYYY-MM-DD)"}),
+            400,
+        )
+    except PostgresError as pe:
+        logging.error(f"Database error occurred: {pe}")
+        return jsonify({"error": "Database error occurred"}), 500
+    except Exception as e:
+        logging.error(f"An unexpected error occurred: {e}")
+        return jsonify({"error": "An unexpected error occurred"}), 500
+
+
+@api.get("/ahr/prescriptions_counts")
+@middleware.authenticated_admin
+def get_prescriptions_counts(_):
+    """Get the breakdown of prescriptions"""
+    try:
+        start_date = request.args.get("start_date")
+        end_date = request.args.get("end_date")
+        count = request.args.get("count")
+
+        query = """
+            SELECT items from prescriptions
+            WHERE is_deleted = FALSE
+        """
+        params = []
+
+        if start_date:
+            query += " AND created_at >= %s"
+            params.append(datetime.fromisoformat(start_date))
+        if end_date:
+            query += " AND created_at <= %s"
+            params.append(datetime.fromisoformat(end_date))
+
+        if count:
+            query += " LIMIT %s"
+            params.append(int(count))
+
+        with db.get_connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(query, params)
+                prescriptions = cur.fetchall()
+
+        prescriptions_tally = {}
+        for prescription in prescriptions:
+            # eg: # "[{\"id\":\"0.13445959591591128\",\"name\":\"Betaval Cream\",\"route\":\"topical\",\"form\":\"cream\",\"frequency\":\"\",\"intervals\":\"\",\"dose\":0,\"doseUnits\":\"mg\",\"duration\":0,\"durationUnits\":\"\",\"medicationId\":\"\",\"quantity\":0,\"status\":\"pending\",\"priority\":\"normal\",\"filledAt\":null,\"filledByUserId\":null}]"
+            items = prescription["items"]
+            items_json = json.loads(items)
+            for item in items_json:
+                # Convert to lowercase for case-insensitive comparison
+                medication_name = item["name"].strip().lower()
+                if medication_name:
+                    prescriptions_tally[medication_name] = (
+                        prescriptions_tally.get(medication_name, 0) + 1
+                    )
+
+        # Sort the tally by count in descending order
+        sorted_tally = sorted(
+            prescriptions_tally.items(), key=lambda x: x[1], reverse=True
+        )
+
+        return jsonify(
+            {
+                "prescriptions_counts": dict(sorted_tally),
+                "start_date": start_date,
+                "end_date": end_date,
+            }
+        )
+    except ValueError as ve:
+        logging.error(f"Invalid date format: {ve}")
+        return (
+            jsonify({"error": "Invalid date format. Use ISO format (YYYY-MM-DD)"}),
+            400,
+        )
+    except PostgresError as pe:
+        logging.error(f"Database error occurred: {pe}")
+        return jsonify({"error": "Database error occurred"}), 500
+    except Exception as e:
         logging.error(f"An unexpected error occurred: {e}")
         return jsonify({"error": "An unexpected error occurred"}), 500
