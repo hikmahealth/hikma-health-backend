@@ -11,9 +11,11 @@ import json
 from typing import Callable, Any
 from operator import xor
 
+
 class _BLANK:
     """Singleton implementation for the help deal with the `BLANK` constant"""
     _instance = None
+
     @classmethod
     def create(cls):
         if _BLANK._instance is None:
@@ -25,13 +27,14 @@ class _BLANK:
         return "__BLANK__"
 
 
-
 BLANK = _BLANK.create()
 """This object represnts a missing value. Since `None` can also be a value, we need a
 way to demostrate 'nothing'. Similar to `dataclasses.MISSING`"""
 
+
 class UTCDateTime:
     """Field to represent a date object that's converted from and ISO8601 string"""
+
     def __init__(self, default_factory: Callable[[], datetime] = BLANK):
         self._default_factory = default_factory
 
@@ -59,24 +62,25 @@ class UTCDateTime:
             # assumes is string
             try:
                 value_to_set = datetime.fromisoformat(value)
-            except ValueError :
-                raise ValueError("input must be datetime or iso-8601 valid string")
+            except ValueError:
+                raise ValueError(
+                    "input must be datetime or iso-8601 valid string")
 
         setattr(obj, self._private_name, value_to_set.astimezone(timezone.utc))
 
 
 class JSON:
     """Field to represent converting JSON string into friendlier objects like `dict` or `list`"""
+
     def __init__(self,
                  default_factory: Callable[[], Any] | _BLANK = BLANK,
                  default: Any | _BLANK = BLANK):
 
-
-        assert xor(default is BLANK, default_factory is BLANK), "either default or default_factory must be defined"
+        assert xor(default is BLANK,
+                   default_factory is BLANK), "either default or default_factory must be defined"
 
         self._default_value = default
         self._default_factory = default_factory
-
 
     def pull_default(self):
         if self._default_factory is not BLANK:
@@ -92,8 +96,12 @@ class JSON:
         if output is BLANK:
             return self.pull_default()
 
-        return json.loads(output)
+        # If already a dict or list, return as-is
+        if isinstance(output, (dict, list)):
+            return output
 
+        # Otherwise parse the string/bytes as JSON
+        return json.loads(output)
 
     def __set__(self, obj, value: str | bytes):
         setattr(obj, self._private_name, value)

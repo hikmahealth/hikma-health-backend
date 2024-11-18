@@ -44,7 +44,8 @@ if DATABASE_URL:
     # IF there is a connection string, proceed to extract the data from it
     db_proto, connection_params = DATABASE_URL.split("//")
     if db_proto != "postgresql:":
-        raise Exception("Using a non postgresql database. HH only supports PostgreSQL.")
+        raise Exception(
+            "Using a non postgresql database. HH only supports PostgreSQL.")
 
     credentials, url = connection_params.split("@")
 
@@ -85,4 +86,5 @@ if APP_ENV == EnvironmentType.Prod:
 
 PHOTOS_STORAGE_BUCKET = os.environ.get("PHOTOS_STORAGE_BUCKET")
 EXPORTS_STORAGE_BUCKET = os.environ.get("EXPORTS_STORAGE_BUCKET")
-LOCAL_PHOTO_STORAGE_DIR = os.environ.get("LOCAL_PHOTO_STORAGE_DIR", "/tmp/hikma_photos")
+LOCAL_PHOTO_STORAGE_DIR = os.environ.get(
+    "LOCAL_PHOTO_STORAGE_DIR", "/tmp/hikma_photos")
