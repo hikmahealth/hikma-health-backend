@@ -1155,7 +1155,6 @@ def get_appointments(_):
 
     return jsonify({"appointments": appointments})
 
-
 @api.put("/appointments/<id>")
 @middleware.authenticated_admin
 def update_appointment_status(_, id: str):
@@ -1323,6 +1322,62 @@ def create_appointment(_):
         return jsonify({"error": "An unexpected error occurred"}), 500
 
 
+@api.get("/prescriptions/search")
+@middleware.authenticated_admin
+def get_prescriptions(_):
+    """Get all prescriptions matching the filters"""
+    # filters include start date, end date, patient id, provider id, clinic id
+    filters = request.args.to_dict()
+    filters = convert_dict_keys_to_snake_case(filters)
+    prescriptions = hh.Prescription.search(filters)
+
+    return jsonify({"prescriptions": prescriptions})
+
+
+@api.put("/prescriptions/<id>")
+@middleware.authenticated_admin
+def update_prescription_status(_, id: str):
+    try:
+        params = webhelper.assert_data_has_keys(request, {"status"})
+        new_status = params["status"]
+
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE prescriptions
+                    SET status = %s, updated_at = %s, last_modified = current_timestamp
+                    WHERE id = %s AND is_deleted = FALSE
+                    RETURNING id
+                    """,
+                    (new_status, utc.now(), id),
+                )
+                updated_prescription = cur.fetchone()
+
+                if not updated_prescription:
+                    return (
+                        jsonify(
+                            {"error": "Prescription not found or already deleted"}),
+                        404,
+                    )
+
+        return jsonify(
+            {"ok": True, "message": "Prescription status updated successfully"}
+        )
+
+    except WebError as we:
+        logging.error(f"WebError: {we}")
+        return jsonify({"error": str(we)}), we.status_code
+    except PostgresError as pe:
+        # Log the database error here
+        logging.error(f"PostgresError: {pe}")
+        return jsonify({"error": "Database error occurred"}), 500
+    except Exception as e:
+        # Log the unexpected error here
+        logging.error(f"Exception: {e}")
+        return jsonify({"error": "An unexpected error occurred"}), 500
+
+
 @api.get("/database/export")
 @middleware.authenticated_admin
 def export_full_database(_):
@@ -1430,7 +1485,8 @@ def import_full_database(_):
                     "patient_registration_forms",
                     "appointments",
                     "string_ids",
-                    "string_content"
+                    "string_content",
+                    "prescriptions"
                 ]:
                     if table_name not in tables:
                         raise Exception(

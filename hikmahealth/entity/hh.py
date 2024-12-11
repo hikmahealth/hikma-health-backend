@@ -1111,6 +1111,58 @@ class Prescription(sync.SyncableEntity):
                 logging.error(f"Prescription Errors: {str(e)}")
                 conn.rollback()
                 raise e
+    
+    @classmethod
+    def search(cls, filters):
+        with db.get_connection().cursor(row_factory=dict_row) as cur:
+            query = """
+            SELECT 
+                p.*,
+                json_build_object(
+                    'given_name', pt.given_name,
+                    'surname', pt.surname,
+                    'date_of_birth', pt.date_of_birth,
+                    'sex', pt.sex,
+                    'phone', pt.phone
+                ) AS patient,
+                json_build_object(
+                    'name', u.name
+                ) AS provider,
+                json_build_object(
+                    'name', c.name
+                ) AS pickup_clinic
+            FROM prescriptions p
+            LEFT JOIN patients pt ON p.patient_id = pt.id
+            LEFT JOIN users u ON p.provider_id = u.id
+            LEFT JOIN clinics c ON p.pickup_clinic_id = c.id
+            WHERE p.is_deleted = false
+            AND p.prescribed_at >= %(start_date)s
+            AND p.prescribed_at <= %(end_date)s
+            """
+            params = {
+                'start_date': filters['start_date'],
+                'end_date': filters['end_date'],
+            }
+
+            if 'status' in filters and filters['status'] != 'all':
+                query += " AND p.status = %(status)s"
+                params['status'] = filters['status']
+
+            if 'patient_id' in filters:
+                query += " AND p.patient_id = %(patient_id)s"
+                params['patient_id'] = filters['patient_id']
+
+            if 'provider_id' in filters:
+                query += " AND p.provider_id = %(provider_id)s"
+                params['provider_id'] = filters['provider_id']
+
+            if 'pickup_clinic_id' in filters:
+                query += " AND p.pickup_clinic_id = %(pickup_clinic_id)s"
+                params['pickup_clinic_id'] = filters['pickup_clinic_id']
+
+            cur.execute(query, params)
+            return cur.fetchall()
+        
 
 
 ######### HELPER DB METHODS #########
