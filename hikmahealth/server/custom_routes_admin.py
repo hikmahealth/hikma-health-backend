@@ -166,7 +166,6 @@ def get_kpis(_):
                         AND e.is_deleted = false
                         AND e.created_at >= %s
                         AND e.created_at <= %s
-                        LIMIT 5
                     """)
                     cur.execute(query, (form_id, start_date, end_date))
                     results = cur.fetchall()

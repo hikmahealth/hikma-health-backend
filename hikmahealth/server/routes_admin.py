@@ -1428,23 +1428,36 @@ def explore_data(_):
 
                 ## TODO: THIS MUST CHECK THE ATTRIBUTES TABLE IN AN EAV FASHION
                 # # Process attribute fields
-                # if patient_filter.get('attributeFields'):
-                #     base_query += " LEFT JOIN patient_additional_attributes paa ON p.id = paa.patient_id"
-                #     for rule in patient_filter['attributeFields']:
-                #         operator = convert_operator(rule['operator'])
-                #         param_name = f"a_{rule['id']}"
-                #         where_clauses.append(f"paa.{rule['field']} {operator} %({param_name})s")
-                #         # Add wildcards for contains/does not contain operators
-                #         if operator in ('ILIKE', 'NOT ILIKE'):
-                #             params[param_name] = f"%{rule['value']}%"
-                #         else:
-                #             params[param_name] = rule['value']
+                if patient_filter.get('attributeFields'):
+                    for rule in patient_filter['attributeFields']:
+                    # Add join for each attribute field
+                        join_alias = f"paa_{rule['id'].replace('-', '_')}"
+                        base_query += f"""
+                            LEFT JOIN patient_additional_attributes {join_alias} 
+                            ON p.id = {join_alias}.patient_id 
+                            AND {join_alias}.attribute_id = %(attr_id_{join_alias})s 
+                            AND {join_alias}.is_deleted = false
+                        """
+                        params[f"attr_id_{join_alias}"] = rule['fieldId']
+                        
+                        operator = convert_operator(rule['operator'])
+                        param_name = f"a_{rule['id']}"
+                        
+                        # Build the COALESCE expression to check all possible value types
+                        value_expr = f"COALESCE({join_alias}.string_value, CAST({join_alias}.number_value AS TEXT), CAST({join_alias}.boolean_value AS TEXT), CAST({join_alias}.date_value AS TEXT))"
+                        
+                        where_clauses.append(f"{value_expr} {operator} %({param_name})s")
+                        
+                        # Add wildcards for contains/does not contain operators
+                        if operator in ('ILIKE', 'NOT ILIKE'):
+                            params[param_name] = f"%{rule['value']}%"
+                        else:
+                            params[param_name] = rule['value']
                 
                 if where_clauses:
                     base_query += " WHERE " + " AND ".join(where_clauses)
                 
 
-                print(base_query, params)
                 with conn.cursor(row_factory=dict_row) as cur:
                     cur.execute(base_query, params)
                     # TODO: Patients should include their attributes
