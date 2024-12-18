@@ -186,6 +186,26 @@ class Patient(sync.SyncableEntity, helpers.SimpleCRUD):
                 )
 
     @classmethod
+    def get_column_names(cls):
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                q = """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_name = 'patients'
+                    ORDER BY ordinal_position
+                """
+                cur.execute(q)
+                return [row[0] for row in cur.fetchall()]
+    
+
+    @classmethod
+    def filter_valid_colums(cls, columns: list[str]) -> list[str]:
+        valid_columns = cls.get_column_names()
+        return [column for column in columns if column in valid_columns]
+
+
+    @classmethod
     def get_all_with_attributes(cls, count=None):
         with db.get_connection() as conn:
             with conn.cursor(row_factory=dict_row) as cur:
@@ -1175,7 +1195,7 @@ def upsert_visit(
     provider_id: str,
     provider_name: str,
     check_in_timestamp: datetime,
-    metadata: dict = None,
+    metadata: dict | None = None,
     is_deleted: bool = False
 ):
     """

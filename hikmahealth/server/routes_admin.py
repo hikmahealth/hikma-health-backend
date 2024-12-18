@@ -10,7 +10,7 @@ from hikmahealth.server.helpers import web as webhelper
 from hikmahealth.entity import hh
 import hikmahealth.entity.fields as f
 
-from hikmahealth.utils.misc import convert_dict_keys_to_snake_case
+from hikmahealth.utils.misc import convert_dict_keys_to_snake_case, convert_operator
 from hikmahealth.utils.errors import WebError
 from psycopg import Error as PostgresError
 
@@ -30,6 +30,7 @@ import psycopg.errors
 from urllib import parse as urlparse
 
 from hikmahealth.utils.datetime import utc
+import hikmahealth.server.custom_routes_admin
 
 
 admin_api = Blueprint("admin_api_backcompat", __name__,
@@ -1378,6 +1379,112 @@ def update_prescription_status(_, id: str):
         return jsonify({"error": "An unexpected error occurred"}), 500
 
 
+
+
+# =============================================================================
+# START OF DATA EXPLORER ENDPOINTS
+# =============================================================================
+
+@api.post("/data-explorer")
+@middleware.authenticated_with_role(["admin", "super_admin", "provider", "researcher"])
+def explore_data(_):
+    try:
+        filters = request.get_json()
+
+        # Validate the input structure
+        if not isinstance(filters, dict):
+            return jsonify({"error": 'Invalid filter format'}), 400
+
+        required_keys = ["patient", "appointment", "event", "prescription"]
+        if not all(key in filters for key in required_keys):
+            return jsonify({"error": 'Missing required fields'}), 400
+
+        results = {}
+
+        # Process the filters
+        if filters['patient']:
+            patient_filter = filters['patient']
+            with db.get_connection() as conn:
+                base_query = """
+                    SELECT DISTINCT p.* 
+                    FROM patients p
+                """
+                
+                where_clauses = []
+                params = {}
+                
+                # Process base fields
+                if patient_filter.get('baseFields'):
+                    for rule in patient_filter['baseFields']:
+                        operator = convert_operator(rule['operator'])
+                        param_name = f"p_{rule['id']}"
+                        where_clauses.append(f"p.{rule['field']} {operator} %({param_name})s")
+                         # Add wildcards for contains/does not contain operators
+                        if operator in ('ILIKE', 'NOT ILIKE'):
+                            params[param_name] = f"%{rule['value']}%"
+                        else:
+                            params[param_name] = rule['value']
+                
+
+                ## TODO: THIS MUST CHECK THE ATTRIBUTES TABLE IN AN EAV FASHION
+                # # Process attribute fields
+                # if patient_filter.get('attributeFields'):
+                #     base_query += " LEFT JOIN patient_additional_attributes paa ON p.id = paa.patient_id"
+                #     for rule in patient_filter['attributeFields']:
+                #         operator = convert_operator(rule['operator'])
+                #         param_name = f"a_{rule['id']}"
+                #         where_clauses.append(f"paa.{rule['field']} {operator} %({param_name})s")
+                #         # Add wildcards for contains/does not contain operators
+                #         if operator in ('ILIKE', 'NOT ILIKE'):
+                #             params[param_name] = f"%{rule['value']}%"
+                #         else:
+                #             params[param_name] = rule['value']
+                
+                if where_clauses:
+                    base_query += " WHERE " + " AND ".join(where_clauses)
+                
+
+                print(base_query, params)
+                with conn.cursor(row_factory=dict_row) as cur:
+                    cur.execute(base_query, params)
+                    # TODO: Patients should include their attributes
+                    results['patients'] = cur.fetchall()
+        
+
+        if filters["appointment"]:
+            pass
+
+        if filters["event"]:
+            pass
+
+        if filters["prescription"]:
+            pass
+
+        return jsonify({"ok": True, "message": "Data exploration successful", "data": results})
+
+    except WebError as we:
+        logging.error(f"WebError: {we}")
+        return jsonify({"error": str(we)}), we.status_code
+    except PostgresError as pe:
+        # Log the database error here
+        logging.error(f"PostgresError: {pe}")
+        return jsonify({"error": "Database error occurred"}), 500
+    except Exception as e:
+        # Log the unexpected error here
+        logging.error(f"Exception: {e}")
+        return jsonify({"error": "An unexpected error occurred"}), 500
+
+
+
+# =============================================================================
+# END OF DATA EXPLORER ENDPOINTS
+# =============================================================================
+
+
+# =============================================================================
+# START OF DATABASE IMPORT & EXPORT ENDPOINTS
+# =============================================================================
+
 @api.get("/database/export")
 @middleware.authenticated_admin
 def export_full_database(_):
@@ -1565,6 +1672,11 @@ def import_full_database(_):
             "error": "An error occurred during import",
             "details": str(e)
         }), 500
+
+# =============================================================================
+# END OF DATABASE IMPORT & EXPORT ENDPOINTS
+# =============================================================================
+
 
 
 # AHR Specific Analysis Routes - used for experimenting with analysis endpoints

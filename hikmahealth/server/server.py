@@ -2,7 +2,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 import logging
 
-from hikmahealth.server import routes_mobile, routes_admin
+from hikmahealth.server import custom_routes_admin, routes_mobile, routes_admin
 
 from hikmahealth.utils.errors import WebError
 
@@ -19,6 +19,8 @@ app.register_blueprint(routes_admin.admin_api)
 
 app.register_blueprint(routes_admin.api, url_prefix='/v1/admin')
 app.register_blueprint(routes_mobile.api, url_prefix="/v1/api")
+# user admin extension routes
+# app.register_blueprint(custom_routes_admin.api, url_prefix="/v1/admin")
 
 
 @app.route("/")

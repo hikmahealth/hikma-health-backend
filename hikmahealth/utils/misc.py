@@ -105,3 +105,32 @@ def safe_json_dumps(data, default=None):
     except (TypeError, ValueError, OverflowError) as e:
         logging.warning(f"Failed to serialize to JSON. Using default value.")
         return default
+
+
+def convert_operator(operator: str, case_insensitive: bool = True) -> str:
+    """
+    Convert frontend operator to SQL operator.
+    
+    Args:
+        operator (str): The frontend operator to convert.
+        case_insensitive (bool): Whether to use case-insensitive operators where applicable. Defaults to True.
+    
+    Returns:
+        str: The corresponding SQL operator.
+    """
+    operator_map = {
+        'contains': 'ILIKE' if case_insensitive else 'LIKE',
+        'does not contain': 'NOT ILIKE' if case_insensitive else 'NOT LIKE',
+        'is empty': 'IS NULL',
+        'is not empty': 'IS NOT NULL',
+        # TODO: figure out how to do this well with varying data types
+        # '=': 'ILIKE' if case_insensitive else '=',
+        '=': '=',
+        # '!=': 'NOT ILIKE' if case_insensitive else '!=',
+        '!=': '!=',
+        '<': '<',
+        '>': '>',
+        '<=': '<=',
+        '>=': '>=',
+    }
+    return operator_map.get(operator, 'ILIKE' if case_insensitive else '=')
