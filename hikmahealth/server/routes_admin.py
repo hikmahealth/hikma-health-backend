@@ -1401,15 +1401,146 @@ def explore_data(_):
 
         results = {}
 
+        patient_ids = set()
+
         # Process the filters
+        if filters["event"] and isinstance(filters["event"], list):
+            # Event filters' fieldId is ';' separated like: 'formId;fieldId'
+            # The operators and values are as they are expressed in the patients filter
+            events_results = []  # Store results outside the connection block
+            with db.get_connection() as conn:
+                with conn.cursor(row_factory=dict_row) as cur:
+                    for event_filter in filters["event"]:
+                        operator = convert_operator(event_filter["operator"])
+                        form_id, field_id = event_filter["fieldId"].split(";")
+                        query = """
+                            SELECT e.* 
+                            FROM events e
+                            WHERE e.form_id = %s AND e.is_deleted = FALSE
+                        """
+                        params = [form_id]
+
+                        print("OPERATOR: ", operator)
+                        print("FIELD ID: ", field_id)
+
+                        if operator == "=":
+                            query += """ 
+                                AND EXISTS (
+                                    SELECT 1 FROM jsonb_array_elements(e.form_data::jsonb) AS field 
+                                    WHERE field->>'fieldId' = %s AND field->>'value' = %s
+                                )
+                            """
+                            params.extend([field_id, str(event_filter["value"])])
+                        elif operator in ["ILIKE", "LIKE"]:
+                            query += """
+                                AND EXISTS (
+                                    SELECT 1 FROM jsonb_array_elements(e.form_data::jsonb) AS field 
+                                    WHERE field->>'fieldId' = %s AND field->>'value' ILIKE %s
+                                )
+                            """
+                            params.extend([field_id, f"%{event_filter['value']}%"])
+                        elif operator in ["<", ">", "<=", ">=", "!="]:
+                            input_type_query = "field->>'value' {0} %s".format(operator)
+                            value = str(event_filter['value'])
+
+                            print("VALUE: ", value)
+                            
+                            # dataType is one of: number, text, date or boolean
+                            if event_filter["dataType"] == "date":
+                                # Handle ISO format date strings by casting through timestamp
+                                input_type_query = """
+                                    field->>'value' IS NOT NULL 
+                                    AND field->>'value' != '' 
+                                    AND (field->>'value')::timestamp {0} %s::timestamp
+                                """.format(operator)
+                            elif event_filter["dataType"] == "number":
+                                input_type_query = """
+                                    field->>'value' IS NOT NULL 
+                                    AND field->>'value' != '' 
+                                    AND field->>'value'::numeric {0} %s::numeric
+                                """.format(operator)
+                            elif event_filter["dataType"] == "boolean":
+                                input_type_query = "field->>'value'::boolean {0} %s::boolean".format(operator)
+
+                            query += """
+                                AND EXISTS (
+                                    SELECT 1 FROM jsonb_array_elements(e.form_data::jsonb) AS field 
+                                    WHERE field->>'fieldId' = %s 
+                                    AND {1}
+                                )
+                            """.format(operator, input_type_query)
+                            params.extend([field_id, value])
+                        else:
+                            query += """
+                                AND EXISTS (
+                                    SELECT 1 FROM jsonb_array_elements(e.form_data::jsonb) AS field 
+                                 WHERE field->>'fieldId' = %s AND field->>'value' {} %s
+                                )
+                            """.format(operator)
+                            params.extend([field_id, str(event_filter['value'])])
+                        
+
+                        cur.execute(query, params)
+                        events_results.extend(cur.fetchall())
+            
+            # Process results after connection is closed
+            results["events"] = events_results
+            for event in events_results:
+                patient_ids.add(event["patient_id"])
+
+        if filters["appointment"]:
+            pass
+
+        if filters["prescription"]:
+            pass
+
+        print("patient_ids", patient_ids)
+
+        # Process the patient filter last, to take into account any of the other filters
+        # including any patient ids that are explicitly set to be limited to
+        # TODO: If the patient ids is not empty, only return patients that are in that set
         if filters['patient']:
             patient_filter = filters['patient']
             with db.get_connection() as conn:
+                # base_query = """
+                #     SELECT DISTINCT p.* 
+                #     FROM patients p
+                # """
                 base_query = """
-                    SELECT DISTINCT p.* 
-                    FROM patients p
+                    WITH distinct_patients AS (
+                        SELECT DISTINCT p.* 
+                        FROM patients p
+                    )
+                    SELECT dp.id,
+                           dp.given_name,
+                           dp.surname,
+                           dp.date_of_birth,
+                           dp.sex,
+                           dp.camp,
+                           dp.citizenship,
+                           dp.hometown,
+                           dp.phone,
+                           dp.government_id,
+                           dp.external_patient_id,
+                           dp.created_at,
+                           dp.updated_at,
+                           dp.last_modified,
+                           dp.server_created_at,
+                           dp.deleted_at,
+                    COALESCE(json_object_agg(
+                        pa.attribute_id, 
+                        json_build_object(
+                            'attribute', pa.attribute,
+                            'number_value', pa.number_value,
+                            'string_value', pa.string_value,
+                            'date_value', pa.date_value,
+                            'boolean_value', pa.boolean_value
+                        )
+                    ) FILTER (WHERE pa.attribute_id IS NOT NULL), '{}') AS additional_attributes
+                    FROM distinct_patients dp
+                    LEFT JOIN patient_additional_attributes pa ON dp.id = pa.patient_id AND pa.is_deleted = false
                 """
-                
+
                 where_clauses = []
                 params = {}
                 
@@ -1418,23 +1549,20 @@ def explore_data(_):
                     for rule in patient_filter['baseFields']:
                         operator = convert_operator(rule['operator'])
                         param_name = f"p_{rule['id']}"
-                        where_clauses.append(f"p.{rule['field']} {operator} %({param_name})s")
+                        where_clauses.append(f"dp.{rule['field']} {operator} %({param_name})s")
                          # Add wildcards for contains/does not contain operators
                         if operator in ('ILIKE', 'NOT ILIKE'):
                             params[param_name] = f"%{rule['value']}%"
                         else:
                             params[param_name] = rule['value']
-                
 
-                ## TODO: THIS MUST CHECK THE ATTRIBUTES TABLE IN AN EAV FASHION
-                # # Process attribute fields
+                # Process attribute fields
                 if patient_filter.get('attributeFields'):
                     for rule in patient_filter['attributeFields']:
-                    # Add join for each attribute field
                         join_alias = f"paa_{rule['id'].replace('-', '_')}"
                         base_query += f"""
                             LEFT JOIN patient_additional_attributes {join_alias} 
-                            ON p.id = {join_alias}.patient_id 
+                            ON dp.id = {join_alias}.patient_id 
                             AND {join_alias}.attribute_id = %(attr_id_{join_alias})s 
                             AND {join_alias}.is_deleted = false
                         """
@@ -1453,25 +1581,53 @@ def explore_data(_):
                             params[param_name] = f"%{rule['value']}%"
                         else:
                             params[param_name] = rule['value']
-                
+
+                # Add patient_ids filter if other filters exist
+                other_filters_exist = isinstance(filters["event"], list) and len(filters["event"]) > 0 or filters["appointment"] or filters["prescription"]
+                if other_filters_exist:
+                    where_clauses.append("dp.id = ANY(%(patient_ids)s)")
+                    params["patient_ids"] = list(patient_ids)
+
+                # Add all WHERE conditions at once if any exist
                 if where_clauses:
                     base_query += " WHERE " + " AND ".join(where_clauses)
-                
+
+                # Add GROUP BY since we're using aggregation
+                base_query += """ 
+                    GROUP BY dp.id,
+                           dp.given_name,
+                           dp.surname,
+                           dp.date_of_birth,
+                           dp.sex,
+                           dp.camp,
+                           dp.citizenship,
+                           dp.hometown,
+                           dp.phone,
+                           dp.government_id,
+                           dp.external_patient_id,
+                           dp.created_at,
+                           dp.updated_at,
+                           dp.last_modified,
+                           dp.server_created_at,
+                           dp.deleted_at
+                """
 
                 with conn.cursor(row_factory=dict_row) as cur:
                     cur.execute(base_query, params)
-                    # TODO: Patients should include their attributes
-                    results['patients'] = cur.fetchall()
-        
+                    patients = cur.fetchall()
+                    
+                    # Process the results
+                    for patient in patients:
+                        # Convert datetime objects to ISO format strings
+                        for key in ['created_at', 'updated_at', 'last_modified', 'deleted_at']:
+                            if patient[key]:
+                                patient[key] = patient[key].isoformat()
 
-        if filters["appointment"]:
-            pass
+                        # Convert date objects to ISO format strings
+                        if patient['date_of_birth']:
+                            patient['date_of_birth'] = patient['date_of_birth'].isoformat()
 
-        if filters["event"]:
-            pass
-
-        if filters["prescription"]:
-            pass
+                    results["patients"] = patients
 
         return jsonify({"ok": True, "message": "Data exploration successful", "data": results})
 
