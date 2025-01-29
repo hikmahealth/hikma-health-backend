@@ -529,19 +529,9 @@ def search_patients(_):
     if not query:
         return jsonify({"patients": []})
 
-    search_query = f"%{query}%"
+    # search_query = f"%{query}%"
 
-    with db.get_connection() as conn:
-        with conn.cursor(row_factory=class_row(hh.Patient)) as cur:
-            patients = cur.execute(
-                """
-                SELECT *
-                FROM patients as p
-                WHERE is_deleted = false
-                AND (p.given_name ILIKE %(query)s OR p.surname ILIKE %(query)s)
-                """,
-                {"query": search_query},
-            ).fetchall()
+    patients = hh.Patient.search(query)
 
     return jsonify({"patients": patients})
 
