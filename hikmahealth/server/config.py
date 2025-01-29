@@ -16,8 +16,8 @@ and stopped running any further
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
-load_dotenv("app/.env")
+load_dotenv(verbose=True, override=True)
+load_dotenv("app/.env", verbose=True, override=True)
 
 # preferably control how the environment variables are injected.
 # This is left here for familiarity reasons. This should be removed

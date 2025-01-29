@@ -1,7 +1,4 @@
 import psycopg
-from hikmahealth.server import config
-
-import psycopg
 # from psycopg.pool import ConnectionPool
 from psycopg_pool import ConnectionPool
 from hikmahealth.server import config
