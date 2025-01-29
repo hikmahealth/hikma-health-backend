@@ -9,8 +9,12 @@ def to_snake_case(string):
     Convert a string from camelCase or PascalCase to snake_case.
 
     This function takes a string in camelCase or PascalCase format and converts it to snake_case.
-    It inserts an underscore before any uppercase letter that is preceded by a lowercase letter
-    or number, then converts the entire string to lowercase.
+    It handles the following cases:
+    - camelCase -> camel_case
+    - PascalCase -> pascal_case
+    - ABC -> abc (consecutive uppercase letters are treated as one word)
+    - alreadySnakeCase -> already_snake_case
+    - ThisIsATest -> this_is_a_test
 
     Args:
         string (str): The input string to convert.
@@ -25,9 +29,36 @@ def to_snake_case(string):
         'pascal_case'
         >>> to_snake_case("ABC")
         'abc'
+        >>> to_snake_case("XMLHttpRequest")
+        'xml_http_request'
+        >>> to_snake_case("ThisIsATest")
+        'this_is_a_test'
     """
-    pattern = re.compile(r'(?<!^)(?=[A-Z])')
-    return pattern.sub('_', string).lower()
+    if not string:
+        return string
+        
+    result = [string[0].lower()]
+    
+    # Look at triplets: previous, current, and next character
+    for i in range(1, len(string)):
+        curr = string[i]
+        prev = string[i-1]
+        next_char = string[i+1] if i < len(string)-1 else None
+        
+        # Add underscore if:
+        # 1. Current char is uppercase and previous char is lowercase
+        # 2. Current char is uppercase and next char is lowercase (for cases like 'ThisIsATest')
+        # 3. Previous char is not underscore and not uppercase
+        if curr.isupper() and (
+            (prev.isalnum() and not prev.isupper()) or
+            (next_char and next_char.islower())
+        ):
+            if result[-1] != '_':
+                result.append('_')
+                
+        result.append(curr.lower())
+            
+    return ''.join(result)
 
 
 def convert_dict_keys_to_snake_case(data):
@@ -78,6 +109,9 @@ def is_valid_uuid(uuid_to_test, version=4):
     >>> is_valid_uuid('c9bf9e58')
     False
     """
+
+    if not uuid_to_test:  # Handle None and empty string
+        return False
 
     try:
         uuid_obj = UUID(uuid_to_test, version=version)
