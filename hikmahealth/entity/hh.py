@@ -250,6 +250,49 @@ class Patient(sync.SyncableEntity, helpers.SimpleCRUD):
                 return patients
 
 
+    @classmethod
+    def search(cls, query):
+        # Only supporting search by either first or surname
+        # TODO: add support for text searching some of the attributes
+        with db.get_connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                search_query = """
+                SELECT 
+                    p.*,
+                    COALESCE(json_object_agg(
+                        pa.attribute_id, 
+                        json_build_object(
+                            'attribute', pa.attribute,
+                            'number_value', pa.number_value,
+                            'string_value', pa.string_value,
+                            'date_value', pa.date_value,
+                            'boolean_value', pa.boolean_value
+                        )
+                    ) FILTER (WHERE pa.attribute_id IS NOT NULL), '{}') AS additional_attributes
+                FROM patients p
+                LEFT JOIN patient_additional_attributes pa ON p.id = pa.patient_id
+                WHERE p.is_deleted = false
+                AND (LOWER(p.given_name) LIKE LOWER(%s) OR LOWER(p.surname) LIKE LOWER(%s))
+                GROUP BY p.id
+                ORDER BY p.updated_at DESC
+                """
+                search_pattern = f"%{query}%"
+                cur.execute(search_query, (search_pattern, search_pattern))
+                patients = cur.fetchall()
+
+                for patient in patients:
+                    # Convert datetime objects to ISO format strings
+                    for key in ['created_at', 'updated_at', 'last_modified', 'deleted_at']:
+                        if patient[key]:
+                            patient[key] = patient[key].isoformat()
+
+                    # Convert date objects to ISO format strings
+                    if patient['date_of_birth']:
+                        patient['date_of_birth'] = patient['date_of_birth'].isoformat()
+
+                return patients
+
+
 @core.dataentity
 class PatientAttribute(sync.SyncableEntity):
     TABLE_NAME = "patient_additional_attributes"
