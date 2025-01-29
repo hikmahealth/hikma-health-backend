@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - dev
+
+  pull_request:
+    branches:
+      - dev
+      - main
+
+# TODO: Future improvements
+# - Add PostgreSQL database setup for integration tests
+# - Add flake8 for code style enforcement
+# - Configure stricter coverage thresholds (e.g., --cov-fail-under=80)
+# - Add type checking with mypy
+# - Add security scanning with bandit
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # TODO: Uncomment and configure database service when ready for integration tests
+    # services:
+    #   postgres:
+    #     image: postgres:15
+    #     env:
+    #       POSTGRES_PASSWORD: postgres
+    #       POSTGRES_USER: postgres
+    #       POSTGRES_DB: test_db
+    #     ports:
+    #       - 5432:5432
+    #     options: >-
+    #       --health-cmd pg_isready
+    #       --health-interval 10s
+    #       --health-timeout 5s
+    #       --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests with coverage
+        # TODO: Add DATABASE_URL env var when PostgreSQL is configured
+        run: |
+          python -m pytest --cov=hikmahealth --cov-report=term-missing --cov-report=html
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: htmlcov
+
+  merge-to-main:
+    needs: test
+    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Merge dev into main
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          git checkout main
+          git pull origin main
+          git merge --no-ff origin/dev -m "Auto-merge dev into main"
+          git push origin main
