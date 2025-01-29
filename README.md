@@ -167,10 +167,16 @@ python3 -m pytest --cov=hikmahealth --cov-report=term-missing --cov-report=html
 Features on the roadmap represent the vision for the admin portal over the coming versions, but none are guaranteed. If there is a feature you would love to see supported, open a feature-request / issue with more details and we can prioritize features with the most requests.
 
 - [ ] Improve backup functionality for self-hosted options (not recommended - use a managed database service)
+- [ ] Add support for storing files and images
 - [x] Remove all transition code from previous deployment (all old code now lives in `oldhikma` folder for reference. This will be deleted soon.)
 - [x] Add documentation for fully hosted solutions like render.com
-- [ ] Improve test coverage
+- [x] Improve test coverage
+  - [ ] 80% test coverage
 - [x] Add docs to deploy button customization
+
+## Contributing
+
+Please see the [CONTRIBUTING.md](CONTRIBUTING.md) file for more information.
 
 ## License
 
