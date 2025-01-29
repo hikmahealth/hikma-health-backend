@@ -10,6 +10,13 @@ on:
       - dev
       - main
 
+env:
+  TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+  TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  APP_ENV: "dev"
+
 # TODO: Future improvements
 # - Add PostgreSQL database setup for integration tests
 # - Add flake8 for code style enforcement
