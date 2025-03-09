@@ -249,8 +249,8 @@ def update_user_info(_, uid: str):
                 # Update user information
                 cur.execute(
                     """
-                    UPDATE users 
-                    SET name = %s, email = %s, role = %s, clinic_id = %s, 
+                    UPDATE users
+                    SET name = %s, email = %s, role = %s, clinic_id = %s,
                         updated_at = current_timestamp, last_modified = current_timestamp
                     WHERE id = %s AND is_deleted = FALSE
                     RETURNING id
@@ -375,19 +375,19 @@ def register_patient(_):
                     pattr["last_modified"] = utc.now()
                     cur.execute(
                         """
-                        INSERT INTO patient_additional_attributes 
+                        INSERT INTO patient_additional_attributes
                         (id, patient_id, attribute_id, attribute, number_value, string_value, date_value, boolean_value, metadata, is_deleted, created_at, updated_at, last_modified, server_created_at) VALUES
-                        (%(id)s, %(patient_id)s, %(attribute_id)s, %(attribute)s, %(number_value)s, %(string_value)s, %(date_value)s, %(boolean_value)s, %(metadata)s, false, %(created_at)s, %(updated_at)s, current_timestamp, current_timestamp)   
-                        ON CONFLICT (patient_id, attribute_id) DO UPDATE 
+                        (%(id)s, %(patient_id)s, %(attribute_id)s, %(attribute)s, %(number_value)s, %(string_value)s, %(date_value)s, %(boolean_value)s, %(metadata)s, false, %(created_at)s, %(updated_at)s, current_timestamp, current_timestamp)
+                        ON CONFLICT (patient_id, attribute_id) DO UPDATE
                         SET
-                            patient_id=EXCLUDED.patient_id,  
-                            attribute_id=EXCLUDED.attribute_id, 
+                            patient_id=EXCLUDED.patient_id,
+                            attribute_id=EXCLUDED.attribute_id,
                             attribute = EXCLUDED.attribute,
                             number_value = EXCLUDED.number_value,
                             string_value = EXCLUDED.string_value,
                             date_value = EXCLUDED.date_value,
                             boolean_value = EXCLUDED.boolean_value,
-                            metadata = EXCLUDED.metadata,  
+                            metadata = EXCLUDED.metadata,
                             updated_at = EXCLUDED.updated_at,
                             last_modified = EXCLUDED.last_modified;""",
                         pattr,
@@ -1101,7 +1101,6 @@ def get_all_clinics(_):
 @middleware.authenticated_admin
 def delete_clinic(_, id: str):
     try:
-        params = webhelper.assert_data_has_keys(request, {"id"})
         with db.get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -1111,7 +1110,7 @@ def delete_clinic(_, id: str):
                     WHERE id = %s AND is_deleted = FALSE
                     RETURNING id
                     """,
-                    [params["id"]],
+                    [id],
                 )
                 deleted_clinic = cur.fetchone()
 
@@ -1404,7 +1403,7 @@ def explore_data(_):
                         operator = convert_operator(event_filter["operator"])
                         form_id, field_id = event_filter["fieldId"].split(";")
                         query = """
-                            SELECT e.* 
+                            SELECT e.*
                             FROM events e
                             WHERE e.form_id = %s AND e.is_deleted = FALSE
                         """
@@ -1414,9 +1413,9 @@ def explore_data(_):
                         print("FIELD ID: ", field_id)
 
                         if operator == "=":
-                            query += """ 
+                            query += """
                                 AND EXISTS (
-                                    SELECT 1 FROM jsonb_array_elements(e.form_data::jsonb) AS field 
+                                    SELECT 1 FROM jsonb_array_elements(e.form_data::jsonb) AS field
                                     WHERE field->>'fieldId' = %s AND field->>'value' = %s
                                 )
                             """
@@ -1424,7 +1423,7 @@ def explore_data(_):
                         elif operator in ["ILIKE", "LIKE"]:
                             query += """
                                 AND EXISTS (
-                                    SELECT 1 FROM jsonb_array_elements(e.form_data::jsonb) AS field 
+                                    SELECT 1 FROM jsonb_array_elements(e.form_data::jsonb) AS field
                                     WHERE field->>'fieldId' = %s AND field->>'value' ILIKE %s
                                 )
                             """
@@ -1434,19 +1433,19 @@ def explore_data(_):
                             value = str(event_filter['value'])
 
                             print("VALUE: ", value)
-                            
+
                             # dataType is one of: number, text, date or boolean
                             if event_filter["dataType"] == "date":
                                 # Handle ISO format date strings by casting through timestamp
                                 input_type_query = """
-                                    field->>'value' IS NOT NULL 
-                                    AND field->>'value' != '' 
+                                    field->>'value' IS NOT NULL
+                                    AND field->>'value' != ''
                                     AND (field->>'value')::timestamp {0} %s::timestamp
                                 """.format(operator)
                             elif event_filter["dataType"] == "number":
                                 input_type_query = """
-                                    field->>'value' IS NOT NULL 
-                                    AND field->>'value' != '' 
+                                    field->>'value' IS NOT NULL
+                                    AND field->>'value' != ''
                                     AND field->>'value'::numeric {0} %s::numeric
                                 """.format(operator)
                             elif event_filter["dataType"] == "boolean":
@@ -1454,8 +1453,8 @@ def explore_data(_):
 
                             query += """
                                 AND EXISTS (
-                                    SELECT 1 FROM jsonb_array_elements(e.form_data::jsonb) AS field 
-                                    WHERE field->>'fieldId' = %s 
+                                    SELECT 1 FROM jsonb_array_elements(e.form_data::jsonb) AS field
+                                    WHERE field->>'fieldId' = %s
                                     AND {1}
                                 )
                             """.format(operator, input_type_query)
@@ -1463,16 +1462,16 @@ def explore_data(_):
                         else:
                             query += """
                                 AND EXISTS (
-                                    SELECT 1 FROM jsonb_array_elements(e.form_data::jsonb) AS field 
+                                    SELECT 1 FROM jsonb_array_elements(e.form_data::jsonb) AS field
                                  WHERE field->>'fieldId' = %s AND field->>'value' {} %s
                                 )
                             """.format(operator)
                             params.extend([field_id, str(event_filter['value'])])
-                        
+
 
                         cur.execute(query, params)
                         events_results.extend(cur.fetchall())
-            
+
             # Process results after connection is closed
             results["events"] = events_results
             for event in events_results:
@@ -1493,12 +1492,12 @@ def explore_data(_):
             patient_filter = filters['patient']
             with db.get_connection() as conn:
                 # base_query = """
-                #     SELECT DISTINCT p.* 
+                #     SELECT DISTINCT p.*
                 #     FROM patients p
                 # """
                 base_query = """
                     WITH distinct_patients AS (
-                        SELECT DISTINCT p.* 
+                        SELECT DISTINCT p.*
                         FROM patients p
                     )
                     SELECT dp.id,
@@ -1518,7 +1517,7 @@ def explore_data(_):
                            dp.server_created_at,
                            dp.deleted_at,
                     COALESCE(json_object_agg(
-                        pa.attribute_id, 
+                        pa.attribute_id,
                         json_build_object(
                             'attribute', pa.attribute,
                             'number_value', pa.number_value,
@@ -1533,7 +1532,7 @@ def explore_data(_):
 
                 where_clauses = []
                 params = {}
-                
+
                 # Process base fields
                 if patient_filter.get('baseFields'):
                     for rule in patient_filter['baseFields']:
@@ -1551,21 +1550,21 @@ def explore_data(_):
                     for rule in patient_filter['attributeFields']:
                         join_alias = f"paa_{rule['id'].replace('-', '_')}"
                         base_query += f"""
-                            LEFT JOIN patient_additional_attributes {join_alias} 
-                            ON dp.id = {join_alias}.patient_id 
-                            AND {join_alias}.attribute_id = %(attr_id_{join_alias})s 
+                            LEFT JOIN patient_additional_attributes {join_alias}
+                            ON dp.id = {join_alias}.patient_id
+                            AND {join_alias}.attribute_id = %(attr_id_{join_alias})s
                             AND {join_alias}.is_deleted = false
                         """
                         params[f"attr_id_{join_alias}"] = rule['fieldId']
-                        
+
                         operator = convert_operator(rule['operator'])
                         param_name = f"a_{rule['id']}"
-                        
+
                         # Build the COALESCE expression to check all possible value types
                         value_expr = f"COALESCE({join_alias}.string_value, CAST({join_alias}.number_value AS TEXT), CAST({join_alias}.boolean_value AS TEXT), CAST({join_alias}.date_value AS TEXT))"
-                        
+
                         where_clauses.append(f"{value_expr} {operator} %({param_name})s")
-                        
+
                         # Add wildcards for contains/does not contain operators
                         if operator in ('ILIKE', 'NOT ILIKE'):
                             params[param_name] = f"%{rule['value']}%"
@@ -1583,7 +1582,7 @@ def explore_data(_):
                     base_query += " WHERE " + " AND ".join(where_clauses)
 
                 # Add GROUP BY since we're using aggregation
-                base_query += """ 
+                base_query += """
                     GROUP BY dp.id,
                            dp.given_name,
                            dp.surname,
@@ -1605,7 +1604,7 @@ def explore_data(_):
                 with conn.cursor(row_factory=dict_row) as cur:
                     cur.execute(base_query, params)
                     patients = cur.fetchall()
-                    
+
                     # Process the results
                     for patient in patients:
                         # Convert datetime objects to ISO format strings
@@ -1871,7 +1870,7 @@ def get_events_by_clinic(_):
             FROM clinics c
             LEFT JOIN visits v ON c.id = v.clinic_id
             LEFT JOIN events e ON v.id = e.visit_id
-            WHERE c.is_deleted = FALSE 
+            WHERE c.is_deleted = FALSE
               AND (v.is_deleted = FALSE OR v.is_deleted IS NULL)
               AND (e.is_deleted = FALSE OR e.is_deleted IS NULL)
         """
@@ -1937,7 +1936,7 @@ def get_events_by_clinic_through_appointments(_):
             SELECT c.name AS clinic_name, COUNT(a.id) AS appointment_count
             FROM clinics c
             LEFT JOIN appointments a ON c.id = a.clinic_id
-            WHERE c.is_deleted = FALSE 
+            WHERE c.is_deleted = FALSE
               AND (a.is_deleted = FALSE OR a.is_deleted IS NULL)
               AND a.status NOT IN ('pending', 'cancelled')
         """
