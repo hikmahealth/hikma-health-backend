@@ -128,3 +128,5 @@ playground.py
 # docker files - supporting local development
 .docker
 docker-compose.yml
+
+Justfile
