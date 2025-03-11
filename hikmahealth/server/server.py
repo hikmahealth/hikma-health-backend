@@ -2,15 +2,16 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 import logging
 
-from hikmahealth.server import custom_routes_admin, routes_mobile, routes_admin
+from hikmahealth.server import custom_routes_admin, routes_mobile, routes_admin, test_routes
 
+from hikmahealth.storage.client import initialize_storage
 from hikmahealth.utils.errors import WebError
 
 app = Flask(__name__)
 CORS(app)
 # CORS(app, resources={r"/*": {"origins": "*"}})
 app.url_map.strict_slashes = False
-
+initialize_storage(app)
 
 # for backcompat
 app.register_blueprint(routes_mobile.backcompatapi)
@@ -19,6 +20,7 @@ app.register_blueprint(routes_admin.admin_api)
 
 app.register_blueprint(routes_admin.api, url_prefix='/v1/admin')
 app.register_blueprint(routes_mobile.api, url_prefix="/v1/api")
+app.register_blueprint(test_routes.api, url_prefix="/v1/test")
 # user admin extension routes
 # app.register_blueprint(custom_routes_admin.api, url_prefix="/v1/admin")
 
