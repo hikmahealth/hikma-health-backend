@@ -1,8 +1,14 @@
-class IBaseAdapter:
+from abc import abstractmethod
+from werkzeug.datastructures import FileStorage
+
+
+class IBaseStore:
     """Interface to be implemented by respective store. This adapter allows storage of
     resources like large files, images or blobs needed by a hikma server"""
-    def get(self, name: str):
+    @abstractmethod
+    def get(self, name: str) -> FileStorage:
         raise NotImplementedError()
 
-    def put(self, name: str, object: bytes):
+    @abstractmethod
+    def put(self, data: FileStorage, destination: str, **opts):
         raise NotImplementedError()
