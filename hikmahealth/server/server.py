@@ -24,7 +24,6 @@ app.register_blueprint(test_routes.api, url_prefix="/v1/test")
 # user admin extension routes
 # app.register_blueprint(custom_routes_admin.api, url_prefix="/v1/admin")
 
-
 @app.route("/")
 def hello_world():
     return jsonify({"message": "Welcome to the Hikma Health backend.", "status": "OK"})
