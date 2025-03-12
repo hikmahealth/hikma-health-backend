@@ -9,19 +9,20 @@ requires-python = ">=3.11"
 [build-system]
 requires = ["setuptools", "wheel"]
 
-[tool.black]
+[tool.ruff]
+src = ["hikmahealth"]
+extend-exclude = ["oldhikma", "venv"]
+extend-include = ["pywsgi.py", "app.py"]
 line-length = 88
-target-version = ['py312']
-include = '\.pyi?$'
-# 'extend-exclude' excludes files or directories in addition to the defaults
-extend-exclude = '''
-# A regex preceded with ^/ will apply only to files and directories
-# in the root of the project.
-(
-  oldhikma/\.    # exclude everything in oldhikma
-  venv/\.
-)
-'''
+fix = true
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "tab"
+docstring-code-format = true
+
+[tool.ruff.lint]
+exclude = ["tests"]
 
 [tool.pyright]
 include = ["hikmahealth", "tests", "migrations", "app.py"]

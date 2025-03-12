@@ -13,7 +13,6 @@ class GCPStore(IBaseStore):
     def get(self, name: str):
         pass
 
-
     def put(self, data: FileStorage, destination: str, **kwargs):
         """saves the data to a destination"""
         # check if destination hasa a file
