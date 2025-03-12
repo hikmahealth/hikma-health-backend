@@ -9,53 +9,54 @@ from collections import defaultdict
 
 
 def apply_dataclass(req: Request, dc, data_type: str | None = None):
-    # set optional 
-    if data_type is None:
-        data_type = 'json'
-    
-    if data_type == 'json':
-        data = req.get_json(force=True)
-    elif data_type == 'form':
-        data = req.form
-    else:
-        raise WebError(f'Data type {data_type} not supported', 401)
-    
-    return dc(**data)
+	# set optional
+	if data_type is None:
+		data_type = 'json'
+
+	if data_type == 'json':
+		data = req.get_json(force=True)
+	elif data_type == 'form':
+		data = req.form
+	else:
+		raise WebError(f'Data type {data_type} not supported', 401)
+
+	return dc(**data)
+
 
 def assert_data_has_keys(request_arg: Request, keys: Set[str], data_type='json'):
-    if data_type == 'json':
-        data = request_arg.get_json(force=True)
-    elif data_type == 'form':
-        data = request_arg.form
-    else:
-        raise WebError(f'Data type {data_type} not supported')
+	if data_type == 'json':
+		data = request_arg.get_json(force=True)
+	elif data_type == 'form':
+		data = request_arg.form
+	else:
+		raise WebError(f'Data type {data_type} not supported')
 
-    provided_keys = set(data.keys())
-    if not provided_keys.issuperset(keys):
-        missing = sorted(keys - set(provided_keys))
-        raise WebError(f"Required data not supplied: {','.join(missing)}", 400)
-    
-    return data
+	provided_keys = set(data.keys())
+	if not provided_keys.issuperset(keys):
+		missing = sorted(keys - set(provided_keys))
+		raise WebError(f'Required data not supplied: {",".join(missing)}', 400)
+
+	return data
+
 
 def pluck_required_data_keys(req: Request, keys: set[str]):
-    d = req.get_json()
-    plucked = []
-    try:
-        for k in keys:
-            plucked.append((k, d[k]))
-    except KeyError as err:
-        raise WebError("bad request input", 401)
-    
-    return dict(plucked)
+	d = req.get_json()
+	plucked = []
+	try:
+		for k in keys:
+			plucked.append((k, d[k]))
+	except KeyError as err:
+		raise WebError('bad request input', 401)
+
+	return dict(plucked)
 
 
 def pluck_optional_data_keys(req: Request, optional_keys: set[str]):
-    d = defaultdict(lambda _: None, req.get_json())
-    plucked_opts = []
-    for k in optional_keys:
-        valuemaybe = d.get(k)
-        if valuemaybe is not None:
-            plucked_opts.append((k, valuemaybe))
+	d = defaultdict(lambda _: None, req.get_json())
+	plucked_opts = []
+	for k in optional_keys:
+		valuemaybe = d.get(k)
+		if valuemaybe is not None:
+			plucked_opts.append((k, valuemaybe))
 
-    return dict(plucked_opts)
-            
+	return dict(plucked_opts)
