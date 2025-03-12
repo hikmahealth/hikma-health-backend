@@ -2,6 +2,7 @@ from google.cloud import storage
 from werkzeug.datastructures import FileStorage
 from .base import IBaseStore
 
+
 class GCPStore(IBaseStore):
     """Adapter that makes storage possible on the Google Cloud Platform (GCP) Cloud Storage"""
 
@@ -9,9 +10,9 @@ class GCPStore(IBaseStore):
         # create if bucket doesn't exist
         self.bucket = bucket
 
-
     def get(self, name: str):
         pass
+
 
     def put(self, data: FileStorage, destination: str, **kwargs):
         """saves the data to a destination"""
