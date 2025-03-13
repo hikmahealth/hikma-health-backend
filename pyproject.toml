@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 requires = ["setuptools", "wheel"]
 
 [tool.ruff]
-src = ["hikmahealth"]
+src = ["hikmahealth", "migrations"]
 extend-exclude = ["oldhikma", "venv"]
 extend-include = ["pywsgi.py", "app.py"]
 line-length = 88
@@ -18,15 +18,16 @@ fix = true
 
 [tool.ruff.format]
 quote-style = "single"
-indent-style = "tab"
+indent-style = "space"
 docstring-code-format = true
+preview = true
 
 [tool.ruff.lint]
 exclude = ["tests"]
 
 [tool.pyright]
-include = ["hikmahealth", "tests", "migrations", "app.py"]
-exclude = ["**/venv", "**/__pycache__", "src/experimental", "src/typestubs"]
+include = ["hikmahealth", "tests", "migrations", "app.py", "pywsgi.py"]
+exclude = ["**/venv", "**/__pycache__", "tests", "oldhikma"]
 ignore = ["oldhikma"]
 defineConstant = { DEBUG = true }
 
