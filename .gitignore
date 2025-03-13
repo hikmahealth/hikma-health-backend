@@ -130,3 +130,4 @@ playground.py
 docker-compose.yml
 
 Justfile
+.ruff_cache
