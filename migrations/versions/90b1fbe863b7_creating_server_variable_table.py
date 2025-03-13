@@ -18,8 +18,8 @@ depends_on = None
 
 
 def upgrade():
-	op.execute(
-		"""
+    op.execute(
+        """
     	CREATE TABLE server_variables (
             id uuid PRIMARY KEY,
             key varchar(128) NOT NULL,
@@ -30,16 +30,16 @@ def upgrade():
             created_at timestamp with time zone default now(),
             updated_at timestamp with time zone default now()
         );"""
-	)
+    )
 
-	op.execute("""CREATE UNIQUE INDEX unique_server_key ON server_variables (key);""")
+    op.execute("""CREATE UNIQUE INDEX unique_server_key ON server_variables (key);""")
 
-	op.execute(
-		"""CREATE INDEX server_value_hash ON server_variables USING hash (value_type);"""
-	)
+    op.execute(
+        """CREATE INDEX server_value_hash ON server_variables USING hash (value_type);"""
+    )
 
 
 def downgrade():
-	op.execute('DROP TABLE server_variables;')
-	op.execute('DROP INDEX unique_server_key;')
-	op.execute('DROP INDEX server_value_hash;')
+    op.execute('DROP TABLE server_variables;')
+    op.execute('DROP INDEX unique_server_key;')
+    op.execute('DROP INDEX server_value_hash;')
