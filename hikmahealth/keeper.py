@@ -38,7 +38,7 @@ class Keeper:
             return None
 
         if vtype == VALUE_TYPE_JSON:
-            return json.loads(base64.b64decode(vdata))
+            return json.loads(vdata)
 
         raise ValueError('no such value')
 
@@ -102,7 +102,7 @@ class Keeper:
         self.set_primitive(key, value, VALUE_TYPE_BLOB)
 
     def set_json(self, key: str, value: Any):
-        data = base64.b64encode(json.dumps(value).encode('utf-8'))
+        data = json.dumps(value).encode('utf-8')
         self.set_primitive(key, data, VALUE_TYPE_JSON)
 
     def set_primitive(
