@@ -50,6 +50,9 @@ def create_instance(store_type: str, **opts):
 # selected blob store type
 ENV_BLOB_STORE = 'HH_STORE_TYPE'
 
+# Default name of bucket expected to be in the GCP cloud storage
+# if the variable is not defined, this default bucket name will be used
+# instead
 DEFAULT_GCP_BUCKET_NAME = 'hikmahealthdata.appspot.com'
 
 
