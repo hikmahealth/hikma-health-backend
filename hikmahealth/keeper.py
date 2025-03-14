@@ -79,10 +79,10 @@ class Keeper:
             return int.from_bytes(vdata)
         if vtype == VALUE_TYPE_BLOB:
             return vdata
+        if vtype == VALUE_TYPE_JSON:
+            return json.loads(vdata)
 
-        print(
-            f"WARN: invalid type. for json data, use self.get_json() '{vtype}' not in {valid_types}"
-        )
+        print(f"WARN: invalid type, '{vtype}' not in {valid_types}")
         return None
 
     def set_str(self, key: str, value: str):
