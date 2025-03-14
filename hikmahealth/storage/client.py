@@ -22,13 +22,13 @@ def create_instance(store_type: str, **opts):
 
         service_acc_details = opts['gcp_service_account']
         bucket_name = opts['bucket_name']
-        # assert service_acc_details is not None, (
-        #     'missing GCP_SERVICE_ACCOUNT_B64 configuration'
-        # )
+        assert isinstance(bucket_name, str), (
+            "missing 'bucket_name' in kwargs or is not string"
+        )
+        assert service_acc_details is not None, (
+            "missing 'gcp_service_account' in kwargs"
+        )
 
-        # service_acc_details = json.loads(
-        #     base64.b64decode(service_acc_details, validate=True)
-        # )
         credentials = service_account.Credentials.from_service_account_info(
             service_acc_details
         )
@@ -43,7 +43,6 @@ def create_instance(store_type: str, **opts):
 
         assert bucket is not None, 'failed to initiate bucket'
 
-        # return "gcp", dict(bucket_name=bucket_name)
         return GCPStore(bucket)
 
 
@@ -66,7 +65,7 @@ def _load_configuration_from_envrionment():
         bucket_name = os.environ.get('GCP_BUCKET_NAME', DEFAULT_GCP_BUCKET_NAME)
         service_acc_details = os.environ['GCP_SERVICE_ACCOUNT_B64']
         assert service_acc_details is not None, (
-            'missing GCP_SERVICE_ACCOUNT_B64 configuration'
+            'missing GCP_SERVICE_ACCOUNT_B64 from environment variables'
         )
 
         service_acc_details = json.loads(
