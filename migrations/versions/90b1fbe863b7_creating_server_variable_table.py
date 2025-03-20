@@ -40,6 +40,6 @@ def upgrade():
 
 
 def downgrade():
-    op.execute('DROP TABLE server_variables;')
     op.execute('DROP INDEX unique_server_key;')
     op.execute('DROP INDEX server_value_hash;')
+    op.execute('DROP TABLE server_variables;')
