@@ -27,8 +27,12 @@ def upgrade():
             store_version varchar(42) NOT NULL,
             uri TEXT NOT NULL,
             hash varchar(512) default NULL,
+            mimetype TEXT NOT NULL,
             created_at timestamp with time zone default now(),
-            updated_at timestamp with time zone default now()
+            updated_at timestamp with time zone default now(),
+            last_modified timestamp with time zone default now(),
+            server_created_at timestamp with time zone default now(),
+            deleted_at timestamp with time zone default NULL
         );
         """
     )
