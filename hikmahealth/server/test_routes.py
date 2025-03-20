@@ -50,6 +50,6 @@ def test_keeper_vals():
         output[k] = kp.get(k)
 
     for k in request.args.getlist('key_json'):
-        output[k] = kp.get_json(k)
+        output[k] = kp.get_as_json(k)
 
     return jsonify(dict(values=output)), 200

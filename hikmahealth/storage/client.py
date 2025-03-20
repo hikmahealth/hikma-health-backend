@@ -5,13 +5,17 @@ from flask.app import Flask
 from sqlalchemy.pool.impl import AssertionPool
 
 from hikmahealth.keeper import Keeper
-from hikmahealth.storage.adapters.base import IBaseStore
+from hikmahealth.storage.adapters.base import BaseAdapter
 from hikmahealth.storage.adapters.gcp import GCPStore
 
 import json
 
 # types of supported storages
 STORE_TYPE_GCP = 'gcp'
+
+
+class UnsupportedStoreError(Exception):
+    pass
 
 
 def create_instance(store_type: str, **opts):
@@ -44,6 +48,8 @@ def create_instance(store_type: str, **opts):
         assert bucket is not None, 'failed to initiate bucket'
 
         return GCPStore(bucket)
+
+    raise UnsupportedStoreError()
 
 
 # name of the environment variable containing the
@@ -100,9 +106,9 @@ def _load_configuration_from_keeper(kp: Keeper):
             kp.set_str('GCP_BUCKET_NAME', DEFAULT_GCP_BUCKET_NAME)
             bucket_name = DEFAULT_GCP_BUCKET_NAME
 
-        service_acc_details = kp.get_json('GCP_SERVICE_ACCOUNT')
+        service_acc_details = kp.get_as_json('GCP_SERVICE_ACCOUNT')
         assert service_acc_details is not None, (
-            f"missing 'GCP_SERVICE_ACCOUNT' required parameter for GCP store."
+            "missing 'GCP_SERVICE_ACCOUNT' required parameter for GCP store."
         )
 
         return dict(
@@ -116,7 +122,7 @@ def _load_configuration_from_keeper(kp: Keeper):
     )
 
 
-def get_storage() -> IBaseStore:
+def get_storage():
     # return create_instance(**_load_configuration_from_envrionment())
     return create_instance(**_load_configuration_from_keeper(Keeper()))
 

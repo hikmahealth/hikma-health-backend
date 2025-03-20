@@ -32,13 +32,15 @@ class Keeper:
     def __init__(self):
         pass
 
-    def get_json(self, key: str):
+    def get_as_json(self, key: str):
         vtype, vdata = self.get_primitive(key)
         if vtype is None or vdata is None:
             return None
 
         if vtype == VALUE_TYPE_JSON:
             return json.loads(vdata)
+        else:
+            raise TypeError("value isn't stored isn't of a json")
 
         raise ValueError('no such value')
 
