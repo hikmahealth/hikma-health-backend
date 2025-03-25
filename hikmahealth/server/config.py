@@ -50,9 +50,9 @@ if DATABASE_URL:
 
     credentials, url = connection_params.split('@')
 
-    host, port = url.split('/')[0].split(':')
-    PG_HOST = host
-    PG_PORT = port if port is not None else '5432'
+    values = url.split('/')[0].split(':')
+    PG_HOST = values[0]
+    PG_PORT = values[1] if len(values) > 1 else '5432'
 
     PG_DB = url.split('/')[1]
     PG_USER = credentials.split(':')[0]
