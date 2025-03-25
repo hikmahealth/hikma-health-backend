@@ -3,15 +3,15 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = "47dc360e825a"
+revision = '47dc360e825a'
 down_revision = None
 branch_labels = None
 depends_on = None
 
 
 def upgrade():
-    op.execute(
-        """
+	op.execute(
+		"""
     CREATE TABLE string_ids (
       id uuid PRIMARY KEY,
       last_modified timestamp with time zone default now(),
@@ -20,10 +20,10 @@ def upgrade():
       deleted_at timestamp with time zone default null
     )
     """
-    )
+	)
 
-    op.execute(
-        """
+	op.execute(
+		"""
     CREATE TABLE string_content (
       id uuid REFERENCES string_ids(id) ON DELETE CASCADE,
       language varchar(5),
@@ -35,16 +35,16 @@ def upgrade():
       deleted_at timestamp with time zone default null
     );
     """
-    )
+	)
 
-    op.execute(
-        """
+	op.execute(
+		"""
     CREATE UNIQUE INDEX ON string_content (id, language);
     """
-    )
+	)
 
-    op.execute(
-        """
+	op.execute(
+		"""
     CREATE TABLE patients (
       id uuid PRIMARY KEY,
       given_name TEXT,
@@ -67,10 +67,10 @@ def upgrade():
       deleted_at timestamp with time zone default null
     );
     """
-    )
+	)
 
-    op.execute(
-        """
+	op.execute(
+		"""
     CREATE TABLE clinics (
       id uuid PRIMARY KEY,
       name TEXT,
@@ -82,10 +82,10 @@ def upgrade():
       deleted_at timestamp with time zone default null
     );
     """
-    )
+	)
 
-    op.execute(
-        """
+	op.execute(
+		"""
     CREATE TABLE users (
       id uuid PRIMARY KEY,
       name text not null,
@@ -102,28 +102,28 @@ def upgrade():
       deleted_at timestamp with time zone default null
     );
     """
-    )
+	)
 
-    op.execute(
-        """
+	op.execute(
+		"""
       CREATE UNIQUE INDEX ON users (email);
     """
-    )
+	)
 
-    op.execute(
-        """
+	op.execute(
+		"""
     CREATE TABLE tokens (
       user_id uuid REFERENCES users (id),
       token text not null,
       expiry timestamptz not null default now() + INTERVAL '60 minutes'
     );
     """
-    )
+	)
 
-    op.execute("CREATE INDEX ON tokens (token)")
+	op.execute('CREATE INDEX ON tokens (token)')
 
-    op.execute(
-        """
+	op.execute(
+		"""
     CREATE TABLE visits (
       id uuid PRIMARY KEY,
       patient_id uuid REFERENCES patients(id) ON DELETE CASCADE,
@@ -140,10 +140,10 @@ def upgrade():
       deleted_at timestamp with time zone default null
     );
     """
-    )
+	)
 
-    op.execute(
-        """
+	op.execute(
+		"""
         CREATE TABLE event_forms (
             id uuid PRIMARY KEY,
             name TEXT,
@@ -161,10 +161,10 @@ def upgrade():
             deleted_at timestamp with time zone default null
         );
         """
-    )
+	)
 
-    op.execute(
-        """
+	op.execute(
+		"""
         CREATE TABLE events (
             id uuid PRIMARY KEY,
             patient_id uuid REFERENCES patients(id) ON DELETE CASCADE,
@@ -181,10 +181,10 @@ def upgrade():
             deleted_at timestamp with time zone default null
         );
         """
-    )
+	)
 
-    op.execute(
-        """
+	op.execute(
+		"""
         CREATE TABLE patient_registration_forms (
             id uuid PRIMARY KEY,
             clinic_id uuid REFERENCES clinics(id),
@@ -199,29 +199,29 @@ def upgrade():
             deleted_at timestamp with time zone default null
         );
         """
-    )
+	)
 
-    op.execute(
-        """
+	op.execute(
+		"""
     CREATE FUNCTION get_string(uuid, text) RETURNS text 
     AS 'SELECT content FROM string_content WHERE id = $1 AND language = $2;' 
     LANGUAGE SQL IMMUTABLE RETURNS NULL ON NULL INPUT;
     """
-    )
+	)
 
-    # REF: https://watermelondb.dev/Advanced/Sync.html#tips-on-implementing-server-side-changes-tracking
-    # REF2: https://github.com/Kinto/kinto/blob/814c30c5dd745717b8ea50d708d9163a38d2a9ec/kinto/core/storage/postgresql/schema.sql#L64-L116
+	# REF: https://watermelondb.dev/Advanced/Sync.html#tips-on-implementing-server-side-changes-tracking
+	# REF2: https://github.com/Kinto/kinto/blob/814c30c5dd745717b8ea50d708d9163a38d2a9ec/kinto/core/storage/postgresql/schema.sql#L64-L116
 
 
 def downgrade():
-    op.execute("DROP TABLE events;")
-    op.execute("DROP TABLE visits;")
-    op.execute("DROP TABLE users CASCADE;")
-    op.execute("DROP TABLE clinics;")
-    op.execute("DROP TABLE patients;")
-    op.execute("DROP TABLE string_content;")
-    op.execute("DROP TABLE string_ids;")
-    op.execute("DROP TABLE event_forms;")
-    op.execute("DROP TABLE patient_registration_forms;")
-    op.execute("DROP TABLE tokens;")
-    op.execute("DROP FUNCTION get_string(uuid, text);")
+	op.execute('DROP TABLE events;')
+	op.execute('DROP TABLE visits;')
+	op.execute('DROP TABLE users CASCADE;')
+	op.execute('DROP TABLE clinics;')
+	op.execute('DROP TABLE patients;')
+	op.execute('DROP TABLE string_content;')
+	op.execute('DROP TABLE string_ids;')
+	op.execute('DROP TABLE event_forms;')
+	op.execute('DROP TABLE patient_registration_forms;')
+	op.execute('DROP TABLE tokens;')
+	op.execute('DROP FUNCTION get_string(uuid, text);')
