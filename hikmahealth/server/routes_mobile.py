@@ -84,7 +84,7 @@ def _get_last_pulled_at_from(request: Request) -> datetime | None:
         try:
             # attempts to deal the date input as if it's a
             # ISO 8601 formatted date.
-            return utc.from_iso1601(last_pull_in_unix_time)
+            return utc.from_iso8601(last_pull_in_unix_time)
         except Exception:
             traceback.format_exc()
             return None
