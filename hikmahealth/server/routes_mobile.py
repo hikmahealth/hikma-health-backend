@@ -191,7 +191,7 @@ def sync_v2_push():
                     deltadata, last_pushed_at=last_synced_at, conn=conn
                 )
 
-            return jsonify({'ok': True})
+            return jsonify({'ok': True, 'timestamp': utc.now().isoformat()})
         except Exception as err:
             conn.close()
             print(err)
