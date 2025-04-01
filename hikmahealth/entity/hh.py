@@ -803,6 +803,10 @@ class Clinic(sync.SyncToClientEntity):
 
     id: str
     name: str
+    address: str
+    metadata: dict
+    attributes: list
+
     created_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
     updated_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
 
