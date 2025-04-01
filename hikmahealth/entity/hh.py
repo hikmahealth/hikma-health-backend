@@ -1,6 +1,8 @@
 from __future__ import annotations
 import logging
 
+from psycopg import Connection
+
 from hikmahealth.entity import core, fields, helpers
 from .sync import (
     SyncToClient,
@@ -258,12 +260,11 @@ class Patient(SyncToClient, SyncToServer, helpers.SimpleCRUD):
                 return patients
 
     @classmethod
-    def search(cls, query):
+    def search(cls, query, conn: Connection):
         # Only supporting search by either first or surname
         # TODO: add support for text searching some of the attributes
-        with db.get_connection() as conn:
-            with conn.cursor(row_factory=dict_row) as cur:
-                search_query = """
+        with conn.cursor(row_factory=dict_row) as cur:
+            search_query = """
                 SELECT
                     p.*,
                     COALESCE(json_object_agg(
@@ -283,26 +284,26 @@ class Patient(SyncToClient, SyncToServer, helpers.SimpleCRUD):
                 GROUP BY p.id
                 ORDER BY p.updated_at DESC
                 """
-                search_pattern = f'%{query}%'
-                cur.execute(search_query, (search_pattern, search_pattern))
-                patients = cur.fetchall()
+            search_pattern = f'%{query}%'
+            cur.execute(search_query, (search_pattern, search_pattern))
+            patients = cur.fetchall()
 
-                for patient in patients:
-                    # Convert datetime objects to ISO format strings
-                    for key in [
-                        'created_at',
-                        'updated_at',
-                        'last_modified',
-                        'deleted_at',
-                    ]:
-                        if patient[key]:
-                            patient[key] = patient[key].isoformat()
+            for patient in patients:
+                # Convert datetime objects to ISO format strings
+                for key in [
+                    'created_at',
+                    'updated_at',
+                    'last_modified',
+                    'deleted_at',
+                ]:
+                    if patient[key]:
+                        patient[key] = patient[key].isoformat()
 
-                    # Convert date objects to ISO format strings
-                    if patient['date_of_birth']:
-                        patient['date_of_birth'] = patient['date_of_birth'].isoformat()
+                # Convert date objects to ISO format strings
+                if patient['date_of_birth']:
+                    patient['date_of_birth'] = patient['date_of_birth'].isoformat()
 
-                return patients
+            return patients
 
 
 @core.dataentity
