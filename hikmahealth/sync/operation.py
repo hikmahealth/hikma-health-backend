@@ -8,10 +8,6 @@ from collections import OrderedDict
 import datetime
 from typing import Callable, Dict
 
-from psycopg import Connection
-from hikmahealth.entity import hh
-from hikmahealth.server.client import db
-
 from .data import DeltaData
 from .errors import SyncPushError
 
