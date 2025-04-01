@@ -37,7 +37,7 @@ class Entity:
 
 	@property
 	@classmethod
-	def TABLE_NAME(self) -> str:
+	def TABLE_NAME(cls) -> str:
 		"""This refers to the name of the able associated with
 		the entity"""
 		raise NotImplementedError(
