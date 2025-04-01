@@ -112,33 +112,8 @@ class Sink[TArgs]:
                 assert callable(operation), 'somehow, the operation is not callable'
 
                 operation(deltadata, last_synced_at, args)
-
         except KeyError:
-            print(f'WARN: missing operation for key={key}')
-
-
-if __name__ == '__main__':
-    # operation to sync the service to server
-    sink = Sink[Connection]()
-
-    # queueing things for syncing
-    # order matters
-    sink.add('patients', hh.Patient)
-    sink.add('patient_additional_attributes', hh.PatientAttribute)
-    sink.add('visits', hh.Visit)
-    sink.add('events', hh.Event)
-    sink.add('appointments', hh.Appointment)
-    sink.add('prescriptions', hh.Prescription)
-
-    with db.get_connection() as conn:
-        try:
-            for key, newdelta in [
-                (
-                    'patients',
-                    DeltaData(created=None, updated=None, deleted=['1231231232']),
-                ),
-            ]:
-                sink.push(key, newdelta, datetime.datetime(), conn)
-            # after leaving the context, there's an implied db.commit()
+            print(f'WARN: skipping sync for unknown key={key}')
+            return
         except Exception as err:
             raise SyncPushError(f'failed to perform sync operation. reason: {err}')
