@@ -1,7 +1,11 @@
 from __future__ import annotations
 import logging
 
-from hikmahealth.entity import core, sync, fields, helpers
+from hikmahealth.entity import core, fields, helpers
+from .sync import (
+    SyncToClient,
+    SyncToServer,
+)
 
 from datetime import datetime
 from hikmahealth.utils.datetime import utc
@@ -39,7 +43,7 @@ import uuid
 
 
 @core.dataentity
-class Patient(sync.SyncableEntity, helpers.SimpleCRUD):
+class Patient(SyncToClient, SyncToServer, helpers.SimpleCRUD):
     TABLE_NAME = 'patients'
 
     id: str
@@ -302,7 +306,7 @@ class Patient(sync.SyncableEntity, helpers.SimpleCRUD):
 
 
 @core.dataentity
-class PatientAttribute(sync.SyncableEntity):
+class PatientAttribute(SyncToClient, SyncToServer):
     TABLE_NAME = 'patient_additional_attributes'
 
     @classmethod
@@ -348,7 +352,7 @@ class PatientAttribute(sync.SyncableEntity):
 
 
 @core.dataentity
-class Event(sync.SyncableEntity):
+class Event(SyncToClient, SyncToServer):
     TABLE_NAME = 'events'
 
     patient_id: str
@@ -651,7 +655,7 @@ class Event(sync.SyncableEntity):
 
 
 @core.dataentity
-class Visit(sync.SyncableEntity):
+class Visit(SyncToClient, SyncToServer):
     TABLE_NAME = 'visits'
 
     @classmethod
@@ -798,7 +802,7 @@ class Visit(sync.SyncableEntity):
 
 
 @core.dataentity
-class Clinic(sync.SyncToClientEntity):
+class Clinic(SyncToClient):
     TABLE_NAME = 'clinics'
 
     id: str
@@ -812,19 +816,20 @@ class Clinic(sync.SyncToClientEntity):
 
 
 @core.dataentity
-class PatientRegistrationForm(sync.SyncToClientEntity, helpers.SimpleCRUD):
+class PatientRegistrationForm(SyncToClient, helpers.SimpleCRUD):
     TABLE_NAME = 'patient_registration_forms'
 
     id: str
     name: str
     fields: str
     metadata: str
+
     created_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
     updated_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
 
 
 @core.dataentity
-class EventForm(sync.SyncToClientEntity, helpers.SimpleCRUD):
+class EventForm(SyncToClient, helpers.SimpleCRUD):
     TABLE_NAME = 'event_forms'
 
     id: str
@@ -856,17 +861,17 @@ class EventForm(sync.SyncToClientEntity, helpers.SimpleCRUD):
 
 
 @core.dataentity
-class StringId(sync.SyncToClientEntity):
+class StringId(SyncToClient):
     TABLE_NAME = 'string_ids'
 
 
 @core.dataentity
-class StringContent(sync.SyncToClientEntity):
+class StringContent(SyncToClient):
     TABLE_NAME = 'string_content'
 
 
 @core.dataentity
-class Appointment(sync.SyncableEntity):
+class Appointment(SyncToClient, SyncToServer):
     TABLE_NAME = 'appointments'
 
     id: str
@@ -1131,7 +1136,7 @@ class Appointment(sync.SyncableEntity):
 
 
 @core.dataentity
-class Prescription(sync.SyncableEntity):
+class Prescription(SyncToClient, SyncToServer):
     TABLE_NAME = 'prescriptions'
 
     id: str

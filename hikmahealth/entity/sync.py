@@ -1,56 +1,21 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 from typing import override
 
 from psycopg.connection import Connection
 from psycopg.rows import dict_row
 
 from hikmahealth.entity import core
+from hikmahealth.sync.operation import ISyncPull, ISyncPush
 from hikmahealth.utils.datetime import local as dtutils
 
 import datetime
-
-
-class ISyncDown(object):
-    @classmethod
-    @abstractmethod
-    def get_delta_records(
-        self, last_sync_time: int | str, *args, **kwargs
-    ) -> DeltaData:
-        """Return the difference in data that was created, updated, or deleted since
-        last sync time.
-
-        Implement this to prevent the code base from exploding"""
-        raise NotImplementedError()
-
-
-class DeltaData(object):
-    """Handles database delta data"""
-
-    def __init__(
-        self,
-        created: list[dict] | None = None,
-        updated: list[dict] | None = None,
-        deleted: list[str] | None = None,
-    ):
-        self.created = created if created is not None else []
-        self.updated = updated if updated is not None else []
-        self.deleted = deleted if deleted is not None else []
-
-    def to_dict(self):
-        return dict(created=self.created, updated=self.updated, deleted=self.deleted)
-
-    @property
-    def is_empty(self):
-        return (
-            len(self.created) == 0 and len(self.deleted) == 0 and len(self.updated) == 0
-        )
+from hikmahealth.sync import DeltaData
 
 
 # should be move to a different structure. since it depends on psycopg to
 # execute properly
-class SyncToClientEntity(ISyncDown, core.Entity):
+class SyncToClient(ISyncPull[Connection], core.Entity):
     """For entity that expects to apply changes from server to client"""
 
     @classmethod
@@ -86,18 +51,7 @@ class SyncToClientEntity(ISyncDown, core.Entity):
         )
 
 
-class ISyncToServer(object):
+class SyncToServer(ISyncPush[Connection]):
     """Abstract for entities that expect to apply changes from client to server"""
 
-    @classmethod
-    @abstractmethod
-    def apply_delta_changes(
-        cls, deltadata: DeltaData, last_pushed_at: datetime.datetime, conn: Connection
-    ):
-        raise NotImplementedError(
-            f'require that the {__class__} implement this to syncronize from client'
-        )
-
-
-class SyncableEntity(SyncToClientEntity, ISyncToServer):
     pass

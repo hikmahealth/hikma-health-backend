@@ -93,7 +93,7 @@ def _get_last_pulled_at_from(request: Request) -> datetime | None:
 
 
 # list of entities to get the diff from
-ENTITIES_TO_PUSH_TO_MOBILE: dict[str, sync.SyncToClientEntity] = {
+ENTITIES_TO_PUSH_TO_MOBILE: dict[str, sync.SyncToClient] = {
     'events': hh.Event,
     'patients': hh.Patient,
     'patient_additional_attributes': hh.PatientAttribute,
@@ -144,7 +144,7 @@ def _get_timestamp_now():
 
 # using tuple to make sure the we observe order
 # of the entities to be syncronized
-ENTITIES_TO_APPLY_TO_SERVER_IN_ORDER: Iterable[tuple[str, sync.ISyncToServer]] = (
+ENTITIES_TO_APPLY_TO_SERVER_IN_ORDER: Iterable[tuple[str, sync.SyncToServer]] = (
     ('patients', hh.Patient),
     ('patient_additional_attributes', hh.PatientAttribute),
     ('visits', hh.Visit),
@@ -157,7 +157,7 @@ ENTITIES_TO_APPLY_TO_SERVER_IN_ORDER: Iterable[tuple[str, sync.ISyncToServer]] =
 @backcompatapi.route('/v2/sync', methods=['POST'])
 @api.route('/sync', methods=['POST'])
 def sync_v2_push():
-    _get_authenticated_user_from_request(request)
+    # _get_authenticated_user_from_request(request)
     last_synced_at = _get_last_pulled_at_from(request)
     schemaVersion = request.args.get('schemaVersion', None)
     migration = request.args.get('migration', None)
