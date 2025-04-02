@@ -77,13 +77,13 @@ class Patient(SyncToClient, SyncToServer, helpers.SimpleCRUD):
 
                 # Handle additional_data
                 if (
-                    patient['additional_data'] is None
+                    patient.get('additional_data', None) is None
                     or patient['additional_data'] == ''
                 ):
                     patient['additional_data'] = '{}'  # Empty JSON object
-                elif isinstance(patient['additional_data'], (dict, list)):
+                elif isinstance(patient.get('additional_data', None), (dict, list)):
                     patient['additional_data'] = json.dumps(patient['additional_data'])
-                elif isinstance(patient['additional_data'], str):
+                elif isinstance(patient.get('additional_data', None), str):
                     try:
                         json.loads(patient['additional_data'])
                     except json.JSONDecodeError:
