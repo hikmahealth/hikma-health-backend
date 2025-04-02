@@ -1,0 +1,2 @@
+class UnsupportedStoreError(Exception):
+    pass

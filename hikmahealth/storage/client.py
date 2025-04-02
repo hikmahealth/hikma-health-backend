@@ -10,12 +10,10 @@ from hikmahealth.storage.adapters.gcp import GCPStore
 
 import json
 
+from hikmahealth.storage.errors import UnsupportedStoreError
+
 # types of supported storages
 STORE_TYPE_GCP = 'gcp'
-
-
-class UnsupportedStoreError(Exception):
-    pass
 
 
 def create_instance(store_type: str, **opts):
