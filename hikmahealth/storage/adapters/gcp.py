@@ -1,6 +1,8 @@
 from io import BytesIO
 from google.cloud import storage
 from werkzeug.datastructures import FileStorage
+
+from hikmahealth.storage.objects import PutOutput
 from .base import BaseAdapter
 
 # TODO: have a resources table
@@ -14,17 +16,19 @@ class GCPStore(BaseAdapter):
         super().__init__('gcp', '202503.01')
         self.bucket = bucket
 
-    def download_as_bytes(self, uri: str):
+    def download_as_bytes(self, uri: str) -> BytesIO:
         blob = self.bucket.blob(uri)
-        return blob.download_as_bytes()
+        return BytesIO(blob.download_as_bytes())
 
-    def put(
-        self, data: BytesIO, destination: str, mimetype: str | None = None, **kwargs
-    ):
+    def put(self, data: BytesIO, destination: str, mimetype: str | None = None):
         """saves the data to a destination"""
+        assert isinstance(data, BytesIO), 'data argument needs to be a type `BytesIO`'
+
         # check if destination hasa a file
         blob = self.bucket.blob(destination)
+        assert blob.name is not None, 'name is create from the bucket name'
+
         blob.upload_from_file(data, checksum='md5')
 
         # maybe us @dataclass later
-        return dict(uri=blob.name, md5_hash=blob.md5_hash)
+        return PutOutput(uri=blob.name, hash=('md5', blob.md5_hash))

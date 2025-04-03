@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from io import BytesIO
 from werkzeug.datastructures import FileStorage
 
 
@@ -19,9 +20,9 @@ class BaseAdapter:
         self.VERSION = version
 
     @abstractmethod
-    def download_as_bytes(self, name: str) -> FileStorage:
+    def download_as_bytes(self, name: str) -> BytesIO:
         raise NotImplementedError()
 
     @abstractmethod
-    def put(self, data: FileStorage, destination: str, **opts):
+    def put(self, data: BytesIO, destination: str, **opts):
         raise NotImplementedError()

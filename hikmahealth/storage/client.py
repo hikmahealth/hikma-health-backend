@@ -15,6 +15,8 @@ from hikmahealth.storage.errors import UnsupportedStoreError
 # types of supported storages
 STORE_TYPE_GCP = 'gcp'
 
+# move this to resources
+
 
 def create_instance(store_type: str, **opts):
     """Creates an instance for the storage using configuration that are passed on the function"""
