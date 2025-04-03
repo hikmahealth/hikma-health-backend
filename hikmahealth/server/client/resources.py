@@ -27,7 +27,7 @@ STORE_TYPE_GCP = 'gcp'
 
 
 def get_supported_stores():
-    return (STORE_TYPE_GCP, STORE_TYPE_AWS)
+    return STORE_TYPE_GCP
 
 
 @dataclass
@@ -69,6 +69,10 @@ class ResourceManager:
         config = initialize_config_from_keeper(kp)
 
         try:
+            assert config.store_type in get_supported_stores(), (
+                "Store '{}' not supported.".format(config.store_type)
+            )
+
             if config.store_type == STORE_TYPE_GCP:
                 from google.cloud import storage, exceptions
                 from google.oauth2 import service_account
