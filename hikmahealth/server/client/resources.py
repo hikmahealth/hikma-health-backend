@@ -9,6 +9,7 @@ from typing import Any, Callable, Iterable, Literal, Tuple
 from uuid import UUID, uuid1
 
 from botocore.client import ClientError
+from flask.app import Flask
 from psycopg.rows import dict_row
 
 from hikmahealth.server.client import db
@@ -76,6 +77,9 @@ class ResourceManager:
 
             service_acc_details = gcpconfig.GCP_SERVICE_ACCOUNT
             bucket_name = gcpconfig.GCP_BUCKET_NAME
+
+            if bucket_name is None:
+                bucket_name = gcp.DEFAULT_GCP_BUCKET_NAME
 
             credentials = service_account.Credentials.from_service_account_info(
                 service_acc_details
@@ -256,4 +260,9 @@ class ResourceOperationError(Exception):
 class ResourceNotFound(Exception):
     """Error thrown when there isn't a resource on a `get_resource` attempt"""
 
+    pass
+
+
+def initialize_storage(app: Flask):
+    # TODO: implement handling of availability of `ResourceManager` form here
     pass

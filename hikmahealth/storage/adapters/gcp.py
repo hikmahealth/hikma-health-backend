@@ -14,8 +14,14 @@ import os
 # NOTE: might change this into a usuful function
 @dataclass
 class StoreConfig:
-    GCP_BUCKET_NAME: str
     GCP_SERVICE_ACCOUNT: dict
+    GCP_BUCKET_NAME: str | None = None
+
+
+# Default name of bucket expected to be in the GCP cloud storage
+# if the variable is not defined, this default bucket name will be used
+# instead
+DEFAULT_GCP_BUCKET_NAME = 'hikmahealthdata.appspot.com'
 
 
 def initialize_store_config_from_keeper(kp: Keeper):

@@ -9,14 +9,12 @@ from hikmahealth.server import (
     test_routes,
 )
 
-from hikmahealth.storage.client import initialize_storage
 from hikmahealth.utils.errors import WebError
 
 app = Flask(__name__)
 CORS(app)
 # CORS(app, resources={r"/*": {"origins": "*"}})
 app.url_map.strict_slashes = False
-# initialize_storage(app) # makes the server hang for a bit as it attempts to connect
 
 # for backcompat
 app.register_blueprint(routes_mobile.backcompatapi)

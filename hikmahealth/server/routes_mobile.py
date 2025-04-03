@@ -16,7 +16,6 @@ from hikmahealth.server.helpers import web as webhelper
 
 from hikmahealth.server.api.auth import User
 from hikmahealth.server.api import auth as auth
-from hikmahealth.storage.client import get_storage
 from hikmahealth.utils.errors import WebError
 
 import time
@@ -151,17 +150,6 @@ def sync_v2_pull():
 def _get_timestamp_now():
     return time.mktime(datetime.now().timetuple()) * 1000
 
-
-# using tuple to make sure the we observe order
-# of the entities to be syncronized
-# ENTITIES_TO_APPLY_TO_SERVER_IN_ORDER: Iterable[tuple[str, hh.SyncTo]] = (
-#     ('patients', hh.Patient),
-#     ('patient_additional_attributes', hh.PatientAttribute),
-#     ('visits', hh.Visit),
-#     ('events', hh.Event),
-#     ('appointments', hh.Appointment),
-#     ('prescriptions', hh.Prescription),
-# )
 
 # instantiates the manager to handle syncronization
 # of changes to the databse
