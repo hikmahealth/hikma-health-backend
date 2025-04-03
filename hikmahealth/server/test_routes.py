@@ -3,6 +3,7 @@ import logging
 import os
 from flask import Blueprint, jsonify, request
 from hikmahealth.server.client.keeper import get_keeper
+from hikmahealth.server.client.resources import initalize_resource_manager
 
 log = logging.getLogger(__name__)
 api = Blueprint('test-route', __name__)
@@ -26,6 +27,9 @@ def test_keeper_vals():
                     kp.set_json(key, d.get('json'))
                 else:
                     kp.set_str(key, d.get('value'))
+
+        # everytime we update the env, we should also re-initialize the resource manager
+        initalize_resource_manager()
 
         return jsonify(dict(ok=True)), 201
 

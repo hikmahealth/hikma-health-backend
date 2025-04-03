@@ -9,14 +9,15 @@ from typing import Any, Callable, Iterable, Literal, Tuple
 from uuid import UUID, uuid1
 
 from botocore.client import ClientError
-from flask.app import Flask
+import flask
+from flask.json import jsonify
 from psycopg.rows import dict_row
 
 from hikmahealth.server.client import db
 from hikmahealth.storage.adapters.base import BaseAdapter
 
 
-from .keeper import Keeper
+from .keeper import Keeper, get_keeper
 
 import datetime
 
@@ -67,98 +68,101 @@ class ResourceManager:
 
         config = initialize_config_from_keeper(kp)
 
-        if config.store_type == STORE_TYPE_GCP:
-            from google.cloud import storage, exceptions
-            from google.oauth2 import service_account
+        try:
+            if config.store_type == STORE_TYPE_GCP:
+                from google.cloud import storage, exceptions
+                from google.oauth2 import service_account
 
-            from hikmahealth.storage.adapters import gcp
+                from hikmahealth.storage.adapters import gcp
 
-            gcpconfig = gcp.initialize_store_config_from_keeper(kp)
+                gcpconfig = gcp.initialize_store_config_from_keeper(kp)
 
-            service_acc_details = gcpconfig.GCP_SERVICE_ACCOUNT
-            bucket_name = gcpconfig.GCP_BUCKET_NAME
+                service_acc_details = gcpconfig.GCP_SERVICE_ACCOUNT
+                bucket_name = gcpconfig.GCP_BUCKET_NAME
 
-            if bucket_name is None:
-                bucket_name = gcp.DEFAULT_GCP_BUCKET_NAME
+                if bucket_name is None:
+                    bucket_name = gcp.DEFAULT_GCP_BUCKET_NAME
 
-            credentials = service_account.Credentials.from_service_account_info(
-                service_acc_details
-            )
-            client = storage.Client(credentials=credentials)
+                credentials = service_account.Credentials.from_service_account_info(
+                    service_acc_details
+                )
+                client = storage.Client(credentials=credentials)
 
-            # check if bucket exists
-            bucket: storage.Bucket | None = None
-            try:
-                bucket = client.get_bucket(bucket_name)
-            except exceptions.NotFound:
-                bucket = client.create_bucket(bucket_name)
+                # check if bucket exists
+                bucket: storage.Bucket | None = None
+                try:
+                    bucket = client.get_bucket(bucket_name)
+                except exceptions.NotFound:
+                    bucket = client.create_bucket(bucket_name)
 
-            assert bucket is not None, 'failed to initiate bucket'
+                assert bucket is not None, 'failed to initiate bucket'
 
-            # TODO: save config with possibly new applied settings
-            # gcp.update_store_config_to_keeper(kp, s3config)
+                # TODO: save config with possibly new applied settings
+                # gcp.update_store_config_to_keeper(kp, s3config)
 
-            self.store = gcp.GCPStore(bucket)
+                self.store = gcp.GCPStore(bucket)
 
-        if config.store_type == STORE_TYPE_AWS:
-            import boto3
-            from botocore.client import Config
+            if config.store_type == STORE_TYPE_AWS:
+                import boto3
+                from botocore.client import Config
 
-            from hikmahealth.storage.adapters import s3 as s3
+                from hikmahealth.storage.adapters import s3 as s3
 
-            s3config = s3.initialize_store_config_from_keeper(kp)
-            session = boto3.Session()
-            botoConfig = None
+                s3config = s3.initialize_store_config_from_keeper(kp)
+                session = boto3.Session()
+                botoConfig = None
 
-            bucket_name = s3config.S3_BUCKET_NAME
+                bucket_name = s3config.S3_BUCKET_NAME
 
-            if s3config.S3_COMPATIBLE_STORAGE_HOST == s3.STORE_HOST_TIGRISDATA:
-                # for tigris, because of it's virtual pathing,
-                #  `bucket_name` needs to be pre-defined
-                assert bucket_name is not None, (
-                    'since using {}, `bucket_name` needs to be explicitly defined'.format(
-                        s3config.S3_COMPATIBLE_STORAGE_HOST
+                if s3config.S3_COMPATIBLE_STORAGE_HOST == s3.STORE_HOST_TIGRISDATA:
+                    # for tigris, because of it's virtual pathing,
+                    #  `bucket_name` needs to be pre-defined
+                    assert bucket_name is not None, (
+                        'since using {}, `bucket_name` needs to be explicitly defined'.format(
+                            s3config.S3_COMPATIBLE_STORAGE_HOST
+                        )
                     )
+
+                    botoConfig = Config(s3={'addressing_style': 'virtual'})
+
+                svc = session.client(
+                    's3',
+                    aws_access_key_id=s3config.AWS_ACCESS_KEY_ID,
+                    aws_secret_access_key=s3config.AWS_SECRET_ACCESS_KEY,
+                    endpoint_url=s3config.AWS_ENDPOINT_URL_S3,
+                    config=botoConfig,
                 )
 
-                botoConfig = Config(s3={'addressing_style': 'virtual'})
+                if bucket_name is None or bucket_name == s3.DEFAULT_BUCKET_NAME:
+                    # attempt to make bucket with name
+                    bucket_name = s3.DEFAULT_BUCKET_NAME
+                    try:
+                        svc.head_bucket(Bucket=bucket_name)
+                        # if this doesn't throw, then the bucket exists
+                    except ClientError as e:
+                        error_code = int(e.response['Error']['Code'])
+                        if error_code == 404:
+                            svc.create_bucket(Bucket=bucket_name, ACL='private')
 
-            svc = session.client(
-                's3',
-                aws_access_key_id=s3config.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=s3config.AWS_SECRET_ACCESS_KEY,
-                endpoint_url=s3config.AWS_ENDPOINT_URL_S3,
-                config=botoConfig,
+                    # if exists, will through error
+
+                    # update config
+                    s3config.S3_BUCKET_NAME = bucket_name
+
+                # TODO: save config with possibly new applied settings
+                # s3.update_store_config_to_keeper(kp, s3config)
+
+                assert bucket_name is not None, 'bucket_name is still not set'
+
+                self.store = s3.S3Store(
+                    svc, bucket_name, s3config.S3_COMPATIBLE_STORAGE_HOST
+                )
+
+            assert self.store is not None, (
+                f"failed to initiate storage. unknown store type '{config.store_type}'"
             )
-
-            if bucket_name is None or bucket_name == s3.DEFAULT_BUCKET_NAME:
-                # attempt to make bucket with name
-                bucket_name = s3.DEFAULT_BUCKET_NAME
-                try:
-                    svc.head_bucket(Bucket=bucket_name)
-                    # if this doesn't throw, then the bucket exists
-                except ClientError as e:
-                    error_code = int(e.response['Error']['Code'])
-                    if error_code == 404:
-                        svc.create_bucket(Bucket=bucket_name, ACL='private')
-
-                # if exists, will through error
-
-                # update config
-                s3config.S3_BUCKET_NAME = bucket_name
-
-            # TODO: save config with possibly new applied settings
-            # s3.update_store_config_to_keeper(kp, s3config)
-
-            assert bucket_name is not None, 'bucket_name is still not set'
-
-            self.store = s3.S3Store(
-                svc, bucket_name, s3config.S3_COMPATIBLE_STORAGE_HOST
-            )
-
-        assert self.store is not None, (
-            f"failed to initiate storage. unknown store type '{config.store_type}'"
-        )
+        except AssertionError as aerr:
+            raise ResourceManagerInitError(*aerr.args)
 
     def get_resource(self, id: str):
         data = None
@@ -244,6 +248,12 @@ class ResourceManager:
             )
 
 
+class ResourceManagerInitError(Exception):
+    """Generic error raised when the resource manager failed to initialize"""
+
+    pass
+
+
 class ResourceStoreTypeMismatch(Exception):
     """Error thrown when the `store_type` of the resource stored, doesn't match
     with the currently set resource store type."""
@@ -263,6 +273,61 @@ class ResourceNotFound(Exception):
     pass
 
 
-def initialize_storage(app: Flask):
-    # TODO: implement handling of availability of `ResourceManager` form here
-    pass
+from flask.app import Flask
+from flask import current_app, g, has_app_context
+
+
+def _try_create_resource_manager():
+    try:
+        rmgr = ResourceManager(get_keeper())
+        return rmgr, None
+    except Exception as err:
+        return None, err
+
+
+import logging
+
+
+def initalize_resource_manager():
+    g.resource_manager_state = 'not_ready'
+    logging.info('Initializing Resource Manager')
+
+    rmgr, err = _try_create_resource_manager()
+    if err is not None:
+        print('[ERROR]: failed to initialize `ResourceManager`: {}'.format(err))
+
+    if rmgr is not None:
+        g.resource_manager = rmgr
+        g.resource_manager_state = 'ready'
+        g.resource_manager_error = None
+
+
+def register_resource_manager(app: Flask):
+    with app.app_context():
+        initalize_resource_manager()
+
+    @app.errorhandler(ResourceManagerInitError)
+    def handle_resource_manager_init_error(error):
+        logging.error(f'ResourceManagerError: {error}')
+        return jsonify({'ok': False, 'message': ' '.join(error.args)}), 412
+
+
+def get_resource_manager() -> ResourceManager | None:
+    """Attempts to fetch the resource manager
+
+    Raises:
+        Exception - When the resource isn't properly configured"""
+
+    if 'resource_manager' not in g:
+        if 'resource_manager_error' not in g:
+            # was never initiated
+            rmgr, err = _try_create_resource_manager()
+            if err is not None:
+                g.resource_manger_error = err
+
+            g.rmgr = rmgr
+
+    if 'resource_manger_error' in g and g.resource_manger_error is not None:
+        raise g.resource_manger_error
+
+    return g.rmgr

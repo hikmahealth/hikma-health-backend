@@ -9,12 +9,19 @@ from hikmahealth.server import (
     test_routes,
 )
 
+from hikmahealth.server.client.keeper import register_keeper
+from hikmahealth.server.client.resources import register_resource_manager
 from hikmahealth.utils.errors import WebError
 
 app = Flask(__name__)
+app.url_map.strict_slashes = False
+
 CORS(app)
 # CORS(app, resources={r"/*": {"origins": "*"}})
-app.url_map.strict_slashes = False
+
+register_keeper(app)
+register_resource_manager(app)
+
 
 # for backcompat
 app.register_blueprint(routes_mobile.backcompatapi)

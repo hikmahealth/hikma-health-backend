@@ -11,6 +11,7 @@ from hikmahealth.server.client.resources import (
     ResourceManager,
     ResourceNotFound,
     ResourceStoreTypeMismatch,
+    get_resource_manager,
 )
 from hikmahealth.server.helpers import web as webhelper
 
@@ -205,16 +206,15 @@ def sync_v2_push():
     return jsonify({'ok': True, 'timestamp': utc.now().isoformat()})
 
 
-# TODO: move this such that tha variable availability is
-# managed by flask. if server don't have the required variable,
-# this will explode
-rmgr = ResourceManager(get_keeper())
-
-
 @api.route('/forms/resources', methods=['PUT'])
 def put_resource_to_store():
     # # authenticating the
     # _get_authenticated_user_from_request(request)
+    # NOTE: might instead throw a WebError here
+    rmgr = get_resource_manager()
+
+    if rmgr is not None:
+        raise WebError('ResourceManager instance missing', status_code=412)
 
     results = rmgr.put_resources(
         resources=[
@@ -230,6 +230,11 @@ def put_resource_to_store():
 def get_resource_from_store(rid: str):
     # # authenticating the
     # _get_authenticated_user_from_request(request)
+    rmgr = get_resource_manager()
+
+    if rmgr is not None:
+        raise WebError('ResourceManager instance missing', status_code=412)
+
     try:
         result = rmgr.get_resource(rid)
         return send_file(result['Body'], download_name=rid, mimetype=result['Mimetype'])
