@@ -6,6 +6,12 @@ from psycopg import Connection
 from psycopg.rows import dict_row
 
 from hikmahealth.entity.sync import SyncToClient
+from hikmahealth.server.client.keeper import get_keeper
+from hikmahealth.server.client.resources import (
+    ResourceManager,
+    ResourceNotFound,
+    ResourceStoreTypeMismatch,
+)
 from hikmahealth.server.helpers import web as webhelper
 
 from hikmahealth.server.api.auth import User
@@ -236,6 +242,9 @@ def sync_v2_push():
     #     except Exception as err:
 
 
+rmgr = ResourceManager(get_keeper())
+
+
 @api.route('/forms/resources', methods=['PUT'])
 def put_resource_to_store():
     # # authenticating the
@@ -243,71 +252,84 @@ def put_resource_to_store():
 
     # resource from the client
 
-    store = get_storage()
-
-    resources_data = list()
+    # store = get_storage()
     for name, f in request.files.items():
-        resourceid = uuid1()
-        out = store.put(
-            BytesIO(f.stream.read()), f'forms_resources/{resourceid}', overwrite=True
-        )
+        print(name, f.mimetype)
 
-        resources_data.append((
-            resourceid,
-            out['uri'],
-            out['md5_hash'],
-            f.mimetype,
-        ))
+    results = rmgr.put_resources(
+        resources=[
+            (BytesIO(k.stream.read()), lambda id: f'forms_resources/{id}', k.mimetype)
+            for name, k in request.files.items()
+        ]
+    )
 
-    with db.get_connection() as conn:
-        for id, uri, hash, mimetype in resources_data:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    INSERT INTO resources
-                        (id, store, store_version, uri, hash, mimetype)
-                    VALUES
-                        (%s::uuid, %s, %s, %s, %s, %s)
-                    """,
-                    [id, store.NAME, store.VERSION, uri, hash, mimetype],
-                )
+    # resources_data = list()
+    # for name, f in request.files.items():
+    #     resourceid = uuid1()
+    #     out = store.put(
+    #         BytesIO(f.stream.read()), f'forms_resources/{resourceid}', overwrite=True
+    #     )
 
-    return jsonify(data=[{'id': r[0]} for r in resources_data]), 201
+    #     resources_data.append((
+    #         resourceid,
+    #         out['uri'],
+    #         out['md5_hash'],
+    #         f.mimetype,
+    #     ))
+
+    # with db.get_connection() as conn:
+    #     for id, uri, hash, mimetype in resources_data:
+    #         with conn.cursor() as cur:
+    #             cur.execute(
+    #                 """
+    #                 INSERT INTO resources
+    #                     (id, store, store_version, uri, hash, mimetype)
+    #                 VALUES
+    #                     (%s::uuid, %s, %s, %s, %s, %s)
+    #                 """,
+    #                 [id, store.NAME, store.VERSION, uri, hash, mimetype],
+    #             )
+
+    return jsonify(data=[{'id': r['Id']} for r in results]), 201
 
 
 @api.route('/forms/resources/<rid>', methods=['GET'])
 def get_resource_from_store(rid: str):
     # # authenticating the
     # _get_authenticated_user_from_request(request)
-    data = None
-    with db.get_connection() as conn:
-        with conn.cursor(row_factory=dict_row) as cur:
-            cur.execute(
-                """
-                SELECT store, store_version, uri, mimetype FROM resources
-                WHERE id = %s::uuid LIMIT 1;
-                """,
-                (rid,),
-            )
+    # data = None
+    # with db.get_connection() as conn:
+    #     with conn.cursor(row_factory=dict_row) as cur:
+    #         cur.execute(
+    #             """
+    #             SELECT store, store_version, uri, mimetype FROM resources
+    #             WHERE id = %s::uuid LIMIT 1;
+    #             """,
+    #             (rid,),
+    #         )
 
-            data = cur.fetchone()
+    #         data = cur.fetchone()
 
-    if data is None:
+    # if data is None:
+    #     return jsonify({'ok': False, 'message': 'Resource not found'}), 404
+
+    # store = get_storage()
+
+    # if store.NAME != data['store']:
+    #     # NOTE: this simply means the current storage doesn't have the data
+    #     # and may be in another storage.
+    #     # This shouldn't be an issue when we user doesn't change the storage chose
+    #     # OR we handle proper migration of the resource from one store to another
+    #     return jsonify({'ok': False, 'message': 'Resource not found'}), 404
+
+    # # version check here is optional, needed only a few times
+
+    # mem = BytesIO(store.download_as_bytes(data['uri']))
+    try:
+        result = rmgr.get_resource(rid)
+        return send_file(result['Body'], download_name=rid, mimetype=result['Mimetype'])
+    except ResourceNotFound | ResourceStoreTypeMismatch as err:
         return jsonify({'ok': False, 'message': 'Resource not found'}), 404
-
-    store = get_storage()
-
-    if store.NAME != data['store']:
-        # NOTE: this simply means the current storage doesn't have the data
-        # and may be in another storage.
-        # This shouldn't be an issue when we user doesn't change the storage chose
-        # OR we handle proper migration of the resource from one store to another
-        return jsonify({'ok': False, 'message': 'Resource not found'}), 404
-
-    # version check here is optional, needed only a few times
-
-    mem = BytesIO(store.download_as_bytes(data['uri']))
-    return send_file(mem, download_name=rid, mimetype=data['mimetype'])
 
 
 @api.errorhandler(500)

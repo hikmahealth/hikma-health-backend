@@ -29,9 +29,6 @@ valid_types = [
 class Keeper:
     """To facilitate the management of server variables"""
 
-    def __init__(self):
-        pass
-
     def get_as_json(self, key: str):
         vtype, vdata = self.get_primitive(key)
         if vtype is None or vdata is None:

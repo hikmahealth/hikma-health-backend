@@ -2,7 +2,7 @@ from collections import defaultdict
 import logging
 import os
 from flask import Blueprint, jsonify, request
-from hikmahealth.keeper import get_keeper
+from hikmahealth.server.client.keeper import get_keeper
 from hikmahealth.storage.client import get_storage
 
 log = logging.getLogger(__name__)
