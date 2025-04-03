@@ -4,7 +4,7 @@ import os
 from flask.app import Flask
 from sqlalchemy.pool.impl import AssertionPool
 
-from hikmahealth.keeper import Keeper
+from hikmahealth.server.client.keeper import Keeper
 from hikmahealth.storage.adapters.base import BaseAdapter
 from hikmahealth.storage.adapters.gcp import GCPStore
 

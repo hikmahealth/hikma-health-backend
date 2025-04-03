@@ -81,7 +81,7 @@ class S3Store(BaseAdapter):
         self.s3 = boto3_client
         self.bucket_name = bucket_name
 
-    def download_as_bytes(self, name: str) -> BytesIO:
+    def download_as_bytes(self, name: str, *args, **kwargs) -> BytesIO:
         response = self.s3.get_object(
             Bucket=self.bucket_name,
             Key=name,
@@ -89,7 +89,7 @@ class S3Store(BaseAdapter):
 
         return BytesIO(response["Body"].read())
 
-    def put(self, data: BytesIO, destination: str, **opts):
+    def put(self, data: BytesIO, destination: str, *args, **kwargs):
         with BytesIO() as data:
             response = self.s3.put_object(
                 Bucket=self.bucket_name,

@@ -2,6 +2,8 @@ from abc import abstractmethod
 from io import BytesIO
 from werkzeug.datastructures import FileStorage
 
+from hikmahealth.storage.objects import PutOutput
+
 
 class BaseAdapter:
     """Interface to be implemented by respective store. This adapter allows storage of
@@ -24,5 +26,5 @@ class BaseAdapter:
         raise NotImplementedError()
 
     @abstractmethod
-    def put(self, data: BytesIO, destination: str, **opts):
+    def put(self, data: BytesIO, destination: str, **opts) -> PutOutput:
         raise NotImplementedError()
