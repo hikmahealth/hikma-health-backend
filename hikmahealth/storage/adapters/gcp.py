@@ -24,10 +24,19 @@ def initialize_store_config_from_keeper(kp: Keeper):
 
     for v in StoreConfig.__dataclass_fields__.values():
         val = kp.get(v.name)
+        if (
+            v.default is dataclasses.MISSING
+            and v.default_factory is dataclasses.MISSING
+        ):
+            assert val is not None and v.type is not None, (
+                "missing required server variable '{}'".format(v.name)
+            )
 
-        assert isinstance(val, v.type), "There's a type server({}) != local({})".format(
-            v.type, type(val)
-        )
+            assert isinstance(val, v.type), (
+                "There's a type mismatch between code_value({}) != server_value({})".format(
+                    v.type, type(val)
+                )
+            )
 
         config[v.name] = val
 

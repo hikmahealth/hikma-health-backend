@@ -8,6 +8,7 @@ from io import BytesIO
 from typing import Any, Callable, Iterable, Literal, Tuple
 from uuid import UUID, uuid1
 
+from botocore.client import ClientError
 from psycopg.rows import dict_row
 
 from hikmahealth.server.client import db
@@ -90,7 +91,66 @@ class ResourceManager:
 
             assert bucket is not None, 'failed to initiate bucket'
 
+            # TODO: save config with possibly new applied settings
+            # gcp.update_store_config_to_keeper(kp, s3config)
+
             self.store = gcp.GCPStore(bucket)
+
+        if config.store_type == STORE_TYPE_AWS:
+            import boto3
+            from botocore.client import Config
+
+            from hikmahealth.storage.adapters import s3 as s3
+
+            s3config = s3.initialize_store_config_from_keeper(kp)
+            session = boto3.Session()
+            botoConfig = None
+
+            bucket_name = s3config.S3_BUCKET_NAME
+
+            if s3config.S3_COMPATIBLE_STORAGE_HOST == s3.STORE_HOST_TIGRISDATA:
+                # for tigris, because of it's virtual pathing,
+                #  `bucket_name` needs to be pre-defined
+                assert bucket_name is not None, (
+                    'since using {}, `bucket_name` needs to be explicitly defined'.format(
+                        s3config.S3_COMPATIBLE_STORAGE_HOST
+                    )
+                )
+
+                botoConfig = Config(s3={'addressing_style': 'virtual'})
+
+            svc = session.client(
+                's3',
+                aws_access_key_id=s3config.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=s3config.AWS_SECRET_ACCESS_KEY,
+                endpoint_url=s3config.AWS_ENDPOINT_URL_S3,
+                config=botoConfig,
+            )
+
+            if bucket_name is None or bucket_name == s3.DEFAULT_BUCKET_NAME:
+                # attempt to make bucket with name
+                bucket_name = s3.DEFAULT_BUCKET_NAME
+                try:
+                    svc.head_bucket(Bucket=bucket_name)
+                    # if this doesn't throw, then the bucket exists
+                except ClientError as e:
+                    error_code = int(e.response['Error']['Code'])
+                    if error_code == 404:
+                        svc.create_bucket(Bucket=bucket_name, ACL='private')
+
+                # if exists, will through error
+
+                # update config
+                s3config.S3_BUCKET_NAME = bucket_name
+
+            # TODO: save config with possibly new applied settings
+            # s3.update_store_config_to_keeper(kp, s3config)
+
+            assert bucket_name is not None, 'bucket_name is still not set'
+
+            self.store = s3.S3Store(
+                svc, bucket_name, s3config.S3_COMPATIBLE_STORAGE_HOST
+            )
 
         assert self.store is not None, (
             f"failed to initiate storage. unknown store type '{config.store_type}'"

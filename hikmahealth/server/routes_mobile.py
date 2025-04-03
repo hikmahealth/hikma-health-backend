@@ -217,6 +217,9 @@ def sync_v2_push():
     return jsonify({'ok': True, 'timestamp': utc.now().isoformat()})
 
 
+# TODO: move this such that tha variable availability is
+# managed by flask. if server don't have the required variable,
+# this will explode
 rmgr = ResourceManager(get_keeper())
 
 
