@@ -6,11 +6,17 @@ from psycopg import Connection
 from psycopg.rows import dict_row
 
 from hikmahealth.entity.sync import SyncToClient
+from hikmahealth.server.client.keeper import get_keeper
+from hikmahealth.server.client.resources import (
+    ResourceManager,
+    ResourceNotFound,
+    ResourceStoreTypeMismatch,
+    get_resource_manager,
+)
 from hikmahealth.server.helpers import web as webhelper
 
 from hikmahealth.server.api.auth import User
 from hikmahealth.server.api import auth as auth
-from hikmahealth.storage.client import get_storage
 from hikmahealth.utils.errors import WebError
 
 import time
@@ -146,17 +152,6 @@ def _get_timestamp_now():
     return time.mktime(datetime.now().timetuple()) * 1000
 
 
-# using tuple to make sure the we observe order
-# of the entities to be syncronized
-# ENTITIES_TO_APPLY_TO_SERVER_IN_ORDER: Iterable[tuple[str, hh.SyncTo]] = (
-#     ('patients', hh.Patient),
-#     ('patient_additional_attributes', hh.PatientAttribute),
-#     ('visits', hh.Visit),
-#     ('events', hh.Event),
-#     ('appointments', hh.Appointment),
-#     ('prescriptions', hh.Prescription),
-# )
-
 # instantiates the manager to handle syncronization
 # of changes to the databse
 sink = sync.Sink[Connection]()
@@ -210,104 +205,41 @@ def sync_v2_push():
 
     return jsonify({'ok': True, 'timestamp': utc.now().isoformat()})
 
-    # with db.get_connection() as conn:
-    #     try:
-    #         for entitykey, e in ENTITIES_TO_APPLY_TO_SERVER_IN_ORDER:
-    #             print(f'Applying delta changes for {entitykey}')
-    #             if entitykey not in body:
-    #                 continue
-
-    #             # get the entity delta values
-    #             deltadata = defaultdict(None, body[entitykey])
-
-    #             # package delta data
-    #             deltadata = sync.DeltaData(
-    #                 created=deltadata.get('created'),
-    #                 updated=deltadata.get('updated'),
-    #                 # deleted=[{"id": id } for id in deltadata.get("deleted")] if deltadata.get("deleted") is not None else None,
-    #                 deleted=deltadata.get('deleted'),
-    #             )
-
-    #             e.apply_delta_changes(
-    #                 deltadata, last_pushed_at=last_synced_at, conn=conn
-    #             )
-
-    #         return jsonify({'ok': True, 'timestamp': utc.now().isoformat()})
-    #     except Exception as err:
-
 
 @api.route('/forms/resources', methods=['PUT'])
 def put_resource_to_store():
     # # authenticating the
     # _get_authenticated_user_from_request(request)
+    # NOTE: might instead throw a WebError here
+    rmgr = get_resource_manager()
 
-    # resource from the client
+    if rmgr is not None:
+        raise WebError('ResourceManager instance missing', status_code=412)
 
-    store = get_storage()
+    results = rmgr.put_resources(
+        resources=[
+            (BytesIO(k.stream.read()), lambda id: f'forms_resources/{id}', k.mimetype)
+            for name, k in request.files.items()
+        ]
+    )
 
-    resources_data = list()
-    for name, f in request.files.items():
-        resourceid = uuid1()
-        out = store.put(
-            BytesIO(f.stream.read()), f'forms_resources/{resourceid}', overwrite=True
-        )
-
-        resources_data.append((
-            resourceid,
-            out['uri'],
-            out['md5_hash'],
-            f.mimetype,
-        ))
-
-    with db.get_connection() as conn:
-        for id, uri, hash, mimetype in resources_data:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    INSERT INTO resources
-                        (id, store, store_version, uri, hash, mimetype)
-                    VALUES
-                        (%s::uuid, %s, %s, %s, %s, %s)
-                    """,
-                    [id, store.NAME, store.VERSION, uri, hash, mimetype],
-                )
-
-    return jsonify(data=[{'id': r[0]} for r in resources_data]), 201
+    return jsonify(data=[{'id': r['Id']} for r in results]), 201
 
 
 @api.route('/forms/resources/<rid>', methods=['GET'])
 def get_resource_from_store(rid: str):
     # # authenticating the
     # _get_authenticated_user_from_request(request)
-    data = None
-    with db.get_connection() as conn:
-        with conn.cursor(row_factory=dict_row) as cur:
-            cur.execute(
-                """
-                SELECT store, store_version, uri, mimetype FROM resources
-                WHERE id = %s::uuid LIMIT 1;
-                """,
-                (rid,),
-            )
+    rmgr = get_resource_manager()
 
-            data = cur.fetchone()
+    if rmgr is not None:
+        raise WebError('ResourceManager instance missing', status_code=412)
 
-    if data is None:
+    try:
+        result = rmgr.get_resource(rid)
+        return send_file(result['Body'], download_name=rid, mimetype=result['Mimetype'])
+    except ResourceNotFound | ResourceStoreTypeMismatch as err:
         return jsonify({'ok': False, 'message': 'Resource not found'}), 404
-
-    store = get_storage()
-
-    if store.NAME != data['store']:
-        # NOTE: this simply means the current storage doesn't have the data
-        # and may be in another storage.
-        # This shouldn't be an issue when we user doesn't change the storage chose
-        # OR we handle proper migration of the resource from one store to another
-        return jsonify({'ok': False, 'message': 'Resource not found'}), 404
-
-    # version check here is optional, needed only a few times
-
-    mem = BytesIO(store.download_as_bytes(data['uri']))
-    return send_file(mem, download_name=rid, mimetype=data['mimetype'])
 
 
 @api.errorhandler(500)

@@ -1,5 +1,8 @@
 from abc import abstractmethod
+from io import BytesIO
 from werkzeug.datastructures import FileStorage
+
+from hikmahealth.storage.objects import PutOutput
 
 
 class BaseAdapter:
@@ -19,9 +22,16 @@ class BaseAdapter:
         self.VERSION = version
 
     @abstractmethod
-    def download_as_bytes(self, name: str) -> FileStorage:
+    def download_as_bytes(self, name: str, *args, **kwargs) -> BytesIO:
         raise NotImplementedError()
 
     @abstractmethod
-    def put(self, data: FileStorage, destination: str, **opts):
+    def put(self, data: BytesIO, destination: str, *args, **kwargs) -> PutOutput:
         raise NotImplementedError()
+
+
+# TODO:
+# 1. ✅ make `ResourceManager` state managed by flask, so that server doesn't fail to start when variables are initially missing
+# 2. ✅ create functions to update the newly inited configurations to `Keeper`
+# 3. better the look of the /env endpoints
+# 4. AWS might not be storing the actual data properly. please check

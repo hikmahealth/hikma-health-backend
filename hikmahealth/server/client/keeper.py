@@ -7,6 +7,8 @@ import json
 from typing import Any
 import uuid
 
+from flask.app import Flask
+from flask.ctx import has_app_context
 from psycopg.rows import dict_row
 from hikmahealth.server.client import db
 import hashlib
@@ -27,10 +29,7 @@ valid_types = [
 
 
 class Keeper:
-    """To facilitate the management of server variables"""
-
-    def __init__(self):
-        pass
+    """Manager for the Server Variables"""
 
     def get_as_json(self, key: str):
         vtype, vdata = self.get_primitive(key)
@@ -151,7 +150,23 @@ class Keeper:
                     raise err
 
 
-def get_keeper():
-    conn = db.get_connection()
-    assert not conn.closed
+def new_keeper():
     return Keeper()
+
+
+from flask import g, has_app_context
+
+
+def register_keeper(app: Flask):
+    """(optional) Registers the `Keeper` object into the flask app context"""
+
+    with app.app_context():
+        g.keeper = new_keeper()
+
+
+def get_keeper():
+    """Returns a single instance of `Keeper`"""
+    if 'keeper' not in g:
+        g.keeper = new_keeper()
+
+    return g.keeper

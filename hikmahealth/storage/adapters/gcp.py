@@ -1,10 +1,52 @@
+from dataclasses import dataclass
+import dataclasses
 from io import BytesIO
 from google.cloud import storage
 from werkzeug.datastructures import FileStorage
+
+from hikmahealth.server.client.keeper import Keeper
+from hikmahealth.storage.objects import PutOutput
 from .base import BaseAdapter
 
-# TODO: have a resources table
-# Abstract away the storage information
+import os
+
+
+# NOTE: might change this into a usuful function
+@dataclass
+class StoreConfig:
+    GCP_SERVICE_ACCOUNT: dict
+    GCP_BUCKET_NAME: str | None = None
+
+
+# Default name of bucket expected to be in the GCP cloud storage
+# if the variable is not defined, this default bucket name will be used
+# instead
+DEFAULT_GCP_BUCKET_NAME = 'hikmahealthdata.appspot.com'
+
+
+def initialize_store_config_from_keeper(kp: Keeper):
+    # get variables
+    config = dict()
+
+    for v in StoreConfig.__dataclass_fields__.values():
+        val = kp.get(v.name)
+        if (
+            v.default is dataclasses.MISSING
+            and v.default_factory is dataclasses.MISSING
+        ):
+            assert val is not None and v.type is not None, (
+                "missing required server variable '{}'".format(v.name)
+            )
+
+            assert isinstance(val, v.type), (
+                "There's a type mismatch between code_value({}) != server_value({})".format(
+                    v.type, type(val)
+                )
+            )
+
+        config[v.name] = val
+
+    return StoreConfig(**config)
 
 
 class GCPStore(BaseAdapter):
@@ -14,17 +56,26 @@ class GCPStore(BaseAdapter):
         super().__init__('gcp', '202503.01')
         self.bucket = bucket
 
-    def download_as_bytes(self, uri: str):
+    def download_as_bytes(self, uri: str, *args, **kwargs) -> BytesIO:
         blob = self.bucket.blob(uri)
-        return blob.download_as_bytes()
+        return BytesIO(blob.download_as_bytes())
 
     def put(
-        self, data: BytesIO, destination: str, mimetype: str | None = None, **kwargs
+        self,
+        data: BytesIO,
+        destination: str,
+        mimetype: str | None = None,
+        *args,
+        **kwargs,
     ):
         """saves the data to a destination"""
+        assert isinstance(data, BytesIO), 'data argument needs to be a type `BytesIO`'
+
         # check if destination hasa a file
         blob = self.bucket.blob(destination)
+        assert blob.name is not None, 'name is create from the bucket name'
+
         blob.upload_from_file(data, checksum='md5')
 
         # maybe us @dataclass later
-        return dict(uri=blob.name, md5_hash=blob.md5_hash)
+        return PutOutput(uri=blob.name, hash=('md5', blob.md5_hash))
