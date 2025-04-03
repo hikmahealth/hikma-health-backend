@@ -252,10 +252,6 @@ def put_resource_to_store():
 
     # resource from the client
 
-    # store = get_storage()
-    for name, f in request.files.items():
-        print(name, f.mimetype)
-
     results = rmgr.put_resources(
         resources=[
             (BytesIO(k.stream.read()), lambda id: f'forms_resources/{id}', k.mimetype)
