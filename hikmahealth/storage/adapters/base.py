@@ -22,9 +22,9 @@ class BaseAdapter:
         self.VERSION = version
 
     @abstractmethod
-    def download_as_bytes(self, name: str) -> BytesIO:
+    def download_as_bytes(self, name: str, *args, **kwargs) -> BytesIO:
         raise NotImplementedError()
 
     @abstractmethod
-    def put(self, data: BytesIO, destination: str, **opts) -> PutOutput:
+    def put(self, data: BytesIO, destination: str, *args, **kwargs) -> PutOutput:
         raise NotImplementedError()
