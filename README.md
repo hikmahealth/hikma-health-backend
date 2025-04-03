@@ -167,7 +167,10 @@ python3 -m pytest --cov=hikmahealth --cov-report=term-missing --cov-report=html
 Features on the roadmap represent the vision for the admin portal over the coming versions, but none are guaranteed. If there is a feature you would love to see supported, open a feature-request / issue with more details and we can prioritize features with the most requests.
 
 - [ ] Improve backup functionality for self-hosted options (not recommended - use a managed database service)
-- [ ] Add support for storing files and images
+- [x] Add support for storing files and images
+  - [x] S3 / S3-Compatible Storage (i.e. AWS S3, Tigrisdata, Cloudflare R2)
+  - [x] GCP
+  - [ ] Local (FS for self-hosted option) _Ideal for testing, Not Recommended_
 - [x] Remove all transition code from previous deployment (all old code now lives in `oldhikma` folder for reference. This will be deleted soon.)
 - [x] Add documentation for fully hosted solutions like render.com
 - [x] Improve test coverage
@@ -175,9 +178,6 @@ Features on the roadmap represent the vision for the admin portal over the comin
 - [x] Add docs to deploy button customization
 - [ ] Add docs on configuring custom `server_variables`
 - [ ] Add docs on configuring blob storage options. Supporting
-  - [x] S3 / S3-Compatible Storage (i.e. AWS S3, Tigrisdata, Cloudflare R2)
-  - [x] GCP
-  - [ ] Local (FS for self-hosted option) _Ideal for testing, Not Recommended_
 
 ## Contributing
 
