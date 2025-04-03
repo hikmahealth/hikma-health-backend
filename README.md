@@ -173,11 +173,11 @@ Features on the roadmap represent the vision for the admin portal over the comin
 - [x] Improve test coverage
   - [ ] 80% test coverage
 - [x] Add docs to deploy button customization
-- [ ] Add notes about configuring custom `server_variables`
-- [ ] Add notes on configuring blob storage. To support
+- [ ] Add docs on configuring custom `server_variables`
+- [ ] Add docs on configuring blob storage options. Supporting
   - [x] S3 / S3-Compatible Storage (i.e. AWS S3, Tigrisdata, Cloudflare R2)
   - [x] GCP
-  - [ ] Local (FS for self-hosted option) _ideal for testing, Not Recommended_
+  - [ ] Local (FS for self-hosted option) _Ideal for testing, Not Recommended_
 
 ## Contributing
 
