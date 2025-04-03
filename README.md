@@ -13,7 +13,7 @@ The platform is designed to be intuitive and allow for efficient patient workflo
 
 For more comprehensive documentation visit: https://docs.hikmahealth.org/
 
-> [!IMPORTANT]  
+> [!IMPORTANT]
 > This `main` branch has now become the default branch - migrating away from the `master` branch. This branch
 > is a complete re-write of the old branch to include core dependency upgrades, api structure updates, and a
 > refactor to reduce technical debt and improve organization. Migrating to this branch should be easy and
@@ -173,6 +173,11 @@ Features on the roadmap represent the vision for the admin portal over the comin
 - [x] Improve test coverage
   - [ ] 80% test coverage
 - [x] Add docs to deploy button customization
+- [ ] Add notes about configuring custom `server_variables`
+- [ ] Add notes on configuring blob storage. To support
+  - [x] S3 / S3-Compatible Storage (i.e. AWS S3, Tigrisdata, Cloudflare R2)
+  - [x] GCP
+  - [ ] Local (FS for self-hosted option) _ideal for testing, Not Recommended_
 
 ## Contributing
 
