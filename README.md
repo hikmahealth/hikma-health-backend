@@ -171,7 +171,7 @@ Features on the roadmap represent the vision for the admin portal over the comin
   - [x] GCP
   - [x] S3 / S3-Compatible Storage
     - [x] AWS S3
-    - [x] Tigrisdata
+    - [x] [Tigrisdata](https://www.tigrisdata.com/) - S3-Compatible Object Storage
   - [ ] Local (FS for self-hosted option) _Ideal for testing, Not Recommended_
 - [x] Remove all transition code from previous deployment (all old code now lives in `oldhikma` folder for reference. This will be deleted soon.)
 - [x] Add documentation for fully hosted solutions like render.com
