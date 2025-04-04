@@ -27,7 +27,10 @@ STORE_TYPE_GCP = 'gcp'
 
 
 def get_supported_stores():
-    return STORE_TYPE_GCP
+    return (
+        STORE_TYPE_GCP,
+        STORE_TYPE_AWS,
+    )
 
 
 @dataclass
@@ -208,6 +211,7 @@ class ResourceManager:
             out = self.store.put(
                 b,
                 d,
+                mimetype=mimetype,
                 overwrite=True,
             )
 
@@ -289,16 +293,16 @@ def _try_create_resource_manager():
         return None, err
 
 
-import logging
-
-
-def initalize_resource_manager():
+def initialize_resource_manager():
     g.resource_manager_state = 'not_ready'
-    logging.info('Initializing Resource Manager')
+    print('[INFO] Initializing Resource Manager')
 
     rmgr, err = _try_create_resource_manager()
     if err is not None:
         print('[ERROR]: failed to initialize `ResourceManager`: {}'.format(err))
+        g.resource_manager_error = err
+    else:
+        print('[INFO] Resource Manager ready'.format())
 
     if rmgr is not None:
         g.resource_manager = rmgr
@@ -308,11 +312,11 @@ def initalize_resource_manager():
 
 def register_resource_manager(app: Flask):
     with app.app_context():
-        initalize_resource_manager()
+        initialize_resource_manager()
 
     @app.errorhandler(ResourceManagerInitError)
     def handle_resource_manager_init_error(error):
-        logging.error(f'ResourceManagerError: {error}')
+        print(f'ResourceManagerError: {error}')
         return jsonify({'ok': False, 'message': ' '.join(error.args)}), 412
 
 
@@ -325,13 +329,9 @@ def get_resource_manager() -> ResourceManager | None:
     if 'resource_manager' not in g:
         if 'resource_manager_error' not in g:
             # was never initiated
-            rmgr, err = _try_create_resource_manager()
-            if err is not None:
-                g.resource_manger_error = err
-
-            g.rmgr = rmgr
+            initialize_resource_manager()
 
     if 'resource_manger_error' in g and g.resource_manger_error is not None:
         raise g.resource_manger_error
 
-    return g.rmgr
+    return g.resource_manager
