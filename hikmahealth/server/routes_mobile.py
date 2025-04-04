@@ -1,6 +1,8 @@
 from io import BytesIO
 import logging
+import os
 from uuid import uuid1
+from boto3 import resource
 from flask import Blueprint, request, Request, jsonify, abort, send_file
 from psycopg import Connection
 from psycopg.rows import dict_row
@@ -213,15 +215,18 @@ def put_resource_to_store():
     # NOTE: might instead throw a WebError here
     rmgr = get_resource_manager()
 
-    if rmgr is not None:
+    if rmgr is None:
         raise WebError('ResourceManager instance missing', status_code=412)
 
-    results = rmgr.put_resources(
-        resources=[
-            (BytesIO(k.stream.read()), lambda id: f'forms_resources/{id}', k.mimetype)
-            for name, k in request.files.items()
-        ]
-    )
+    resources = []
+    for name, k in request.files.items():
+        resources.append((
+            k.stream,
+            lambda id: f'forms_resources/{id}',
+            k.mimetype,
+        ))
+
+    results = rmgr.put_resources(resources)
 
     return jsonify(data=[{'id': r['Id']} for r in results]), 201
 
@@ -232,7 +237,7 @@ def get_resource_from_store(rid: str):
     # _get_authenticated_user_from_request(request)
     rmgr = get_resource_manager()
 
-    if rmgr is not None:
+    if rmgr is None:
         raise WebError('ResourceManager instance missing', status_code=412)
 
     try:

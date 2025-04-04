@@ -87,13 +87,16 @@ class S3Store(BaseAdapter):
 
         return BytesIO(response['Body'].read())
 
-    def put(self, data: BytesIO, destination: str, *args, **kwargs):
-        with BytesIO() as data:
-            response = self.s3.put_object(
-                Bucket=self.bucket_name,
-                Key=destination,
-                Body=data.read(),
-                ChecksumAlgorithm='SHA256',
-            )
+    def put(
+        self, data: BytesIO, destination: str, mimetype: str | None = None, **kwargs
+    ):
+        data.seek(0)
+        response = self.s3.put_object(
+            ACL='private',
+            Bucket=self.bucket_name,
+            Key=destination,
+            ContentType=mimetype,
+            Body=data.read(),
+        )
 
-            return PutOutput(uri=destination, hash=('md5', response['ETag']))
+        return PutOutput(uri=destination, hash=('md5', response['ETag']))
