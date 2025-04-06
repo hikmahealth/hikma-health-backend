@@ -179,7 +179,7 @@ Features on the roadmap represent the vision for the admin portal over the comin
   - [ ] 80% test coverage
 - [x] Add docs to deploy button customization
 - [ ] Add docs on configuring custom `server_variables`
-- [ ] Add docs on configuring blob storage options. Supporting
+- [ ] Add docs on configuring blob storage options
 
 ## Contributing
 
