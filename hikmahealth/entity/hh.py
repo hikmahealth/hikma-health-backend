@@ -2,7 +2,9 @@ from __future__ import annotations
 import logging
 
 from psycopg import Connection
+from psycopg.cursor import Cursor
 
+from hikmahealth import sync
 from hikmahealth.entity import core, fields, helpers
 from .sync import (
     SyncToClient,
@@ -659,147 +661,146 @@ class Event(SyncToClient, SyncToServer):
 class Visit(SyncToClient, SyncToServer):
     TABLE_NAME = 'visits'
 
+    check_in_timestamp: datetime
+    clinic_id: str
+    patient_id: str
+    provider_id: str
+    provider_name: str
+    id: str
+    metadata: dict | None = None
+    created_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
+    updated_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
+
     @classmethod
-    def apply_delta_changes(cls, deltadata, last_pushed_at, conn):
+    def create_from_delta(cls, cur: Cursor, data: dict):
+        """Writes the data to the database."""
+        with cur:
+            now = utc.now()
+            cur.execute(
+                """
+                INSERT INTO visits
+                    (id, patient_id, clinic_id, provider_id, provider_name, check_in_timestamp, metadata, created_at, updated_at, last_modified)
+                VALUES
+                    (%(id)s, %(patient_id)s, %(clinic_id)s, %(provider_id)s, %(provider_name)s, %(check_in_timestamp)s, %(metadata)s, %(created_at)s, %(updated_at)s, %(last_modified)s)
+                ON CONFLICT (id) DO UPDATE
+                SET
+                    patient_id=EXCLUDED.patient_id,
+                    clinic_id=EXCLUDED.clinic_id,
+                    provider_id=EXCLUDED.provider_id,
+                    provider_name=EXCLUDED.provider_name,
+                    check_in_timestamp=EXCLUDED.check_in_timestamp,
+                    metadata=EXCLUDED.metadata,
+                    created_at=EXCLUDED.created_at,
+                    updated_at=EXCLUDED.updated_at,
+                    last_modified=EXCLUDED.last_modified
+                """,
+                data,
+            )
+
+    @classmethod
+    def update_from_delta(cls, cur: Cursor, data: dict):
+        return cls.create_from_delta(cur, data)
+
+    @classmethod
+    def delete_from_delta(cls, cur: Cursor, id: str):
+        with cur:
+            now = utc.now()
+
+            # Soft delete visit and related records
+            cur.execute(
+                """
+                UPDATE visits
+                SET is_deleted = true,
+                    deleted_at = %s,
+                    updated_at = %s,
+                    last_modified = %s
+                WHERE id = %s::uuid
+                RETURNING id;
+                """,
+                (now, now, now, id),
+            )
+
+            updated_visit_ids = [row[0] for row in cur.fetchall()]
+
+            if updated_visit_ids:
+                cur.execute(
+                    """
+                    UPDATE events
+                    SET is_deleted = true,
+                        deleted_at = %s,
+                        updated_at = %s,
+                        last_modified = %s
+                    WHERE visit_id = ANY(%s);
+                    """,
+                    (now, now, now, updated_visit_ids),
+                )
+
+                cur.execute(
+                    """
+                    UPDATE appointments
+                    SET is_deleted = true,
+                        deleted_at = %s,
+                        updated_at = %s,
+                        last_modified = %s
+                    WHERE visit_id = ANY(%s);
+                    """,
+                    (now, now, now, updated_visit_ids),
+                )
+
+                # TODO: Soft delete prescriptions for deleted visits
+                cur.execute(
+                    """
+                    UPDATE prescriptions
+                    SET is_deleted = true,
+                        deleted_at = %s,
+                        updated_at = %s,
+                        last_modified = %s
+                    WHERE visit_id = ANY(%s);
+                    """,
+                    (now, now, now, updated_visit_ids),
+                )
+
+            return now
+
+    @classmethod
+    def apply_delta_changes(
+        cls, deltadata: sync.DeltaData[dict, dict, str], last_pushed_at, conn
+    ):
         with conn.cursor() as cur:
             try:
                 # `cur.executemany` can be used instead
-                for visit in itertools.chain(deltadata.created, deltadata.updated):
-                    visit = dict(visit)
-                    visit.update(
-                        check_in_timestamp=utc.from_unixtimestamp(
-                            visit['check_in_timestamp']
-                        ),
-                        created_at=utc.from_unixtimestamp(visit['created_at']),
-                        updated_at=utc.from_unixtimestamp(visit['updated_at']),
-                        metadata=safe_json_dumps(visit.get('metadata')),
-                        last_modified=utc.now(),
-                    )
+                # batched updates??
+                for action, data in deltadata:
+                    if action in (sync.ACTION_CREATE, sync.ACTION_UPDATE):
+                        assert isinstance(data, dict), 'data must be a dict'
 
-                    cur.execute(
-                        """
-                        INSERT INTO visits
-                            (id, patient_id, clinic_id, provider_id, provider_name, check_in_timestamp, metadata, created_at, updated_at, last_modified)
-                        VALUES
-                            (%(id)s, %(patient_id)s, %(clinic_id)s, %(provider_id)s, %(provider_name)s, %(check_in_timestamp)s, %(metadata)s, %(created_at)s, %(updated_at)s, %(last_modified)s)
-                        ON CONFLICT (id) DO UPDATE
-                        SET
-                            patient_id=EXCLUDED.patient_id,
-                            clinic_id=EXCLUDED.clinic_id,
-                            provider_id=EXCLUDED.provider_id,
-                            provider_name=EXCLUDED.provider_name,
-                            check_in_timestamp=EXCLUDED.check_in_timestamp,
-                            metadata=EXCLUDED.metadata,
-                            created_at=EXCLUDED.created_at,
-                            updated_at=EXCLUDED.updated_at,
-                            last_modified=EXCLUDED.last_modified
-                        """,
-                        visit,
-                    )
-
-                for id in deltadata.deleted:
-                    # Soft delete visit and related records
-                    cur.execute(
-                        """
-                        UPDATE visits
-                        SET is_deleted = true,
-                            deleted_at = %s,
-                            updated_at = %s,
-                            last_modified = %s
-                        WHERE id = %s::uuid
-                        RETURNING id;
-                        """,
-                        (utc.now(), utc.now(), utc.now(), id),
-                    )
-                    updated_visit_ids = [row[0] for row in cur.fetchall()]
-
-                    if updated_visit_ids:
-                        cur.execute(
-                            """
-                            UPDATE events
-                            SET is_deleted = true,
-                                deleted_at = %s,
-                                updated_at = %s,
-                                last_modified = %s
-                            WHERE visit_id = ANY(%s);
-                            """,
-                            (utc.now(), utc.now(), utc.now(), updated_visit_ids),
+                        visit = dict(data)
+                        visit.update(
+                            check_in_timestamp=utc.from_unixtimestamp(
+                                visit['check_in_timestamp']
+                            ),
+                            created_at=utc.from_unixtimestamp(visit['created_at']),
+                            updated_at=utc.from_unixtimestamp(visit['updated_at']),
+                            metadata=safe_json_dumps(visit.get('metadata')),
                         )
 
-                        cur.execute(
-                            """
-                            UPDATE appointments
-                            SET is_deleted = true,
-                                deleted_at = %s,
-                                updated_at = %s,
-                                last_modified = %s
-                            WHERE visit_id = ANY(%s);
-                            """,
-                            (utc.now(), utc.now(), utc.now(), updated_visit_ids),
-                        )
+                        if action == sync.ACTION_CREATE:
+                            cls.create_from_delta(cur, visit)
+                        elif action == sync.ACTION_UPDATE:
+                            cls.update_from_delta(cur, visit)
 
-                        # TODO: Soft delete prescriptions for deleted visits
-                        cur.execute(
-                            """
-                            UPDATE prescriptions
-                            SET is_deleted = true,
-                                deleted_at = %s,
-                                updated_at = %s,
-                                last_modified = %s
-                            WHERE visit_id = ANY(%s);
-                            """,
-                            (utc.now(), utc.now(), utc.now(), updated_visit_ids),
-                        )
+                    elif action == sync.ACTION_DELETE:
+                        assert isinstance(data, str), 'data must be a string'
 
-                # Commit changes
+                        cls.delete_from_delta(cur, data)
+
+                # should commit the entire delta, or not
                 conn.commit()
             except Exception as e:
                 print(f'Vist Errors: {str(e)}')
                 conn.rollback()
                 # Still throw error so we can review
                 raise e
-        # for id in deltadata.deleted:
-        #     # Upsert soft delete visit record
-        #     cur.execute(
-        #         """
-        #         INSERT INTO visits
-        #             (id, is_deleted, patient_id, clinic_id, provider_id, provider_name, check_in_timestamp, metadata, created_at, updated_at, last_modified, deleted_at)
-        #         VALUES
-        #             (%s::uuid, true, '', '', '', '', NULL, '{}', %s, %s, %s, %s)
-        #         ON CONFLICT (id) DO UPDATE
-        #         SET is_deleted = true,
-        #             deleted_at = EXCLUDED.deleted_at,
-        #             updated_at = EXCLUDED.updated_at,
-        #             last_modified = EXCLUDED.last_modified;
-        #         """,
-        #         (id, utc.now(), utc.now(), utc.now(), utc.now())
-        #     )
-
-        #     # Soft delete events for deleted visits
-        #     cur.execute(
-        #         """
-        #         UPDATE events
-        #         SET is_deleted = true,
-        #             deleted_at = %s,
-        #             updated_at = %s,
-        #             last_modified = %s
-        #         WHERE visit_id = %s::uuid;
-        #         """,
-        #         (utc.now(), utc.now(), utc.now(), id)
-        #     )
-
-        #     # Soft delete appointments for deleted visits
-        #     cur.execute(
-        #         """
-        #         UPDATE appointments
-        #         SET is_deleted = true,
-        #             deleted_at = %s,
-        #             updated_at = %s,
-        #             last_modified = %s
-        #         WHERE visit_id = %s::uuid;
-        #         """,
-        #         (utc.now(), utc.now(), utc.now(), id)
-        #     )
 
 
 @core.dataentity
@@ -807,10 +808,10 @@ class Clinic(SyncToClient):
     TABLE_NAME = 'clinics'
 
     id: str
-    name: str
-    address: str
-    metadata: dict
-    attributes: list
+    name: str | None = None
+    address: str | None = None
+    metadata: dict | None = None
+    attributes: list | None = None
 
     created_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
     updated_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
