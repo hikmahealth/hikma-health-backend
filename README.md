@@ -168,10 +168,10 @@ Features on the roadmap represent the vision for the admin portal over the comin
 
 - [ ] Improve backup functionality for self-hosted options (not recommended - use a managed database service)
 - [x] Add support for storing files and images
-  - [x] GCP
+  - [x] [GCP - Cloud Storage](https://cloud.google.com/storage)
   - [x] S3 / S3-Compatible Storage
-    - [x] AWS S3
-    - [x] Tigrisdata
+    - [x] [AWS - S3](https://aws.amazon.com/s3/)
+    - [x] [Tigrisdata](https://www.tigrisdata.com/) - S3-Compatible Object Storage
   - [ ] Local (FS for self-hosted option) _Ideal for testing, Not Recommended_
 - [x] Remove all transition code from previous deployment (all old code now lives in `oldhikma` folder for reference. This will be deleted soon.)
 - [x] Add documentation for fully hosted solutions like render.com
@@ -179,7 +179,7 @@ Features on the roadmap represent the vision for the admin portal over the comin
   - [ ] 80% test coverage
 - [x] Add docs to deploy button customization
 - [ ] Add docs on configuring custom `server_variables`
-- [ ] Add docs on configuring blob storage options. Supporting
+- [ ] Add docs on configuring blob storage options
 
 ## Contributing
 
