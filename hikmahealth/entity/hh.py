@@ -170,22 +170,21 @@ class Patient(SyncToClient, SyncToServer, helpers.SimpleCRUD):
         if action == sync.ACTION_CREATE or action == sync.ACTION_UPDATE:
             patient = dict(data)
 
+            additional_data = patient.get('additional_data', None)
             # Handle additional_data
-            if (
-                patient.get('additional_data', None) is None
-                or patient['additional_data'] == ''
-            ):
-                patient['additional_data'] = '{}'  # Empty JSON object
-            elif isinstance(patient.get('additional_data', None), (dict, list)):
-                patient['additional_data'] = json.dumps(patient['additional_data'])
+            if additional_data is None or additional_data == '':
+                additional_data = '{}'  # Empty JSON object
+            elif isinstance(additional_data, (dict, list)):
+                additional_data = safe_json_dumps(additional_data)
             elif isinstance(patient.get('additional_data', None), str):
                 try:
-                    json.loads(patient['additional_data'])
+                    json.loads(additional_data)
                 except json.JSONDecodeError:
                     # Empty JSON object if invalid
-                    patient['additional_data'] = '{}'
+                    additional_data = '{}'
 
             patient.update(
+                additional_data=additional_data,
                 created_at=helpers.get_from_dict(
                     patient, 'created_at', utc.from_unixtimestamp
                 ),
@@ -447,7 +446,7 @@ class PatientAttribute(SyncToClient, SyncToServer):
     TABLE_NAME = 'patient_additional_attributes'
 
     @classmethod
-    def transform_delta(cls, ctx, action: str, data: Any) -> dict | str:
+    def transform_delta(cls, ctx, action: str, data: Any):
         if action == sync.ACTION_CREATE or action == sync.ACTION_UPDATE:
             pattr = dict(data)
             pattr.update(
@@ -466,8 +465,6 @@ class PatientAttribute(SyncToClient, SyncToServer):
             )
 
             return pattr
-
-        return data
 
     @classmethod
     def create_from_delta(cls, ctx, cur: Cursor, data: dict):

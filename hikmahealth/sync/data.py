@@ -33,26 +33,6 @@ class DeltaData[TCreate, TUpdate, TDelete]:
         for d in self.deleted:
             yield ACTION_DELETE, d
 
-    # def apply_to_delta(
-    #     self,
-    #     on_create: Callable | None = None,
-    #     on_update: Callable | None = None,
-    #     on_delete: Callable | None = None,
-    # ):
-    #     updated = self.updated
-    #     deleted = self.deleted
-
-    #     if on_create is not None:
-    #         assert callable(on_create), (
-    #             '`on_created` must be callable, otherwise, leave as None'
-    #         )
-
-    #         created = on_create(self.created)
-    #     else:
-    #         created = self.created
-
-    #     return DeltaData(created, updated, deleted)
-
     def to_dict(self):
         return dict(created=self.created, updated=self.updated, deleted=self.deleted)
 
