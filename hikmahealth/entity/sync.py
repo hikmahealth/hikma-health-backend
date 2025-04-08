@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from dataclasses import dataclass
 from typing import Any, override
 
 from psycopg import Cursor
@@ -55,27 +56,32 @@ class SyncToClient(ISyncPull[Connection], core.Entity):
         )
 
 
+@dataclass
+class SyncContext:
+    last_pushed_at: datetime.datetime
+
+
 class SyncToServer(ISyncPush[Connection]):
     """Abstract for entities that expect to apply changes from client to server"""
 
     @classmethod
     @abstractmethod
-    def transform_delta(cls, action: str, data: Any) -> dict | str:
+    def transform_delta(cls, ctx: SyncContext, action: str, data: Any) -> dict | str:
         raise NotImplementedError()
 
     @classmethod
     @abstractmethod
-    def create_from_delta(cls, cur: Cursor, data: dict):
+    def create_from_delta(cls, ctx: SyncContext, cur: Cursor, data: dict):
         raise NotImplementedError()
 
     @classmethod
     @abstractmethod
-    def update_from_delta(cls, cur: Cursor, data: dict):
+    def update_from_delta(cls, ctx: SyncContext, cur: Cursor, data: dict):
         raise NotImplementedError()
 
     @classmethod
     @abstractmethod
-    def delete_from_delta(cls, cur: Cursor, id: str):
+    def delete_from_delta(cls, ctx: SyncContext, cur: Cursor, id: str):
         raise NotImplementedError()
 
     @classmethod
@@ -85,6 +91,8 @@ class SyncToServer(ISyncPush[Connection]):
         last_pushed_at: datetime.datetime,
         conn: Connection,
     ):
+        ctx = SyncContext(last_pushed_at)
+
         with conn.cursor() as cur:
             try:
                 # `cur.executemany` can be used instead
@@ -93,7 +101,7 @@ class SyncToServer(ISyncPush[Connection]):
                     transformed_data = data
 
                     try:
-                        transformed_data = cls.transform_delta(action, data)
+                        transformed_data = cls.transform_delta(ctx, action, data)
                     except NotImplementedError:
                         # if `transformed_data` logic missing,
                         # proceed with the same untransformed one
@@ -103,16 +111,16 @@ class SyncToServer(ISyncPush[Connection]):
                         assert isinstance(transformed_data, dict), 'data must be a dict'
 
                         if action == sync.ACTION_CREATE:
-                            cls.create_from_delta(cur, transformed_data)
+                            cls.create_from_delta(ctx, cur, transformed_data)
                         elif action == sync.ACTION_UPDATE:
-                            cls.update_from_delta(cur, transformed_data)
+                            cls.update_from_delta(ctx, cur, transformed_data)
 
                     elif action == sync.ACTION_DELETE:
                         assert isinstance(transformed_data, str), (
                             'transformed data must be a string'
                         )
 
-                        cls.delete_from_delta(cur, transformed_data)
+                        cls.delete_from_delta(ctx, cur, transformed_data)
 
                 # should commit the entire delta, or not
                 conn.commit()

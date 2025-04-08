@@ -313,45 +313,95 @@ class PatientAttribute(SyncToClient, SyncToServer):
     TABLE_NAME = 'patient_additional_attributes'
 
     @classmethod
-    def apply_delta_changes(cls, deltadata, last_pushed_at, conn):
-        with conn.cursor() as cur:
-            # performs upserts (insert + update when existing)
-            for row in itertools.chain(deltadata.created, deltadata.updated):
-                pattr = dict(row)
-                pattr.update(
-                    date_value=utc.from_unixtimestamp(pattr['date_value'])
-                    if pattr.get('date_value', None)
-                    else None,
-                    created_at=utc.from_unixtimestamp(pattr['created_at']),
-                    updated_at=utc.from_unixtimestamp(pattr['updated_at']),
-                    metadata=pattr['metadata'],
-                )
+    def transform_delta(cls, ctx, action: str, data: Any) -> dict | str:
+        if action == sync.ACTION_CREATE or action == sync.ACTION_UPDATE
+            pattr = dict(data)
+            pattr.update(
+                date_value=utc.from_unixtimestamp(pattr['date_value'])
+                if pattr.get('date_value', None)
+                else None,
+                created_at=utc.from_unixtimestamp(pattr['created_at']),
+                updated_at=utc.from_unixtimestamp(pattr['updated_at']),
+                metadata=pattr['metadata'],
+            )
 
-                cur.execute(
-                    """
-                    INSERT INTO patient_additional_attributes
-                    (id, patient_id, attribute_id, attribute, number_value, string_value, date_value, boolean_value, metadata, is_deleted, created_at, updated_at, last_modified, server_created_at) VALUES
-                    (%(id)s, %(patient_id)s, %(attribute_id)s, %(attribute)s, %(number_value)s, %(string_value)s, %(date_value)s, %(boolean_value)s, %(metadata)s, false, %(created_at)s, %(updated_at)s, current_timestamp, current_timestamp)
-                    ON CONFLICT (patient_id, attribute_id) DO UPDATE
-                    SET
-                        patient_id=EXCLUDED.patient_id,
-                        attribute_id=EXCLUDED.attribute_id,
-                        attribute = EXCLUDED.attribute,
-                        number_value = EXCLUDED.number_value,
-                        string_value = EXCLUDED.string_value,
-                        date_value = EXCLUDED.date_value,
-                        boolean_value = EXCLUDED.boolean_value,
-                        metadata = EXCLUDED.metadata,
-                        updated_at = EXCLUDED.updated_at,
-                        last_modified = EXCLUDED.last_modified;""",
-                    pattr,
-                )
+            return pattr
 
-            for id in deltadata.deleted:
-                cur.execute(
-                    """UPDATE patient_additional_attributes SET is_deleted=true, deleted_at=%s WHERE id = %s::uuid;""",
-                    (last_pushed_at, id),
-                )
+        return (data)
+
+    @classmethod
+    def create_from_delta(cls, ctx, cur: Cursor, data: dict):
+        cur.execute(
+            """
+            INSERT INTO patient_additional_attributes
+            (id, patient_id, attribute_id, attribute, number_value, string_value, date_value, boolean_value, metadata, is_deleted, created_at, updated_at, last_modified, server_created_at) VALUES
+            (%(id)s, %(patient_id)s, %(attribute_id)s, %(attribute)s, %(number_value)s, %(string_value)s, %(date_value)s, %(boolean_value)s, %(metadata)s, false, %(created_at)s, %(updated_at)s, current_timestamp, current_timestamp)
+            ON CONFLICT (patient_id, attribute_id) DO UPDATE
+            SET
+                patient_id=EXCLUDED.patient_id,
+                attribute_id=EXCLUDED.attribute_id,
+                attribute = EXCLUDED.attribute,
+                number_value = EXCLUDED.number_value,
+                string_value = EXCLUDED.string_value,
+                date_value = EXCLUDED.date_value,
+                boolean_value = EXCLUDED.boolean_value,
+                metadata = EXCLUDED.metadata,
+                updated_at = EXCLUDED.updated_at,
+                last_modified = EXCLUDED.last_modified;""",
+            data,
+        )
+
+    @classmethod
+    def update_from_delta(cls,ctx, cur: Cursor, data: dict):
+        return cls.create_from_delta(ctx, cur, data)
+
+    @classmethod
+    def delete_from_delta(cls,ctx, cur: Cursor, id: str):
+        cur.execute(
+            """UPDATE patient_additional_attributes SET is_deleted=true, deleted_at=%s WHERE id = %s::uuid;""",
+            (ctx.last_pushed_at, id),
+        )
+
+    # @classmethod
+    # def apply_delta_changes(cls, deltadata, last_pushed_at, conn):
+    #     with conn.cursor() as cur:
+    #         # performs upserts (insert + update when existing)
+    #         for row in itertools.chain(deltadata.created, deltadata.updated):
+    #             pattr = dict(row)
+    #             pattr.update(
+    #                 date_value=utc.from_unixtimestamp(pattr['date_value'])
+    #                 if pattr.get('date_value', None)
+    #                 else None,
+    #                 created_at=utc.from_unixtimestamp(pattr['created_at']),
+    #                 updated_at=utc.from_unixtimestamp(pattr['updated_at']),
+    #                 metadata=pattr['metadata'],
+    #             )
+
+    #             cur.execute(
+    #                 """
+    #                 INSERT INTO patient_additional_attributes
+    #                 (id, patient_id, attribute_id, attribute, number_value, string_value, date_value, boolean_value, metadata, is_deleted, created_at, updated_at, last_modified, server_created_at) VALUES
+    #                 (%(id)s, %(patient_id)s, %(attribute_id)s, %(attribute)s, %(number_value)s, %(string_value)s, %(date_value)s, %(boolean_value)s, %(metadata)s, false, %(created_at)s, %(updated_at)s, current_timestamp, current_timestamp)
+    #                 ON CONFLICT (patient_id, attribute_id) DO UPDATE
+    #                 SET
+    #                     patient_id=EXCLUDED.patient_id,
+    #                     attribute_id=EXCLUDED.attribute_id,
+    #                     attribute = EXCLUDED.attribute,
+    #                     number_value = EXCLUDED.number_value,
+    #                     string_value = EXCLUDED.string_value,
+    #                     date_value = EXCLUDED.date_value,
+    #                     boolean_value = EXCLUDED.boolean_value,
+    #                     metadata = EXCLUDED.metadata,
+    #                     updated_at = EXCLUDED.updated_at,
+    #                     last_modified = EXCLUDED.last_modified;""",
+    #                 pattr,
+    #             )
+
+    #         for id in deltadata.deleted:
+    #             cur.execute(
+    #                 """UPDATE patient_additional_attributes SET is_deleted=true, deleted_at=%s WHERE id = %s::uuid;""",
+    #                 (last_pushed_at, id),
+    #             )
 
 
 @core.dataentity
@@ -672,7 +722,7 @@ class Visit(SyncToClient, SyncToServer):
     updated_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
 
     @classmethod
-    def create_from_delta(cls, cur: Cursor, data: dict):
+    def create_from_delta(cls, ctx, cur: Cursor, data: dict):
         """Writes the data to the database."""
         with cur:
             now = utc.now()
@@ -698,11 +748,11 @@ class Visit(SyncToClient, SyncToServer):
             )
 
     @classmethod
-    def update_from_delta(cls, cur: Cursor, data: dict):
-        return cls.create_from_delta(cur, data)
+    def update_from_delta(cls, ctx, cur, data):
+        return cls.create_from_delta(ctx, cur, data)
 
     @classmethod
-    def delete_from_delta(cls, cur: Cursor, id: str):
+    def delete_from_delta(cls, ctx, cur: Cursor, id: str):
         with cur:
             now = utc.now()
 
@@ -763,15 +813,18 @@ class Visit(SyncToClient, SyncToServer):
             return now
 
     @classmethod
-    def transform_delta(cls, action: str, data: Any) -> dict | str:
-        visit = dict(data)
-        visit.update(
-            check_in_timestamp=utc.from_unixtimestamp(visit['check_in_timestamp']),
-            created_at=utc.from_unixtimestamp(visit['created_at']),
-            updated_at=utc.from_unixtimestamp(visit['updated_at']),
-            metadata=safe_json_dumps(visit.get('metadata')),
-        )
-        return visit
+    def transform_delta(cls, ctx, action: str, data: Any) -> dict | str:
+        if action == sync.ACTION_CREATE or action == sync.ACTION_UPDATE
+            visit = dict(data)
+            visit.update(
+                check_in_timestamp=utc.from_unixtimestamp(visit['check_in_timestamp']),
+                created_at=utc.from_unixtimestamp(visit['created_at']),
+                updated_at=utc.from_unixtimestamp(visit['updated_at']),
+                metadata=safe_json_dumps(visit.get('metadata')),
+            )
+            return visit
+
+        return data
 
 
 @core.dataentity
