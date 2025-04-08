@@ -314,7 +314,7 @@ class PatientAttribute(SyncToClient, SyncToServer):
 
     @classmethod
     def transform_delta(cls, ctx, action: str, data: Any) -> dict | str:
-        if action == sync.ACTION_CREATE or action == sync.ACTION_UPDATE
+        if action == sync.ACTION_CREATE or action == sync.ACTION_UPDATE:
             pattr = dict(data)
             pattr.update(
                 date_value=utc.from_unixtimestamp(pattr['date_value'])
@@ -327,7 +327,7 @@ class PatientAttribute(SyncToClient, SyncToServer):
 
             return pattr
 
-        return (data)
+        return data
 
     @classmethod
     def create_from_delta(cls, ctx, cur: Cursor, data: dict):
@@ -352,11 +352,11 @@ class PatientAttribute(SyncToClient, SyncToServer):
         )
 
     @classmethod
-    def update_from_delta(cls,ctx, cur: Cursor, data: dict):
+    def update_from_delta(cls, ctx, cur: Cursor, data: dict):
         return cls.create_from_delta(ctx, cur, data)
 
     @classmethod
-    def delete_from_delta(cls,ctx, cur: Cursor, id: str):
+    def delete_from_delta(cls, ctx, cur: Cursor, id: str):
         cur.execute(
             """UPDATE patient_additional_attributes SET is_deleted=true, deleted_at=%s WHERE id = %s::uuid;""",
             (ctx.last_pushed_at, id),
@@ -814,7 +814,7 @@ class Visit(SyncToClient, SyncToServer):
 
     @classmethod
     def transform_delta(cls, ctx, action: str, data: Any) -> dict | str:
-        if action == sync.ACTION_CREATE or action == sync.ACTION_UPDATE
+        if action == sync.ACTION_CREATE or action == sync.ACTION_UPDATE:
             visit = dict(data)
             visit.update(
                 check_in_timestamp=utc.from_unixtimestamp(visit['check_in_timestamp']),
