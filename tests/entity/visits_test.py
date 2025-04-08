@@ -97,23 +97,28 @@ def test_init_visit_object(visit_data):
 def test_create_visit_to_db(db, visit_data):
     # inits an object and attempts to write it to DB
     id = str(uuid.uuid1())
-    rest = visit_data | dict(check_in_timestamp=datetime.datetime.now(tz=datetime.UTC))
-    visit = hh.Visit(id=id, **rest)
+    ctx = SyncContext(datetime.datetime.now(tz=datetime.UTC), conn=db)
+    rest = visit_data | dict(
+        id=id, check_in_timestamp=datetime.datetime.now(tz=datetime.UTC)
+    )
+
+    visit_record = hh.Visit.transform_delta(ctx, 'CREATE', rest)
+    assert isinstance(visit_record, dict), 'data is not dict'
 
     with db.cursor() as cur:
         hh.Visit.create_from_delta(
-            SyncContext(datetime.datetime.now(tz=datetime.UTC)),
+            ctx,
             cur,
             # NOTE: since last_modified, server_created_at? aren't exposed by the
             # `hh.Visit` dataclass, thus not made available when using the
             # `.apply_delta_changes operation, hence the manual adding
             #
             # might need to revise this approach
-            visit.to_dict(),
+            visit_record,
         )
 
     db.commit()
 
     # remove visit after
     with db.cursor() as cur:
-        cur.execute('DELETE FROM visits WHERE id = %s', [visit.id])
+        cur.execute('DELETE FROM visits WHERE id = %s', [visit_record['id']])

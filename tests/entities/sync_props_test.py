@@ -135,7 +135,7 @@ class TestSyncToDatabase:
                 for _ in range(count_new_created_records)
             ],
             updated=updated_records,
-            deleted=self.to_delete_patient_ids,
+            deleted=list(map(str, self.to_delete_patient_ids)),
         )
 
         # add the newly created data for clean up
