@@ -7,6 +7,7 @@ from psycopg import Connection
 from hikmahealth.entity import hh
 import pytest
 
+from hikmahealth.entity.sync import SyncContext
 from hikmahealth.server.client.db import get_connection
 from hikmahealth.sync.data import DeltaData
 from hikmahealth.utils.misc import safe_json_dumps
@@ -101,14 +102,14 @@ def test_create_visit_to_db(db, visit_data):
 
     with db.cursor() as cur:
         hh.Visit.create_from_delta(
+            SyncContext(datetime.datetime.now(tz=datetime.UTC)),
             cur,
             # NOTE: since last_modified, server_created_at? aren't exposed by the
             # `hh.Visit` dataclass, thus not made available when using the
             # `.apply_delta_changes operation, hence the manual adding
             #
             # might need to revise this approach
-            visit.to_dict()
-            | dict(last_modified=datetime.datetime.now(tz=datetime.UTC)),
+            visit.to_dict(),
         )
 
     db.commit()
