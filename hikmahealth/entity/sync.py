@@ -59,6 +59,7 @@ class SyncToClient(ISyncPull[Connection], core.Entity):
 @dataclass
 class SyncContext:
     last_pushed_at: datetime.datetime
+    conn: Connection
 
 
 class SyncToServer(ISyncPush[Connection]):
@@ -66,7 +67,9 @@ class SyncToServer(ISyncPush[Connection]):
 
     @classmethod
     @abstractmethod
-    def transform_delta(cls, ctx: SyncContext, action: str, data: Any) -> dict | str:
+    def transform_delta(
+        cls, ctx: SyncContext, action: str, data: Any
+    ) -> dict | str | None:
         raise NotImplementedError()
 
     @classmethod
@@ -91,7 +94,7 @@ class SyncToServer(ISyncPush[Connection]):
         last_pushed_at: datetime.datetime,
         conn: Connection,
     ):
-        ctx = SyncContext(last_pushed_at)
+        ctx = SyncContext(last_pushed_at, conn)
 
         with conn.cursor() as cur:
             try:
@@ -101,11 +104,19 @@ class SyncToServer(ISyncPush[Connection]):
                     transformed_data = data
 
                     try:
-                        transformed_data = cls.transform_delta(ctx, action, data)
+                        tdata = cls.transform_delta(ctx, action, data)
+                        if tdata is None:
+                            # `transformed_data` may not contain the
+                            # resulting transformation for the data.
+                            # Should use the original data
+                            transformed_data = data
+                        else:
+                            transformed_data = tdata
+
                     except NotImplementedError:
                         # if `transformed_data` logic missing,
                         # proceed with the same untransformed one
-                        pass
+                        transformed_data = data
 
                     if action in (sync.ACTION_CREATE, sync.ACTION_UPDATE):
                         assert isinstance(transformed_data, dict), 'data must be a dict'
@@ -117,7 +128,9 @@ class SyncToServer(ISyncPush[Connection]):
 
                     elif action == sync.ACTION_DELETE:
                         assert isinstance(transformed_data, str), (
-                            'transformed data must be a string'
+                            'expect transformed data to be a {}. instead got {}'.format(
+                                str, type(transformed_data)
+                            )
                         )
 
                         cls.delete_from_delta(ctx, cur, transformed_data)

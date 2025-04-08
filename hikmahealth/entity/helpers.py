@@ -1,7 +1,19 @@
 from abc import abstractmethod
+from typing import Any, Callable
 from hikmahealth.server.client import db
 
 from psycopg.rows import dict_row, class_row
+
+
+def get_from_dict[TKey, TValue](
+    d: dict[TKey, TValue], key: TKey, transform: Callable[[TValue], Any] | None = None
+):
+    value = d.get(key, None)
+    if value is not None:
+        if transform is not None:
+            return transform(value)
+    else:
+        return None
 
 
 class SimpleCRUD:
