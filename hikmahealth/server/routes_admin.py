@@ -14,11 +14,8 @@ from hikmahealth.utils.misc import convert_dict_keys_to_snake_case, convert_oper
 from hikmahealth.utils.errors import WebError
 from psycopg import Error as PostgresError
 
-from datetime import datetime, date
 from dataclasses import dataclass, asdict
-import dataclasses
 
-from typing import Any
 import json
 
 import uuid
@@ -27,10 +24,8 @@ import bcrypt
 from psycopg.rows import dict_row, class_row
 import psycopg.errors
 
-from urllib import parse as urlparse
 
 from hikmahealth.utils.datetime import utc
-import hikmahealth.server.custom_routes_admin
 
 
 admin_api = Blueprint('admin_api_backcompat', __name__, url_prefix='/admin_api')
@@ -453,9 +448,7 @@ def delete_patient(_, id: str):
                 cur.execute('COMMIT')
 
             logging.info(
-                f'Patient {id} and related data soft deleted successfully: {
-                    deleted_counts
-                }'
+                f'Patient {id} and related data soft deleted successfully: {deleted_counts}'
             )
             return jsonify({
                 'ok': True,
