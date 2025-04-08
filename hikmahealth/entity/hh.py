@@ -744,7 +744,7 @@ class Visit(SyncToClient, SyncToServer):
                     updated_at=EXCLUDED.updated_at,
                     last_modified=EXCLUDED.last_modified
                 """,
-                data,
+                data | dict(last_modified=utc.now()),
             )
 
     @classmethod
