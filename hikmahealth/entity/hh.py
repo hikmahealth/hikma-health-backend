@@ -763,44 +763,15 @@ class Visit(SyncToClient, SyncToServer):
             return now
 
     @classmethod
-    def apply_delta_changes(
-        cls, deltadata: sync.DeltaData[dict, dict, str], last_pushed_at, conn
-    ):
-        with conn.cursor() as cur:
-            try:
-                # `cur.executemany` can be used instead
-                # batched updates??
-                for action, data in deltadata:
-                    if action in (sync.ACTION_CREATE, sync.ACTION_UPDATE):
-                        assert isinstance(data, dict), 'data must be a dict'
-
-                        visit = dict(data)
-                        visit.update(
-                            check_in_timestamp=utc.from_unixtimestamp(
-                                visit['check_in_timestamp']
-                            ),
-                            created_at=utc.from_unixtimestamp(visit['created_at']),
-                            updated_at=utc.from_unixtimestamp(visit['updated_at']),
-                            metadata=safe_json_dumps(visit.get('metadata')),
-                        )
-
-                        if action == sync.ACTION_CREATE:
-                            cls.create_from_delta(cur, visit)
-                        elif action == sync.ACTION_UPDATE:
-                            cls.update_from_delta(cur, visit)
-
-                    elif action == sync.ACTION_DELETE:
-                        assert isinstance(data, str), 'data must be a string'
-
-                        cls.delete_from_delta(cur, data)
-
-                # should commit the entire delta, or not
-                conn.commit()
-            except Exception as e:
-                print(f'Vist Errors: {str(e)}')
-                conn.rollback()
-                # Still throw error so we can review
-                raise e
+    def transform_delta(cls, action: str, data: Any) -> dict | str:
+        visit = dict(data)
+        visit.update(
+            check_in_timestamp=utc.from_unixtimestamp(visit['check_in_timestamp']),
+            created_at=utc.from_unixtimestamp(visit['created_at']),
+            updated_at=utc.from_unixtimestamp(visit['updated_at']),
+            metadata=safe_json_dumps(visit.get('metadata')),
+        )
+        return visit
 
 
 @core.dataentity
