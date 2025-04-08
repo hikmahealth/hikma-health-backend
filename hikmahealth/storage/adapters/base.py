@@ -28,10 +28,3 @@ class BaseAdapter:
     @abstractmethod
     def put(self, data: BytesIO, destination: str, *args, **kwargs) -> PutOutput:
         raise NotImplementedError()
-
-
-# TODO:
-# 1. ✅ make `ResourceManager` state managed by flask, so that server doesn't fail to start when variables are initially missing
-# 2. ✅ create functions to update the newly inited configurations to `Keeper`
-# 3. better the look of the /env endpoints
-# 4. AWS might not be storing the actual data properly. please check
