@@ -453,9 +453,7 @@ def delete_patient(_, id: str):
                 cur.execute('COMMIT')
 
             logging.info(
-                f'Patient {id} and related data soft deleted successfully: {
-                    deleted_counts
-                }'
+                f'Patient {id} and related data soft deleted successfully: {deleted_counts}'
             )
             return jsonify({
                 'ok': True,
