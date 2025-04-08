@@ -871,20 +871,6 @@ class EventForm(SyncToClient, helpers.SimpleCRUD):
     created_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
     updated_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
 
-    @classmethod
-    def from_id(cls, id: str) -> EventForm:
-        with db.get_connection().cursor(row_factory=dict_row) as cur:
-            data = cur.execute(
-                """
-                SELECT * FROM event_forms
-                WHERE is_deleted=false AND id = %s
-                LIMIT 1
-                """,
-                (id,),
-            ).fetchone()
-
-        return cls(**data)
-
 
 @core.dataentity
 class StringId(SyncToClient):

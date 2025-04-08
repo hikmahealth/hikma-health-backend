@@ -2,11 +2,8 @@ from __future__ import annotations
 
 from abc import abstractmethod
 import dataclasses
+from typing import Any
 
-dataentityv2 = lambda table_name: dataclasses.dataclass(
-    init=False,
-    kw_only=True,
-)
 
 dataentity = dataclasses.dataclass(init=False, kw_only=True)
 
@@ -34,7 +31,7 @@ class Entity:
             if k in names:
                 setattr(self, k, v)
 
-    def to_dict(self, ignore_nil: bool = False):
+    def to_dict(self, ignore_nil: bool = False) -> dict[str, Any]:
         if not ignore_nil:
             return {fn: getattr(self, fn) for fn in self.fields_}
         else:
