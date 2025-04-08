@@ -112,7 +112,6 @@ def test_create_visit_to_db(db, visit_data):
         )
 
     db.commit()
-    yield id
 
     # remove visit after
     with db.cursor() as cur:

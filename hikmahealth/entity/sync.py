@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-from typing import override
+from abc import abstractmethod
+from typing import Any, override
 
+from psycopg import Cursor
 from psycopg.connection import Connection
 from psycopg.rows import dict_row
 
+from hikmahealth import sync
 from hikmahealth.entity import core
+from hikmahealth.sync.errors import SyncPushError
 from hikmahealth.sync.operation import ISyncPull, ISyncPush
 from hikmahealth.utils.datetime import local as dtutils
 
@@ -54,4 +58,65 @@ class SyncToClient(ISyncPull[Connection], core.Entity):
 class SyncToServer(ISyncPush[Connection]):
     """Abstract for entities that expect to apply changes from client to server"""
 
-    pass
+    @classmethod
+    @abstractmethod
+    def transform_delta(cls, action: str, data: Any) -> dict | str:
+        raise NotImplementedError()
+
+    @classmethod
+    @abstractmethod
+    def create_from_delta(cls, cur: Cursor, data: dict):
+        raise NotImplementedError()
+
+    @classmethod
+    @abstractmethod
+    def update_from_delta(cls, cur: Cursor, data: dict):
+        raise NotImplementedError()
+
+    @classmethod
+    @abstractmethod
+    def delete_from_delta(cls, cur: Cursor, id: str):
+        raise NotImplementedError()
+
+    @classmethod
+    def apply_delta_changes(
+        cls,
+        deltadata: sync.DeltaData[dict, dict, str],
+        last_pushed_at: datetime.datetime,
+        conn: Connection,
+    ):
+        with conn.cursor() as cur:
+            try:
+                # `cur.executemany` can be used instead
+                # batched updates??
+                for action, data in deltadata:
+                    transformed_data = data
+
+                    try:
+                        transformed_data = cls.transform_delta(action, data)
+                    except NotImplementedError:
+                        # if `transformed_data` logic missing,
+                        # proceed with the same untransformed one
+                        pass
+
+                    if action in (sync.ACTION_CREATE, sync.ACTION_UPDATE):
+                        assert isinstance(transformed_data, dict), 'data must be a dict'
+
+                        if action == sync.ACTION_CREATE:
+                            cls.create_from_delta(cur, transformed_data)
+                        elif action == sync.ACTION_UPDATE:
+                            cls.update_from_delta(cur, transformed_data)
+
+                    elif action == sync.ACTION_DELETE:
+                        assert isinstance(transformed_data, str), (
+                            'transformed data must be a string'
+                        )
+
+                        cls.delete_from_delta(cur, transformed_data)
+
+                # should commit the entire delta, or not
+                conn.commit()
+            except Exception as e:
+                print(f'{cls.__name__} sync errors: {str(e)}')
+                conn.rollback()
+                raise SyncPushError(*e.args)
