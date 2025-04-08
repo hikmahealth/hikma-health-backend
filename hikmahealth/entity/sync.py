@@ -95,8 +95,8 @@ class SyncToServer(ISyncPush[Connection]):
                     try:
                         transformed_data = cls.transform_delta(action, data)
                     except NotImplementedError:
-                        # if data isn't transformed,
-                        # proceed with the same data set
+                        # if `transformed_data` logic missing,
+                        # proceed with the same untransformed one
                         pass
 
                     if action in (sync.ACTION_CREATE, sync.ACTION_UPDATE):
