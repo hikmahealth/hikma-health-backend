@@ -444,7 +444,7 @@ def delete_patient(_, id: str):
                         SET is_deleted = true, deleted_at = current_timestamp
                         WHERE {'id' if table == 'patients' else 'patient_id'} = %s
                         RETURNING id
-                    """,
+                        """,
                         [id],
                     )
                     deleted_counts[table] = cur.rowcount
