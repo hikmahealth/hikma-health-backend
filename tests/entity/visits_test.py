@@ -73,7 +73,7 @@ class TestVisitSync:
 
         updated_record = hh.Visit.transform_delta(
             sync_context,
-            'CREATE',
+            'UPDATE',
             visit.to_dict() | dict(metadata=safe_json_dumps({'test': 'completed'})),
         )
         assert isinstance(updated_record, dict), 'data is not dict'
