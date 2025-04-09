@@ -804,10 +804,10 @@ class Event(SyncToClient, SyncToServer):
 
 
 @core.dataentity
-class Visit(SyncToClient, SyncToServer):
+class Visit(SyncToClient, SyncToServer, helpers.SimpleCRUD):
     TABLE_NAME = 'visits'
 
-    check_in_timestamp: datetime
+    check_in_timestamp: fields.UTCDateTime
     clinic_id: str
     patient_id: str
     provider_id: str
@@ -820,28 +820,26 @@ class Visit(SyncToClient, SyncToServer):
     @classmethod
     def create_from_delta(cls, ctx, cur: Cursor, data: dict):
         """Writes the data to the database."""
-        with cur:
-            now = utc.now()
-            cur.execute(
-                """
-                INSERT INTO visits
-                    (id, patient_id, clinic_id, provider_id, provider_name, check_in_timestamp, metadata, created_at, updated_at, last_modified)
-                VALUES
-                    (%(id)s, %(patient_id)s, %(clinic_id)s, %(provider_id)s, %(provider_name)s, %(check_in_timestamp)s, %(metadata)s, %(created_at)s, %(updated_at)s, %(last_modified)s)
-                ON CONFLICT (id) DO UPDATE
-                SET
-                    patient_id=EXCLUDED.patient_id,
-                    clinic_id=EXCLUDED.clinic_id,
-                    provider_id=EXCLUDED.provider_id,
-                    provider_name=EXCLUDED.provider_name,
-                    check_in_timestamp=EXCLUDED.check_in_timestamp,
-                    metadata=EXCLUDED.metadata,
-                    created_at=EXCLUDED.created_at,
-                    updated_at=EXCLUDED.updated_at,
-                    last_modified=EXCLUDED.last_modified
-                """,
-                data,
-            )
+        cur.execute(
+            """
+            INSERT INTO visits
+                (id, patient_id, clinic_id, provider_id, provider_name, check_in_timestamp, metadata, created_at, updated_at, last_modified)
+            VALUES
+                (%(id)s, %(patient_id)s, %(clinic_id)s, %(provider_id)s, %(provider_name)s, %(check_in_timestamp)s, %(metadata)s, %(created_at)s, %(updated_at)s, %(last_modified)s)
+            ON CONFLICT (id) DO UPDATE
+            SET
+                patient_id=EXCLUDED.patient_id,
+                clinic_id=EXCLUDED.clinic_id,
+                provider_id=EXCLUDED.provider_id,
+                provider_name=EXCLUDED.provider_name,
+                check_in_timestamp=EXCLUDED.check_in_timestamp,
+                metadata=EXCLUDED.metadata,
+                created_at=EXCLUDED.created_at,
+                updated_at=EXCLUDED.updated_at,
+                last_modified=EXCLUDED.last_modified
+            """,
+            data,
+        )
 
     @classmethod
     def update_from_delta(cls, ctx, cur, data):
@@ -887,9 +885,9 @@ class Visit(SyncToClient, SyncToServer):
                     deleted_at = %s,
                     updated_at = %s,
                     last_modified = %s
-                WHERE visit_id = ANY(%s);
+                WHERE current_visit_id = ANY(%s) OR fulfilled_visit_id = ANY(%s);
                 """,
-                (now, now, now, updated_visit_ids),
+                (now, now, now, updated_visit_ids, updated_visit_ids),
             )
 
             # TODO: Soft delete prescriptions for deleted visits
@@ -912,14 +910,16 @@ class Visit(SyncToClient, SyncToServer):
         if action == sync.ACTION_CREATE or action == sync.ACTION_UPDATE:
             visit = dict(data)
             visit.update(
-                check_in_timestamp=utc.from_unixtimestamp(visit['check_in_timestamp']),
+                check_in_timestamp=helpers.get_from_dict(
+                    visit, 'check_in_timestamp', utc.from_unixtimestamp
+                ),
                 created_at=helpers.get_from_dict(
                     visit, 'created_at', utc.from_unixtimestamp
                 ),
                 updated_at=helpers.get_from_dict(
                     visit, 'updated_at', utc.from_unixtimestamp
                 ),
-                metadata=helpers.get_from_dict(visit, ('metadata'), safe_json_dumps),
+                metadata=helpers.get_from_dict(visit, 'metadata', safe_json_dumps),
                 last_modified=utc.now(),
             )
             return visit
