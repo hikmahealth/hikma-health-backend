@@ -656,35 +656,36 @@ class Event(SyncToClient, SyncToServer):
                     )
                     event_data = cur.fetchone()
 
-                    d_visit_id = event_data[2]
-                    # d_form_id = event_data[3]
+                    # if event_data:
+                    #     d_visit_id = event_data[2]
+                    #     d_id = event_data[0]
 
-                    if d_visit_id:
-                        # Check if the visit exists
-                        cur.execute(
-                            """
-                            SELECT id FROM visits WHERE id = %s
-                            """,
-                            (d_visit_id,),
-                        )
-                        visit_exists = cur.fetchone()
+                    #     # d_form_id = event_data[3]
 
-                        if not visit_exists:
-                            # If the visit doesn't exist, warn the user
-                            logging.warning(
-                                f'Event {
-                                    event_data.get("id")
-                                } references non-existent visit {
-                                    d_visit_id
-                                }. Creating placeholder visit, marked as artificially created and deleted.'
-                            )
-                            print(
-                                f'REVIEWER WARNING: Event {
-                                    event_data.get("id")
-                                } references non-existent visit {
-                                    d_visit_id
-                                }. A placeholder visit will be created.'
-                            )
+                    #     if d_visit_id:
+                    #         # Check if the visit exists
+                    #         cur.execute(
+                    #             """
+                    #             SELECT id FROM visits WHERE id = %s
+                    #             """,
+                    #             (d_visit_id,),
+                    #         )
+                    #         visit_exists = cur.fetchone()
+
+                    #         if not visit_exists:
+                    #             # If the visit doesn't exist, warn the user
+                    #             logging.warning(
+                    #                 f'Event {d_id} references non-existent visit {
+                    #                     d_visit_id
+                    #                 }. Creating placeholder visit, marked as artificially created and deleted.'
+                    #             )
+                    #             print(
+                    #                 f'REVIEWER WARNING: Event {
+                    #                     d_id
+                    #                 } references non-existent visit {
+                    #                     d_visit_id
+                    #                 }. A placeholder visit will be created.'
+                    #             )
 
                     # Finally, soft delete the event
                     cur.execute(
