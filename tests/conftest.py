@@ -1,10 +1,15 @@
+import datetime
 import os
 from typing import Generator
+import uuid
 import pytest
 from flask import Flask
+from hikmahealth.entity import hh
 from hikmahealth.server.server import app as create_app
 import psycopg
 from dotenv import load_dotenv
+
+from hikmahealth.sync.data import DeltaData
 
 load_dotenv('../../app/.env', verbose=True, override=True)
 load_dotenv('../../.env', verbose=True, override=True)
@@ -101,3 +106,69 @@ def db():
         pytest.skip(f'Could not connect to remote database: {str(e)}')
     except Exception as e:
         pytest.skip(f'Unexpected error connecting to database: {str(e)}')
+
+
+@pytest.fixture(scope='module')
+def clinic_data(db: psycopg.Connection):
+    clinic = hh.Clinic(
+        id=str(uuid.uuid1()), name='Test Clinic', attributes=['laboratory']
+    )
+
+    with db.cursor() as cur:
+        # this is the temporary implementation
+        cur.execute(
+            """
+            INSERT INTO clinics (id, name, created_at, updated_at)
+            VALUES (%(id)s, %(name)s, %(created_at)s, %(updated_at)s)
+            """,
+            clinic.to_dict(),
+        )
+
+    yield clinic
+
+    with db.cursor() as cur:
+        cur.execute('DELETE FROM clinics WHERE id = %s', [clinic.id])
+
+
+@pytest.fixture(scope='module')
+def patient_data(db: psycopg.Connection):
+    patient = hh.Patient(id=str(uuid.uuid1()))
+
+    now = datetime.datetime.now(tz=datetime.UTC)
+    _2daysago = now - datetime.timedelta(days=2)
+
+    hh.Patient.apply_delta_changes(
+        DeltaData(created=[patient.to_dict()]), _2daysago, db
+    )
+
+    yield patient
+
+    with db.cursor() as cur:
+        cur.execute('DELETE FROM patients WHERE id = %s', [patient.id])
+
+
+@pytest.fixture(scope='module')
+def provider_data(db: psycopg.Connection, clinic_data):
+    provider = dict(
+        id=str(uuid.uuid1()),
+        name='Fake Provider',
+        role='superadmin',
+        email=f'test-{uuid.uuid4()}@test.com',
+        hashed_password=b'bcrypt_hashed_password',
+        clinic_id=clinic_data.id,
+    )
+
+    with db.cursor() as cur:
+        # should have a few users that exist in the life time of the entire test suit
+        cur.execute(
+            """
+            INSERT INTO users (id, name, role, email, hashed_password, clinic_id)
+            VALUES
+            (%(id)s, %(name)s, %(role)s, %(email)s, %(hashed_password)s, %(clinic_id)s)""",
+            provider,
+        )
+
+    yield provider
+
+    with db.cursor() as cur:
+        cur.execute('DELETE FROM patients WHERE id = %s', [provider['id']])
