@@ -106,3 +106,6 @@ class TestVisitSync:
             )
 
         db.commit()
+
+    # TODO: might want to include the call to the `apply_delta_changes` instead of individual parts
+    # give that's what used when called from the HTTP endpoint
