@@ -166,6 +166,14 @@ sink.add('visits', hh.Visit)
 sink.add('events', hh.Event)
 sink.add('appointments', hh.Appointment)
 sink.add('prescriptions', hh.Prescription)
+# To make a new table syncable, be sure to include it here
+# Ex.
+#   class NewTableEntity:
+#       def apply_delta_changes(deltadata, last_pushed_at, conn):
+#           # sync logic here
+#           pass
+#
+#   sink.add('<table_id>', NewTableEntity)
 
 
 @backcompatapi.route('/v2/sync', methods=['POST'])
