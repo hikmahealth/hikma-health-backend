@@ -646,15 +646,15 @@ class Event(SyncToClient, SyncToServer):
                     )
                 for id in deltadata.deleted:
                     # First, get the event data
-                    cur.execute(
-                        """
-                        SELECT id, patient_id, visit_id, form_id, event_type, form_data, metadata, created_at
-                        FROM events
-                        WHERE id = %s
-                        """,
-                        (id,),
-                    )
-                    event_data = cur.fetchone()
+                    # cur.execute(
+                    #     """
+                    #     SELECT id, patient_id, visit_id, form_id, event_type, form_data, metadata, created_at
+                    #     FROM events
+                    #     WHERE id = %s
+                    #     """,
+                    #     (id,),
+                    # )
+                    # event_data = cur.fetchone()
 
                     # if event_data:
                     #     d_visit_id = event_data[2]
