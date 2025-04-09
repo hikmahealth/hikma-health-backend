@@ -912,14 +912,16 @@ class Visit(SyncToClient, SyncToServer):
         if action == sync.ACTION_CREATE or action == sync.ACTION_UPDATE:
             visit = dict(data)
             visit.update(
-                check_in_timestamp=utc.from_unixtimestamp(visit['check_in_timestamp']),
+                check_in_timestamp=helpers.get_from_dict(
+                    visit, 'check_in_timestamp', utc.from_unixtimestamp
+                ),
                 created_at=helpers.get_from_dict(
                     visit, 'created_at', utc.from_unixtimestamp
                 ),
                 updated_at=helpers.get_from_dict(
                     visit, 'updated_at', utc.from_unixtimestamp
                 ),
-                metadata=helpers.get_from_dict(visit, ('metadata'), safe_json_dumps),
+                metadata=helpers.get_from_dict(visit, 'metadata', safe_json_dumps),
                 last_modified=utc.now(),
             )
             return visit

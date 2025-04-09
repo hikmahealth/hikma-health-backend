@@ -3,7 +3,6 @@
 import datetime
 import uuid
 
-from psycopg import Connection
 from hikmahealth.entity import hh
 import pytest
 
@@ -102,6 +101,7 @@ def test_create_visit_to_db(db, visit_data):
         id=id, check_in_timestamp=datetime.datetime.now(tz=datetime.UTC)
     )
 
+    # visit_record should contain all the information it needs to be synced up
     visit_record = hh.Visit.transform_delta(ctx, 'CREATE', rest)
     assert isinstance(visit_record, dict), 'data is not dict'
 
@@ -109,11 +109,6 @@ def test_create_visit_to_db(db, visit_data):
         hh.Visit.create_from_delta(
             ctx,
             cur,
-            # NOTE: since last_modified, server_created_at? aren't exposed by the
-            # `hh.Visit` dataclass, thus not made available when using the
-            # `.apply_delta_changes operation, hence the manual adding
-            #
-            # might need to revise this approach
             visit_record,
         )
 
