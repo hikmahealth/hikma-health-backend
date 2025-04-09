@@ -821,7 +821,6 @@ class Visit(SyncToClient, SyncToServer):
     def create_from_delta(cls, ctx, cur: Cursor, data: dict):
         """Writes the data to the database."""
         with cur:
-            now = utc.now()
             cur.execute(
                 """
                 INSERT INTO visits
