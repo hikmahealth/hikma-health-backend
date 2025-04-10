@@ -70,6 +70,8 @@ def _get_authenticated_user_from_request(request: Request) -> User:
     # Decode the username and password
     decoded_username_password = b64decode(encoded_username_password).decode()
 
+    print('decoded_username_password', decoded_username_password)
+
     # Split the decoded string into email and password
     email, password = decoded_username_password.split(':')
 
@@ -80,7 +82,6 @@ def _get_authenticated_user_from_request(request: Request) -> User:
 def _get_last_pulled_at_from(request: Request) -> datetime | None:
     """Uses the `last_pulled_at` part of the request query to return a `datetime.datetime` object"""
     last_pull_in_unix_time = request.args.get('last_pulled_at', None)
-    print(type(last_pull_in_unix_time))
 
     if last_pull_in_unix_time is None:
         return None
@@ -166,6 +167,14 @@ sink.add('visits', hh.Visit)
 sink.add('events', hh.Event)
 sink.add('appointments', hh.Appointment)
 sink.add('prescriptions', hh.Prescription)
+# To make a new table syncable, be sure to include it here
+# Ex.
+#   class NewTableEntity:
+#       def apply_delta_changes(deltadata, last_pushed_at, conn):
+#           # sync logic here
+#           pass
+#
+#   sink.add('<table_id>', NewTableEntity)
 
 
 @backcompatapi.route('/v2/sync', methods=['POST'])
