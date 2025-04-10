@@ -70,8 +70,6 @@ def _get_authenticated_user_from_request(request: Request) -> User:
     # Decode the username and password
     decoded_username_password = b64decode(encoded_username_password).decode()
 
-    print('decoded_username_password', decoded_username_password)
-
     # Split the decoded string into email and password
     email, password = decoded_username_password.split(':')
 
