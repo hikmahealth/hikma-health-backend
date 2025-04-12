@@ -112,4 +112,4 @@ class Sink[TArgs]:
             print(f'WARN: skipping sync for unknown key={key}')
             return
         except Exception as err:
-            raise SyncPushError(f'failed to perform sync operation. reason: {err}')
+            raise SyncPushError(f'failed to perform sync operation', *err.args)
