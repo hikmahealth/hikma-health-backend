@@ -455,7 +455,7 @@ class PatientAttribute(SyncToClient, SyncToServer):
                 date_value=get_from_dict(pattr, 'date_value', utc.from_unixtimestamp),
                 created_at=get_from_dict(pattr, 'created_at', utc.from_unixtimestamp),
                 updated_at=get_from_dict(pattr, 'updated_at', utc.from_unixtimestamp),
-                metadata=get_from_dict(pattr, 'metadata', safe_json_dumps),
+                metadata=safe_json_dumps(pattr.get('metadata')),
             )
 
             return pattr
