@@ -1174,9 +1174,7 @@ class Appointment(SyncToClient, SyncToServer):
                 updated_at=get_from_dict(
                     appointment, 'updated_at', utc.from_unixtimestamp
                 ),
-                metadata=get_from_dict(
-                    appointment, 'metadata', lambda x: safe_json_dumps(x, {})
-                ),
+                metadata=safe_json_dumps(data.get('metadata')),
                 last_modified=utc.now(),
             )
 
