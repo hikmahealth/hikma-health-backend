@@ -155,11 +155,13 @@ def safe_json_dumps(data, default=None):
     if default is None:
         default = '{}'
 
+    output = default
     try:
-        return json.dumps(data)
+        output = json.dumps(data)
     except (TypeError, ValueError, OverflowError) as e:
         logging.warning(f'Failed to serialize to JSON. Using default value.')
-        return default
+
+    return output
 
 
 def convert_operator(operator: str, case_insensitive: bool = True) -> str:

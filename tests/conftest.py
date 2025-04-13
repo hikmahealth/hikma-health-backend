@@ -151,7 +151,6 @@ def visit_data(db: psycopg.Connection, clinic_data, patient_data, provider_data)
 
     assert visit is not None, 'visit is None'
 
-    print('LE VISIT', visit)
     with db.cursor() as cur:
         hh.Visit.create_from_delta(ctx, cur, visit)
 

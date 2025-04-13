@@ -1155,16 +1155,16 @@ class Appointment(SyncToClient, SyncToServer):
     metadata: dict | None = None
     created_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
     updated_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
-    is_deleted: bool | None = None
-    deleted_at: fields.UTCDateTime | None = None
     last_modified: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
     server_created_at: fields.UTCDateTime = fields.UTCDateTime(default_factory=utc.now)
 
     @classmethod
     def transform_delta(cls, ctx, action: str, data: Any):
         if action == sync.ACTION_CREATE or action == sync.ACTION_UPDATE:
-            appointment = dict(data)
+            appointment = cls(id=data['id']).to_dict() | dict(data)
             appointment.update(
+                notes=data.get('notes', ''),
+                reason=data.get('reason', ''),
                 timestamp=get_from_dict(
                     appointment, 'timestamp', utc.from_unixtimestamp
                 ),
@@ -1174,8 +1174,15 @@ class Appointment(SyncToClient, SyncToServer):
                 updated_at=get_from_dict(
                     appointment, 'updated_at', utc.from_unixtimestamp
                 ),
-                metadata=safe_json_dumps(data.get('metadata')),
+                metadata=safe_json_dumps(appointment.get('metadata')),
                 last_modified=utc.now(),
+                clinic_id=data.get('clinic_id'),
+                user_id=data.get('user_id'),
+                provider_name=data.get('provider_name'),
+                is_deleted=data.get('is_deleted', False),
+                deleted_at=get_from_dict(
+                    appointment, 'deleted_at', utc.from_unixtimestamp
+                ),
             )
 
             if action == sync.ACTION_CREATE:
@@ -1210,14 +1217,15 @@ class Appointment(SyncToClient, SyncToServer):
             insert_placeholder_patient(ctx.conn, data['patient_id'], True)
 
         assert data['patient_id'] is not None
-        assert data['clinic_id'] is not None
-        assert data['user_id'] is not None
 
-        server_created_metadata = {
+        with_server_metadata = {
             'artificially_created': True,
             'created_from': 'server_appointment_creation',
             'original_appointment_id': data.get('id', ''),
         }
+        metadataobj = json.loads(data['metadata'])
+        if metadataobj is not None:
+            with_server_metadata = metadataobj | with_server_metadata
 
         curr_vid = data.get('current_visit_id')
         if curr_vid is not None:
@@ -1234,14 +1242,11 @@ class Appointment(SyncToClient, SyncToServer):
         current_visit_id = upsert_visit(
             data['current_visit_id'],
             data['patient_id'],
-            data['clinic_id'],
-            data['user_id'],
+            data.get('clinic_id'),
+            data.get('user_id'),
             data.get('provider_name', ''),
             data.get('check_in_timestamp', utc.now()),
-            {
-                **data.get('metadata', {}),
-                **server_created_metadata,
-            },
+            with_server_metadata,
         )
 
         fulfilled_vid = data.get('fulfilled_visit_id')
@@ -1257,22 +1262,19 @@ class Appointment(SyncToClient, SyncToServer):
             upsert_visit(
                 data['fulfilled_visit_id'],
                 data['patient_id'],
-                data['clinic_id'],
-                data['user_id'],
+                data.get('clinic_id'),
+                data.get('user_id'),
                 data.get('provider_name', ''),
                 data.get('check_in_timestamp', utc.now()),
-                {
-                    **data.get('metadata', {}),
-                    **server_created_metadata,
-                },
+                with_server_metadata,
             )
 
         cur.execute(
             """
             INSERT INTO appointments
-                (id, timestamp, duration, reason, notes, provider_id, clinic_id, patient_id, user_id, status, current_visit_id, fulfilled_visit_id, metadata, created_at, updated_at, last_modified, is_deleted, server_created_at)
+                (id, timestamp, duration, reason, notes, provider_id, clinic_id, patient_id, user_id, status, current_visit_id, fulfilled_visit_id, metadata, created_at, updated_at, last_modified, is_deleted, server_created_at, deleted_at)
             VALUES
-                (%(id)s, %(timestamp)s, %(duration)s, %(reason)s, %(notes)s, %(provider_id)s, %(clinic_id)s, %(patient_id)s, %(user_id)s, %(status)s, %(current_visit_id)s, %(fulfilled_visit_id)s, %(metadata)s, %(created_at)s, %(updated_at)s, %(last_modified)s, %(is_deleted)s, %(server_created_at)s)
+                (%(id)s, %(timestamp)s, %(duration)s, %(reason)s, %(notes)s, %(provider_id)s, %(clinic_id)s, %(patient_id)s, %(user_id)s, %(status)s, %(current_visit_id)s, %(fulfilled_visit_id)s, %(metadata)s, COALESCE(%(created_at)s, CURRENT_TIMESTAMP), COALESCE(%(updated_at)s, CURRENT_TIMESTAMP), %(last_modified)s, %(is_deleted)s, %(server_created_at)s, %(deleted_at)s)
             ON CONFLICT (id) DO UPDATE
             SET
                 timestamp=EXCLUDED.timestamp,
@@ -1290,7 +1292,8 @@ class Appointment(SyncToClient, SyncToServer):
                 created_at=EXCLUDED.created_at,
                 updated_at=EXCLUDED.updated_at,
                 last_modified=EXCLUDED.last_modified,
-                is_deleted=EXCLUDED.is_deleted
+                is_deleted=EXCLUDED.is_deleted,
+                deleted_at=EXCLUDED.deleted_at
             """,
             data,
         )
@@ -1585,8 +1588,8 @@ class Prescription(SyncToClient, SyncToServer, SimpleCRUD):
                     data, 'last_modified', utc.from_unixtimestamp, utc.now()
                 ),
                 is_deleted=data.get('is_deleted', False),
-                items=get_from_dict(data, 'items', safe_json_dumps, '{}'),
-                metadata=get_from_dict(data, 'metadata', safe_json_dumps),
+                items=safe_json_dumps(data.get('items')),
+                metadata=safe_json_dumps(data.get('metadata')),
             )
 
             if action == sync.ACTION_CREATE:
@@ -1706,9 +1709,9 @@ class Prescription(SyncToClient, SyncToServer, SimpleCRUD):
 def upsert_visit(
     visit_id: str | None,
     patient_id: str,
-    clinic_id: str,
-    provider_id: str,
-    provider_name: str,
+    clinic_id: str | None,
+    provider_id: str | None,
+    provider_name: str | None,
     check_in_timestamp: datetime,
     metadata: dict | None = None,
     is_deleted: bool = False,
@@ -1717,8 +1720,9 @@ def upsert_visit(
     Upsert a visit into the table.
     This makes sure a visit exists and handles conflicts of primary keys (visit_id)
     """
-    if visit_id is None:
-        visit_id = str(uuid.uuid4())
+    vid = visit_id
+    if vid is None:
+        vid = str(uuid.uuid4())
 
     current_time = utc.now()
 
@@ -1746,14 +1750,14 @@ def upsert_visit(
                 RETURNING id;
                 """,
                 (
-                    visit_id,
+                    vid,
                     patient_id,
                     clinic_id,
                     provider_id,
                     provider_name,
                     check_in_timestamp,
                     is_deleted,
-                    metadata or {},
+                    safe_json_dumps(metadata or {}),
                     current_time,
                     current_time,
                     current_time,
@@ -1762,7 +1766,7 @@ def upsert_visit(
 
             result = cur.fetchone()
             conn.commit()
-            return result[0]  # Return the visit_id
+            return vid  # Return the visit_id
 
 
 def insert_placeholder_patient(conn, patient_id, is_deleted=False):
@@ -1840,4 +1844,9 @@ def row_exists(table_name: str, id: str) -> bool:
                 """,
                 (id,),
             )
-            return cur.fetchone()[0]
+
+            val = cur.fetchone()
+            if val is None:
+                return False
+
+            return val[0]
