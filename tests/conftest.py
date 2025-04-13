@@ -10,6 +10,7 @@ import psycopg
 from dotenv import load_dotenv
 
 from hikmahealth.sync.data import DeltaData
+from tests.entity.visits_test import SyncContext
 
 load_dotenv('../../app/.env', verbose=True, override=True)
 load_dotenv('../../.env', verbose=True, override=True)
@@ -128,6 +129,35 @@ def clinic_data(db: psycopg.Connection):
 
     with db.cursor() as cur:
         cur.execute('DELETE FROM clinics WHERE id = %s', [clinic.id])
+
+
+@pytest.fixture(scope='module')
+def visit_data(db: psycopg.Connection, clinic_data, patient_data, provider_data):
+    last_pushed_at = datetime.datetime.now(tz=datetime.UTC)
+    ctx = SyncContext(last_pushed_at, conn=db)
+    visit = hh.Visit.transform_delta(
+        ctx,
+        'CREATE',
+        dict(
+            id=str(uuid.uuid1()),
+            clinic_id=clinic_data.id,
+            patient_id=patient_data.id,
+            check_in_timestamp=datetime.datetime.now(tz=datetime.UTC).isoformat(),
+            provider_id=provider_data['id'],
+            provider_name=provider_data['name'],
+            metadata=dict(),
+        ),
+    )
+
+    assert visit is not None, 'visit is None'
+
+    with db.cursor() as cur:
+        hh.Visit.create_from_delta(ctx, cur, visit)
+
+    yield visit
+
+    with db.cursor() as cur:
+        cur.execute('DELETE FROM visits WHERE id = %s', [visit['id']])
 
 
 @pytest.fixture(scope='module')
