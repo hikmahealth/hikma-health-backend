@@ -498,29 +498,36 @@ class PatientAttribute(SyncToClient, SyncToServer):
 class Event(SyncToClient, SyncToServer):
     TABLE_NAME = 'events'
 
-    patient_id: str
-    visit_id: str
-    form_id: str
-    event_type: str
-    form_data: str
-    metadata: dict
+    id: str
+    patient_id: str | None = None
+    visit_id: str | None = None
+    form_id: str | None = None
+    event_type: str | None = None
+    form_data: dict | None = None
+    metadata: dict | None = None
 
     @classmethod
     def transform_delta(cls, ctx, action: str, data: Any):
         if action == sync.ACTION_CREATE or action == sync.ACTION_UPDATE:
             event = dict(data)
+
             event.update(
                 created_at=get_from_dict(event, 'created_at', utc.from_unixtimestamp),
                 updated_at=get_from_dict(event, 'updated_at', utc.from_unixtimestamp),
-                metadata=get_from_dict(event, 'metadata', safe_json_dumps),
+                metadata=get_from_dict(event, 'metadata', safe_json_dumps, '{}'),
+                form_data=get_from_dict(event, 'form_data', safe_json_dumps, '{}'),
                 visit_id=data.get('visit_id'),
                 patient_id=data.get('patient_id'),
+                last_modified=data.get('last_modified', utc.now()),
+                form_id=data.get('form_id'),
+                event_type=data.get('event_type'),
             )
 
             return event
 
     @classmethod
     def create_from_delta(cls, ctx, cur: Cursor, data: dict):
+        assert data['id'] is not None, "missing 'id' from the event data"
         # NOTE: might need to delete the patient_id
         assert data['patient_id'] is not None
         patient_id = data['patient_id']
@@ -553,6 +560,8 @@ class Event(SyncToClient, SyncToServer):
             """,
                 (patient_id, placeholder_metadata),
             )
+
+            ctx.conn.commit()
         # --------------------------------------
 
         vid = data.get('visit_id')
@@ -588,7 +597,7 @@ class Event(SyncToClient, SyncToServer):
 
         # --------------------------------------
 
-        fid = data.get('form_id')
+        fid = data['form_id']
         if fid is not None:
             exists = False
 
@@ -620,7 +629,8 @@ class Event(SyncToClient, SyncToServer):
                 data['form_id'] = None
 
         # AT THIS POINT: We know that the patient must exist.
-        # AT THIS POINT: We know that the visit must exist or is None.
+        # AT THIS POINT: We know that the visit may exist.
+        # AT THIS POINT: We know that the form may exist.
         cur.execute(
             """
             INSERT INTO events

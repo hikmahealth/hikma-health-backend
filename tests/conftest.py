@@ -133,27 +133,32 @@ def clinic_data(db: psycopg.Connection):
 
 @pytest.fixture(scope='module')
 def visit_data(db: psycopg.Connection, clinic_data, patient_data, provider_data):
-    visit = hh.Visit(
-        id=str(uuid.uuid1()),
-        clinic_id=clinic_data.id,
-        patient_id=patient_data.id,
-        check_in_timestamp=datetime.datetime.now(tz=datetime.UTC).isoformat(),
-        provider_id=provider_data['id'],
-        provider_name=provider_data['name'],
-        metadata=dict(),
+    last_pushed_at = datetime.datetime.now(tz=datetime.UTC)
+    ctx = SyncContext(last_pushed_at, conn=db)
+    visit = hh.Visit.transform_delta(
+        ctx,
+        'CREATE',
+        dict(
+            id=str(uuid.uuid1()),
+            clinic_id=clinic_data.id,
+            patient_id=patient_data.id,
+            check_in_timestamp=datetime.datetime.now(tz=datetime.UTC).isoformat(),
+            provider_id=provider_data['id'],
+            provider_name=provider_data['name'],
+            metadata=dict(),
+        ),
     )
 
-    last_pushed_at = datetime.datetime.now(tz=datetime.UTC)
+    assert visit is not None, 'visit is None'
 
+    print('LE VISIT', visit)
     with db.cursor() as cur:
-        hh.Visit.create_from_delta(
-            SyncContext(last_pushed_at, conn=db), cur, visit.to_dict()
-        )
+        hh.Visit.create_from_delta(ctx, cur, visit)
 
     yield visit
 
     with db.cursor() as cur:
-        cur.execute('DELETE FROM visits WHERE id = %s', [visit.id])
+        cur.execute('DELETE FROM visits WHERE id = %s', [visit['id']])
 
 
 @pytest.fixture(scope='module')
