@@ -15,6 +15,7 @@ services:
     # NOTE: free tier has degraded performance making it unusable in real world settings
     # plan: free
     buildCommand: pip install -r requirements.txt
+    region: Frankfurt
 
     startCommand: ./app/run.sh
 
@@ -48,6 +49,7 @@ databases:
     # NOTE: FREE DATABASES ARE DELETED AFTER 90 DAYS!!! Remember NEVER to use a free database after for real patient data.
     # plan: free
     databaseName: hhdb
+    region: Frankfurt
     user: hikma
     # highAvailability:
       # enabled: true
