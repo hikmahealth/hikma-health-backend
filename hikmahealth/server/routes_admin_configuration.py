@@ -10,7 +10,7 @@ from hikmahealth.utils.textparse import parse_config
 api = Blueprint('api-admin-storage', __name__)
 
 
-@api.get('/configuration')
+@api.get('/storage')
 @middleware.authenticated_admin
 def get_storage_configuration():
     config = get_config_from_keeper(get_keeper())
@@ -23,7 +23,7 @@ def get_storage_configuration():
 
 
 # Current implementation should work for any storage
-@api.post('/configuration')
+@api.post('/')
 @middleware.authenticated_admin
 def set_storage_configuration():
     keeper = get_keeper()

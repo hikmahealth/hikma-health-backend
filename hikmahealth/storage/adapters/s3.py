@@ -89,6 +89,12 @@ class S3Store(BaseAdapter):
     def put(
         self, data: BytesIO, destination: str, mimetype: str | None = None, **kwargs
     ):
+        assert isinstance(data, BytesIO), (
+            'data argument needs to be a type `BytesIO`. instead got {}'.format(
+                type(data)
+            )
+        )
+
         data.seek(0)
         response = self.s3.put_object(
             ACL='private',

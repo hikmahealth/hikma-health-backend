@@ -73,7 +73,11 @@ class GCPStore(BaseAdapter):
         **kwargs,
     ):
         """saves the data to a destination"""
-        assert isinstance(data, BytesIO), 'data argument needs to be a type `BytesIO`'
+        assert isinstance(data, BytesIO), (
+            'data argument needs to be a type `BytesIO`. instead got {}'.format(
+                type(data)
+            )
+        )
 
         # check if destination hasa a file
         blob = self.bucket.blob(destination)
