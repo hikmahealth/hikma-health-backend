@@ -1239,7 +1239,7 @@ class Appointment(SyncToClient, SyncToServer):
             print(f'Invalid current_visit_id for appointment: {data.get("id")}')
             data['current_visit_id'] = str(uuid.uuid1())
 
-        current_visit_id = upsert_visit(
+        upsert_visit(
             data['current_visit_id'],
             data['patient_id'],
             data.get('clinic_id'),
