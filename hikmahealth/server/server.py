@@ -4,6 +4,7 @@ import logging
 
 from hikmahealth.server import (
     custom_routes_admin,
+    routes_admin_storage,
     routes_mobile,
     routes_admin,
     test_routes,
@@ -29,6 +30,7 @@ app.register_blueprint(routes_admin.admin_api)
 # --------------------------------
 
 app.register_blueprint(routes_admin.api, url_prefix='/v1/admin')
+app.register_blueprint(routes_admin_storage.api, url_prefix='/v1/admin/storage')
 app.register_blueprint(routes_mobile.api, url_prefix='/v1/api')
 app.register_blueprint(test_routes.api, url_prefix='/v1/test')
 # user admin extension routes

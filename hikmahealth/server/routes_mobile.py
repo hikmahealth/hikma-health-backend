@@ -12,7 +12,7 @@ from hikmahealth.server.client.keeper import get_keeper
 from hikmahealth.server.client.resources import (
     ResourceManager,
     ResourceNotFound,
-    ResourceStoreTypeMismatch,
+    ResourceStoreTypeMismatchError,
     get_resource_manager,
 )
 from hikmahealth.server.helpers import web as webhelper
@@ -250,7 +250,7 @@ def get_resource_from_store(rid: str):
     try:
         result = rmgr.get_resource(rid)
         return send_file(result['Body'], download_name=rid, mimetype=result['Mimetype'])
-    except ResourceNotFound | ResourceStoreTypeMismatch as err:
+    except ResourceNotFound | ResourceStoreTypeMismatchError as err:
         return jsonify({'ok': False, 'message': 'Resource not found'}), 404
 
 

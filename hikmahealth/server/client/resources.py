@@ -5,11 +5,10 @@ respective stores"""
 from dataclasses import dataclass
 
 from io import BytesIO
-from typing import Any, Callable, Iterable, Literal, Tuple
+from typing import Callable, Iterable, Tuple
 from uuid import UUID, uuid1
 
 from botocore.client import ClientError
-import flask
 from flask.json import jsonify
 from psycopg.rows import dict_row
 
@@ -21,9 +20,11 @@ from .keeper import Keeper, get_keeper
 
 import datetime
 
+from hikmahealth.storage.adapters import s3, gcp
+
 # storege type
-STORE_TYPE_AWS = 'aws'
-STORE_TYPE_GCP = 'gcp'
+STORE_TYPE_AWS = s3.UNIQUE_STORE_NAME
+STORE_TYPE_GCP = gcp.UNIQUE_STORE_NAME
 
 
 def get_supported_stores():
@@ -31,6 +32,10 @@ def get_supported_stores():
         STORE_TYPE_GCP,
         STORE_TYPE_AWS,
     )
+
+
+def is_supported_store(maybe_store_type: str):
+    return maybe_store_type in get_supported_stores()
 
 
 @dataclass
@@ -44,11 +49,16 @@ class ResourceConfig:
     last_used_timestamp: datetime.datetime | None = None
 
 
-def initialize_config_from_keeper(kp: Keeper):
+def get_config_from_keeper(kp: Keeper):
     config_dict = dict()
 
     # NOTE, these are 3 separate pq calls
-    config_dict['store_type'] = kp.get('HH_STORE_TYPE')
+    val = kp.get('HH_STORE_TYPE')
+
+    if val is None or not is_supported_store(str(val)):
+        return None
+
+    config_dict['store_type'] = val
     # config_dict['store_version'] = kp.get('HH_STORE_VERSION')
 
     d = kp.get_as_json('HH_STORE_LAST_USED')
@@ -69,9 +79,13 @@ class ResourceManager:
         self._keeper = kp
         self.store: BaseAdapter | None = None
 
-        config = initialize_config_from_keeper(kp)
+        config = get_config_from_keeper(kp)
 
         try:
+            assert config is not None, (
+                'missing configuration. maybe from using an unsupported type or it was never set'
+            )
+
             assert config.store_type in get_supported_stores(), (
                 "Store '{}' not supported.".format(config.store_type)
             )
@@ -191,7 +205,7 @@ class ResourceManager:
             )
 
         if data['store'] != self.store.NAME:
-            raise ResourceStoreTypeMismatch()
+            raise ResourceStoreTypeMismatchError()
 
         mem = self.store.download_as_bytes(data['uri'])
         return dict(Body=mem, Mimetype=data['mimetype'])
@@ -262,7 +276,7 @@ class ResourceManagerInitError(Exception):
     pass
 
 
-class ResourceStoreTypeMismatch(Exception):
+class ResourceStoreTypeMismatchError(Exception):
     """Error thrown when the `store_type` of the resource stored, doesn't match
     with the currently set resource store type."""
 

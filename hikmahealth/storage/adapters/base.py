@@ -1,6 +1,5 @@
 from abc import abstractmethod
 from io import BytesIO
-from werkzeug.datastructures import FileStorage
 
 from hikmahealth.storage.objects import PutOutput
 

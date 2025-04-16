@@ -3,13 +3,9 @@
 import dataclasses
 from io import BytesIO
 
-from botocore.client import Config
 from hikmahealth.server.client.keeper import Keeper
 from hikmahealth.storage.adapters.base import BaseAdapter
-from dataclasses import _MISSING_TYPE, dataclass
 
-import asyncio
-import boto3
 
 from hikmahealth.storage.objects import PutOutput
 
@@ -29,7 +25,7 @@ DEFAULT_BUCKET_NAME = 'hikmahealth-s3'
 is may be defaully created if the value was ever missing"""
 
 
-@dataclass
+@dataclasses.dataclass
 class StoreConfig:
     AWS_ACCESS_KEY_ID: str
     AWS_SECRET_ACCESS_KEY: str
@@ -74,9 +70,12 @@ def initialize_store_config_from_keeper(kp: Keeper):
     return StoreConfig(**config)
 
 
+UNIQUE_STORE_NAME = 's3'
+
+
 class S3Store(BaseAdapter):
     def __init__(self, boto3_client, bucket_name: str, host: str):
-        super().__init__('s3', f'{host}.202504.01')
+        super().__init__(UNIQUE_STORE_NAME, f'{host}.202504.01')
         self.s3 = boto3_client
         self.bucket_name = bucket_name
 

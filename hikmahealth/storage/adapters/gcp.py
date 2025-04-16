@@ -49,11 +49,15 @@ def initialize_store_config_from_keeper(kp: Keeper):
     return StoreConfig(**config)
 
 
+UNIQUE_STORE_NAME = 'gcp'
+"""Name to uniquely identify the adapter associated with the storage"""
+
+
 class GCPStore(BaseAdapter):
     """Adapter that makes storage possible on the Google Cloud Platform (GCP) Cloud Storage"""
 
     def __init__(self, bucket: storage.Bucket):
-        super().__init__('gcp', '202503.01')
+        super().__init__(UNIQUE_STORE_NAME, '202503.01')
         self.bucket = bucket
 
     def download_as_bytes(self, uri: str, *args, **kwargs) -> BytesIO:
@@ -69,8 +73,7 @@ class GCPStore(BaseAdapter):
         **kwargs,
     ):
         """saves the data to a destination"""
-        assert isinstance(
-            data, BytesIO), 'data argument needs to be a type `BytesIO`'
+        assert isinstance(data, BytesIO), 'data argument needs to be a type `BytesIO`'
 
         # check if destination hasa a file
         blob = self.bucket.blob(destination)
