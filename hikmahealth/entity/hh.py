@@ -1300,7 +1300,7 @@ class Appointment(SyncToClient, SyncToServer):
 
     @classmethod
     def update_from_delta(cls, ctx, cur: Cursor, data: dict):
-        return cls.update_from_delta(ctx, cur, data)
+        return cls.create_from_delta(ctx, cur, data)
 
     @classmethod
     def delete_from_delta(cls, ctx, cur: Cursor, id: str):

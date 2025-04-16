@@ -1,10 +1,8 @@
 """Testing suite for visits"""
 
 import datetime
-import json
 import uuid
 
-from boto3.utils import sys
 from psycopg import Connection
 
 from hikmahealth.entity import hh
@@ -12,7 +10,6 @@ import pytest
 
 from hikmahealth.entity.sync import SyncContext
 
-from hikmahealth.utils.misc import safe_json_dumps
 from tests.entity.visits_test import DeltaData
 
 
@@ -72,7 +69,9 @@ def complete_data(
 #     )
 
 
-@pytest.fixture(scope='class')
+@pytest.fixture(
+    scope='class'
+)  # this makes sure it's using the same id in the entire test suite
 def appointment_uuid(db):
     id = uuid.uuid1()
     yield str(id)
@@ -105,9 +104,21 @@ class TestAppointmentSync:
     def test_syncing_logic_with_complete_data(
         self, appointment_uuid, db, complete_data, last_pushed_at
     ):
+        # data creation
         ddata = DeltaData().add(created=[complete_data])
         hh.Appointment.apply_delta_changes(ddata, last_pushed_at, db)
 
-    # def test_syncing_logic_with_partial_data(self, db, partial_data, last_pushed_at):
-    #     ddata = DeltaData().add(created=[partial_data])
-    #     hh.Appointment.apply_delta_changes(ddata, last_pushed_at, db)
+    def test_update_syncing_logic_with_complete_data(
+        self, appointment_uuid, db, complete_data, last_pushed_at
+    ):
+        # data update
+        updated_data = complete_data | dict(status='completed')
+        updateddata = DeltaData().add(updated=[updated_data])
+        hh.Appointment.apply_delta_changes(updateddata, last_pushed_at, db)
+
+    def test_delete_syncing_logic_with_complete_data(
+        self, appointment_uuid, db, last_pushed_at
+    ):
+        hh.Appointment.apply_delta_changes(
+            DeltaData(deleted=[appointment_uuid]), last_pushed_at, db
+        )
