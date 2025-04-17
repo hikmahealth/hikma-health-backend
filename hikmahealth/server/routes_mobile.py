@@ -229,7 +229,7 @@ def put_resource_to_store():
     for name, k in request.files.items():
         resources.append((
             BytesIO(k.stream.read()),
-            lambda id: f'forms_resources/{id}',
+            lambda id: f'hh_forms_resources/{id}',
             k.mimetype,
         ))
 
