@@ -1,3 +1,5 @@
+from hikmahealth.storage.adapters import base
+
 """Providing adapters and resource support S3-compatible storages"""
 
 import dataclasses
@@ -26,7 +28,7 @@ is may be defaully created if the value was ever missing"""
 
 
 @dataclasses.dataclass
-class StoreConfig:
+class StoreConfig(base.BaseConfig):
     AWS_ACCESS_KEY_ID: str
     AWS_SECRET_ACCESS_KEY: str
 
@@ -42,6 +44,10 @@ class StoreConfig:
     # required to be defined if not using a
     # native S3 bucket
     S3_BUCKET_NAME: str | None = None
+
+    @property
+    def secret_fields(self):
+        return ['AWS_SECRET_ACCESS_KEY']
 
 
 def initialize_store_config_from_keeper(kp: Keeper):

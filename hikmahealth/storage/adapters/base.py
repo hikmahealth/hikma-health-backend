@@ -1,7 +1,53 @@
+import dataclasses
 from abc import abstractmethod
 from io import BytesIO
 
 from hikmahealth.storage.objects import PutOutput
+
+
+class BaseConfig:
+    @property
+    @abstractmethod
+    def secret_fields(self):
+        """List of field that contain information that shouldn't be exposed"""
+        raise NotImplementedError()
+
+    def to_dict(
+        self,
+        ignore_nil: bool = False,
+        expose_secret: bool = False,
+        mask_placeholder: str = '***',
+    ) -> dict[str, str]:
+        assert dataclasses.is_dataclass(self), 'base config must be a dataclass'
+        fields_ = set([f.name for f in dataclasses.fields(self)])
+
+        # values
+        entries = {fn: getattr(self, fn) for fn in fields_}
+
+        if not expose_secret:
+            secrets_keys = None
+
+            try:
+                secrets_keys = tuple(self.secret_fields)
+            except NotImplementedError:
+                secrets_keys = tuple()
+
+            for key in entries.keys():
+                if key in secrets_keys:
+                    entries[key] = mask_placeholder
+
+        if not ignore_nil:
+            return entries
+        else:
+            out = dict()
+            for field_name, key in entries.items():
+                val = getattr(self, field_name)
+
+                # prevents from outputting 'None' values
+                if val is not None:
+                    out[field_name] = entries.get(field_name)
+
+            return out
 
 
 class BaseAdapter:
