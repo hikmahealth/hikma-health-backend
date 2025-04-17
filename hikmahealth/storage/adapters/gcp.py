@@ -6,16 +6,20 @@ from werkzeug.datastructures import FileStorage
 
 from hikmahealth.server.client.keeper import Keeper
 from hikmahealth.storage.objects import PutOutput
-from .base import BaseAdapter
+from .base import BaseAdapter, BaseConfig
 
 import os
 
 
 # NOTE: might change this into a usuful function
 @dataclass
-class StoreConfig:
+class StoreConfig(BaseConfig):
     GCP_SERVICE_ACCOUNT: dict
     GCP_BUCKET_NAME: str | None = None
+
+    @property
+    def secret_fields(self):
+        return ['GCP_SERVICE_ACCOUNT']
 
 
 # Default name of bucket expected to be in the GCP cloud storage

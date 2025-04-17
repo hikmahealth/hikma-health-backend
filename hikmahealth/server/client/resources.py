@@ -34,6 +34,9 @@ def get_supported_stores():
     )
 
 
+VAR_STORE_TYPE = 'HH_STORE_TYPE'
+
+
 def is_supported_store(maybe_store_type: str):
     return maybe_store_type in get_supported_stores()
 
