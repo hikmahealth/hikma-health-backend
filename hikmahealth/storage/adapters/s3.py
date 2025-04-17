@@ -45,6 +45,7 @@ class StoreConfig(base.BaseConfig):
     # native S3 bucket
     S3_BUCKET_NAME: str | None = None
 
+    @property
     def secret_fields(self):
         return ['AWS_SECRET_ACCESS_KEY']
 

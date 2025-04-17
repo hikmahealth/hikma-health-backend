@@ -1,3 +1,4 @@
+from hikmahealth.server.client.resources import VAR_STORE_TYPE
 from hikmahealth.server.client.resources import get_supported_stores
 from collections.abc import Iterable
 from flask import Blueprint, jsonify, request
@@ -20,7 +21,51 @@ def get_storage_configuration(_):
             is_configured=False,
         ), 200
 
-    return jsonify(is_configured=True, store=config.store_type), 200
+    keeper = get_keeper()
+
+    if config.store_type == 's3':
+        from hikmahealth.storage.adapters import s3
+
+        try:
+            data = s3.initialize_store_config_from_keeper(keeper)
+            print('S# data:', data.to_dict(ignore_nil=True))
+            return jsonify(
+                is_configured=True,
+                store=config.store_type,
+                keys=[
+                    dict(key=VAR_STORE_TYPE, value=config.store_type),
+                    *_dict_to_entries((data.to_dict(ignore_nil=True))),
+                ],
+            ), 200
+        except Exception as err:
+            raise WebError(
+                'invalid S3 configuration. {}'.format(','.join(err.args)),
+                status_code=400,
+            )
+
+    if config.store_type == 'gcp':
+        from hikmahealth.storage.adapters import gcp
+
+        try:
+            data = gcp.initialize_store_config_from_keeper(keeper)
+            return jsonify(
+                is_configured=True,
+                store=config.store_type,
+                keys=[
+                    dict(key=VAR_STORE_TYPE, value=config.store_type),
+                    *_dict_to_entries((data.to_dict(ignore_nil=True))),
+                ],
+            ), 200
+        except Exception as err:
+            raise WebError(
+                'invalid GCP configuration. {}'.format(','.join(err.args)),
+                status_code=400,
+            )
+
+    raise WebError(
+        'missing configuration for {}'.format(config.store_type),
+        status_code=500,
+    )
 
 
 def _dict_to_entries(d: dict):

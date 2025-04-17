@@ -31,7 +31,7 @@ app.register_blueprint(routes_admin.admin_api)
 
 app.register_blueprint(routes_admin.api, url_prefix='/v1/admin')
 app.register_blueprint(
-    routes_admin_configuration.api, url_prefix='/v1/admin/configuration'
+    routes_admin_configuration.api, url_prefix='/v1/admin/configurations'
 )
 app.register_blueprint(routes_mobile.api, url_prefix='/v1/api')
 app.register_blueprint(test_routes.api, url_prefix='/v1/test')
