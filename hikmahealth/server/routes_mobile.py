@@ -250,7 +250,7 @@ def get_resource_from_store(rid: str):
     try:
         result = rmgr.get_resource(rid)
         return send_file(result['Body'], download_name=rid, mimetype=result['Mimetype'])
-    except ResourceNotFound | ResourceStoreTypeMismatchError as err:
+    except (ResourceNotFound, ResourceStoreTypeMismatchError):
         return jsonify({'ok': False, 'message': 'Resource not found'}), 404
 
 
