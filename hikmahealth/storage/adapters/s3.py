@@ -47,7 +47,7 @@ class StoreConfig(base.BaseConfig):
 
     @property
     def secret_fields(self):
-        return ['AWS_SECRET_ACCESS_KEY']
+        return ['AWS_SECRET_ACCESS_KEY', 'AWS_ACCESS_KEY_ID']
 
 
 def initialize_store_config_from_keeper(kp: Keeper):
