@@ -2,13 +2,10 @@ from dataclasses import dataclass
 import dataclasses
 from io import BytesIO
 from google.cloud import storage
-from werkzeug.datastructures import FileStorage
 
 from hikmahealth.server.client.keeper import Keeper
 from hikmahealth.storage.objects import PutOutput
 from .base import BaseAdapter, BaseConfig
-
-import os
 
 
 # NOTE: might change this into a usuful function
