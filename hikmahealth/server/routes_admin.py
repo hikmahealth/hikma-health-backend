@@ -563,11 +563,11 @@ def OLD_save_event_form(_):
 @dataclass
 class EventFormData:
     id: str
-    name: str
-    description: str
-    form_fields: str | None
+    metadata: dict | list | None = None
+    name: str | None = None
+    description: str | None = None
+    form_fields: str | None = None
     """Fields composition that make up the Event Form. Format required as string JSON """
-    metadata: str | None
     language: str | None = 'en'
     is_editable: bool | None = True
     is_snapshot_form: bool | None = False
